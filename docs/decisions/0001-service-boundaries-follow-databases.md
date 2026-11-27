@@ -38,9 +38,11 @@ Consequences that follow directly:
 4. **Operational tables stay per-database but the code is shared.** They must be
    written in the same transaction as the domain change, so they cannot be
    centralised; the implementation lives once in `libs/ops`.
-5. **One relay per database**, not one relay for all three. The old
-   `outbox-worker` held credentials for every database — a boundary violation
-   disguised as a convenience.
+5. **One relay per database.** The old `outbox-worker` was already scoped
+   correctly this way — one instance group per database, each holding only that
+   database's URL — so this rule preserves existing behaviour rather than
+   correcting it. What changes is that each relay now ships inside its owning
+   service instead of as a separate deployable.
 
 ## Alternatives considered
 

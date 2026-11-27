@@ -13,9 +13,9 @@ specification.
 The old system used JetStream as a work queue: streams, durable consumers,
 `max_deliver`, `ack_wait`, lease recovery sweeps, and five restart-recovery test
 suites that existed only to prove the broker would not lose or duplicate work.
-That is roughly 250 lines of broker glue plus a stateful server, a persistent
-volume, and a category of failure that has to be reasoned about separately from
-the domain.
+Measured: about 250 JetStream references across 24 files, plus a stateful server,
+a persistent volume, and a category of failure that had to be reasoned about
+separately from the domain.
 
 But the system already had a durable log: the transactional outbox. The broker
 was a second durable log in front of the first, and the outbox row was not marked
@@ -23,6 +23,35 @@ published until the broker accepted it. Every guarantee the system actually
 relied on — durability until acknowledged, at-least-once delivery, per-subject
 ordering, bounded redelivery — was either already provided by the outbox or can be
 provided by a cursor over it.
+
+## The obvious objection
+
+*"You removed a broker and replaced it with a hand-written event feed. Isn't that
+a broker you now maintain?"*
+
+Partly fair, and worth answering directly.
+
+The feed is not a new log. It is a **read endpoint over a log that already
+exists** — `ops.outbox_event`, written in the domain transaction, which every
+service already had on day one. The components are:
+
+| Piece | Size | Already existed? |
+| --- | --- | --- |
+| `GET /internal/events?after=` | ~100 lines | no — new |
+| Puller + cursor advance + job insert | ~200 lines | replaces ~250 lines of JetStream glue |
+| Job claim (`SKIP LOCKED`) | ~20 lines | replaces consumer-group semantics |
+| Ack/trim bounds | ~40 lines | no — new, and the cost of owning retention |
+
+So it is roughly the same amount of code, with no server, no PVC, no stream
+lifecycle, and one fewer distributed system to reason about. That is the trade.
+
+**Redis Streams would also be viable** and is the recommended fallback. It is
+genuinely simpler than JetStream: `XADD`, `XREADGROUP`, `XACK`, consumer groups
+created implicitly, no stream or durable lifecycle to manage. It loses to this
+design on exactly one axis — it adds a stateful server that the cluster does not
+otherwise run, for a job Postgres already performs correctly. If the puller ever
+becomes a maintenance burden, or event volume passes ~10⁶/day, Redis Streams is
+the next step, not JetStream.
 
 ## The model
 
