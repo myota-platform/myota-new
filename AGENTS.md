@@ -85,9 +85,9 @@ most important rule in this repository.
 - No job state lives only in process memory.
 - Work that must survive a restart is persisted before it is acked: a `ops.job`
   row in the owning database, then a JetStream message, then a worker claim.
-- One job table with a `kind` discriminator (`import.preprocess`, `import.fetch`,
-  `entity.enrich`, `entity.delete`, `notification.send`, `award.evaluate`). Do not
-  add a per-feature queue table.
+- One job table with a `kind` discriminator: `import.preprocess`, `import.fetch`,
+  `entity.enrich`, `entity.delete`, `notification.send`, `award.evaluate`,
+  `account.retention`. Do not add a per-feature queue table.
 - Workers are idempotent and safe to run concurrently. A job carries its own
   identifier, attempt count, lease, and status.
 - Restarting or rescheduling any pod must never lose or duplicate an effect.

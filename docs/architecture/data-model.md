@@ -101,7 +101,7 @@ The spatial catalogue. The only database with `postgis`.
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `import_run` | `id`, `source_id`, `programme_id`, `snapshot_id`, `stage`, `status`, `counts jsonb`, `started_at`, `finished_at` | `stage ∈ (upload, normalise, validate, conflate, review, publish)`. |
+| `import_run` | `id`, `source_id`, `programme_id`, `snapshot_id`, `stage`, `status`, `counts jsonb`, `started_at`, `finished_at` | `stage ∈ (upload, normalise, validate, conflate, publish)`; awaiting an administrator is `status='review'`, not a stage. |
 | `import_candidate` | `id`, `run_id`, `source_feature_id`, `payload jsonb`, `geom geometry(Geometry,4326)`, `state`, `reject_reason` | `state ∈ (pending, valid, invalid, duplicate, promoted, rejected)`. |
 | `import_error` | `id`, `run_id`, `candidate_id`, `severity`, `code`, `message` | |
 | `conflation_candidate` | `id`, `run_id`, `candidate_id`, `entity_id`, `score numeric`, `reason jsonb`, `resolution` | `resolution ∈ (new, merge, skip, unresolved)`. |
