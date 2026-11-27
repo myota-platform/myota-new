@@ -36,16 +36,22 @@ resource. A change is a pull request; a rollback is a revert.
 
 ```
 deploy/
-  myota/
+  myota/                    charts, values and secrets
     config/
-      core.yaml          ConfigMap
-      geodata.yaml       ConfigMap
-      activity.yaml      ConfigMap
-      gateway.yaml       ConfigMap
-      web.yaml           ConfigMap
+      core.yaml             ConfigMap
+      geodata.yaml          ConfigMap
+      activity.yaml         ConfigMap
+      gateway.yaml          ConfigMap
+      web.yaml              ConfigMap
     secrets/
-      core.sops.yaml     Secret, encrypted — NOT reconciled by Fleet
+      core.sops.yaml        Secret, encrypted — NOT reconciled by Fleet
+  fleet/
+    myota-test/             bundle → namespace myota-test
+    myota/                  bundle → namespace myota (production)
 ```
+
+The same chart serves both namespaces; only the values and the namespace differ.
+A secret is applied **per namespace**, from the same encrypted file.
 
 ```yaml
 apiVersion: v1

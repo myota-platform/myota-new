@@ -258,13 +258,34 @@ specific binary; otherwise an already-downloaded build is discovered.
 
 ## 8. Deployment on this local K3s cluster
 
-- Target: the local K3s cluster, Fleet workspace **`myota`**, Kubernetes namespace
-  **`myota`**.
-- Fleet definitions live in `deploy/fleet/myota/` and are tracked by a `GitRepo`
-  named `myota` in the `myota` workspace. Deploys are GitOps: the cluster
-  converges to what is committed; nobody applies manifests by hand to ship.
-- Images are `ghcr.io/myota-platform/myota-new-<service>` and are referenced by
-  immutable digest in values, never by a floating tag.
+- Target: the local K3s cluster, Fleet workspace **`myota`**, in one of two
+  namespaces:
+
+  | Environment | Namespace | Fleet bundle | Participant host | Admin host |
+  | --- | --- | --- | --- | --- |
+  | **test** | `myota-test` | `deploy/fleet/myota-test/` | `myota-test.ea7klk.es` | `myota-admin-test.ea7klk.es` |
+  | production | `myota` | `deploy/fleet/myota/` | not yet | not yet |
+
+  Both live in the `myota` workspace. The workspace was decommissioned on
+  2026-11-27 and is recreated by chunk **F6**.
+- **Every chunk deploys to test as soon as it is verifiable** — `myota-test`
+  exists before the first feature lands so there is never an excuse to skip it.
+  Production is not a target until the test environment is whole.
+- Fleet definitions live under `deploy/fleet/<environment>/` and are tracked by a
+  `GitRepo` of the same name in the `myota` workspace. Deploys are GitOps: the
+  cluster converges to what is committed; nobody applies manifests by hand to
+  ship. A `GitRepo` uses `clientSecretName: github-auth` from the workspace.
+- Charts and values live in `deploy/myota/`; secrets in
+  `deploy/myota/secrets/*.sops.yaml`; configuration in `deploy/myota/config/`.
+- Hostnames follow the existing cluster convention — `aprs.ea7klk.es` and
+  `aprs-admin.ea7klk.es` — so participant and admin are always a pair, never one
+  host with two audiences behind a path.
+- `IngressRoute` uses `entryPoints: [websecure]` and
+  `tls.certResolver: acmeresolver`. There is no cert-manager and no external-dns
+  on this cluster; DNS for both test hostnames already resolves to it.
+- Images are `ghcr.io/myota-platform/myota-new-<service>`, **public**, referenced
+  by immutable digest in values, never by a floating tag. The repository is public
+  too: nothing here requires an account to read, clone or pull.
 - Six deployable units — `gateway`, `core`, `geodata`, `activity`, `admin-web`,
   `participant-web` — running as twelve workloads: each domain service is
   `-api`, `-worker`, and `-relay` from one image, plus the gateway and the two
@@ -572,6 +593,70 @@ runtime in CI. Until then the rule is the mechanism.
 
 See [ADR-0006](docs/decisions/0006-diagrams-as-code.md) and
 [docs/architecture/structurizr/README.md](docs/architecture/structurizr/README.md).
+
+## 14. Work is tracked in the project, and every step is recorded in the issue
+
+**Source of work:** [project #3](https://github.com/orgs/myota-platform/projects/3),
+linked to this repository. Issues are the work items; each is a chunk small
+enough to finish in one sitting and written to be executable without further
+briefing.
+
+```
+Project fields:  MVP = Admin | Participant | Shared
+                 Area = Foundation | Core | Geodata | Activity | Gateway | Frontend | Deploy | Contracts
+                 Order = 5 … 260, the intended sequence
+```
+
+Chunk keys are stable and used in commit messages: `F1…F7` foundation,
+`A1…A8` MVP Admin, `P1…P6` MVP Participant, `X…` findings.
+
+### When you pick up an issue
+
+1. **Move it to In Progress** in the project before touching code.
+2. **Comment with the plan** — the files you expect to touch and the acceptance
+   criteria you will check. This is the record if the approach changes.
+3. **Comment after each completed step.** Not a summary at the end: a line per
+   step, with the command run and what it returned. If a step failed and you
+   changed approach, say so and why — that is the most useful line in the whole
+   issue.
+4. **Paste the `Verify` output verbatim in the closing comment**, before closing.
+   "It works" is not evidence; the command and its result is.
+5. **Close with "Closes #N"** in the commit or PR, so the project moves itself.
+
+### When you find something not in the plan
+
+Create an issue — do not fix it silently and do not leave it in a comment.
+
+- Title it with a finding prefix (`X1`, `X2`, …) or a service prefix.
+- Label it: `risk` for a hazard, `decision-needed` for something requiring an ADR,
+  `bug` for a defect, plus the MVP label it belongs to.
+- Add it to the project with the correct `MVP`, `Area`, and an `Order` near the
+  work that surfaced it.
+- Link it from the issue that found it ("Found while working #N").
+
+A finding that is real but unrecorded is a finding that will be rediscovered.
+
+### Definition of done for a chunk
+
+- The acceptance criteria in the issue are met, each one demonstrably.
+- The `Verify` block was run and its output pasted into the issue.
+- If the chunk touched architecture, the Mermaid blocks *and* `workspace.dsl` were
+  updated in the same commit (rule 13).
+- If it changed a decision, an ADR exists or was amended — see the process in
+  `docs/decisions/README.md`.
+- Testable behaviour arrived with a test first (rule 10).
+- The test environment reflects it: `https://myota-test.ea7klk.es` and
+  `https://myota-admin-test.ea7klk.es` still answer 200 on `/healthz`.
+
+### Commit messages
+
+```
+A4 · grant roles with the subset rule
+
+Refs #14
+```
+
+The chunk key first, because `git log --oneline` then reads as the plan.
 
 ---
 

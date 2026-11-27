@@ -274,7 +274,17 @@ See [geodata-imports.md](geodata-imports.md).
 
 ## Deployment
 
-Namespace `myota`, Fleet workspace `myota`, on the local K3s cluster.
+Fleet workspace `myota` on the local K3s cluster, in namespace `myota-test` for
+the test environment and `myota` for production.
+
+| Environment | Namespace | Participant host | Admin host |
+| --- | --- | --- | --- |
+| test | `myota-test` | `myota-test.ea7klk.es` | `myota-admin-test.ea7klk.es` |
+| production | `myota` | — | — |
+
+Participant and admin are always a **pair of hostnames**, never one host with two
+audiences behind a path — the same convention as `aprs.ea7klk.es` and
+`aprs-admin.ea7klk.es`.
 
 ```
 gateway            2–10   stateless; Traefik owns rate limiting and retries

@@ -14,8 +14,14 @@ repository.
 
 ## Status
 
-The architecture is designed and documented; implementation has not started.
-Start at [**docs/**](docs/README.md).
+The architecture is designed and documented; implementation has not started. Work
+is planned as small chunks in
+[**project #3**](https://github.com/orgs/myota-platform/projects/3) — see
+[**docs/build-plan.md**](docs/build-plan.md) for the sequence.
+
+Test environment, once chunk F6 lands:
+[myota-test.ea7klk.es](https://myota-test.ea7klk.es) (participant) and
+[myota-admin-test.ea7klk.es](https://myota-admin-test.ea7klk.es) (admin).
 
 ## The design in one screen
 
@@ -72,6 +78,7 @@ The non-negotiable engineering rules are in [`AGENTS.md`](AGENTS.md):
 - Test-driven development
 - **Horizontal scaling is a correctness property** — every workload, including
   both front ends, runs at N replicas with no session affinity
+- **Work is tracked in the project, and every step is recorded in its issue**
 
 ## Documentation
 

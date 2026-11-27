@@ -3,6 +3,13 @@
 Start here. Everything below is committed to this repository and intended to be
 read in this order.
 
+## Build plan
+
+**[build-plan.md](build-plan.md)** — the chunk sequence, and
+[project #3](https://github.com/orgs/myota-platform/projects/3), which is where
+work actually lives. Every chunk is an issue small enough to finish in one
+sitting.
+
 ## Architecture
 
 | Document | What it answers |
