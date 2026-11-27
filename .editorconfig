@@ -1,0 +1,32 @@
+# Shared editor defaults. Not a formatter — gofmt, cargo fmt and prettier own
+# formatting. This only stops the things that make a diff unreadable: mixed
+# indentation, trailing whitespace, and inconsistent line endings.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.go]
+indent_style = tab
+
+[*.rs]
+indent_size = 4
+
+[*.py]
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+
+[*.md]
+# trailing spaces are meaningful in Markdown: two of them are a line break
+trim_trailing_whitespace = false
+
+[*.{yml,yaml,json}]
+indent_size = 2

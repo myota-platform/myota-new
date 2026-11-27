@@ -1,0 +1,21 @@
+[package]
+name = "myota-geodata"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+description = "MyOTA geodata service."
+
+# The binary keeps the plain service name: it is what appears in logs, in ps, and
+# in the Kubernetes workload name.
+[[bin]]
+name = "geodata"
+path = "src/main.rs"
+
+# The library is prefixed because a crate whose lib is named `core` would shadow
+# the standard library's `core` crate for every dependent.
+[lib]
+name = "myota_geodata"
+path = "src/lib.rs"
+
+[dependencies]

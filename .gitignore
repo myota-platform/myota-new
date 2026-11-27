@@ -8,3 +8,17 @@ coverage/
 *.tsbuildinfo
 test-results/
 playwright-report/
+
+# Rust
+target/
+**/*.rs.bk
+
+# Go
+bin/
+*.test
+*.out
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/

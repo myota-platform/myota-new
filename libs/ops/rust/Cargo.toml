@@ -1,0 +1,9 @@
+[package]
+name = "myota-ops"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+description = "Outbox, idempotency, job claiming and partition assignment. Mirrors libs/ops/go."
+
+[dependencies]
