@@ -16,6 +16,7 @@ on:
       - 'docs/**'
       - 'tools/**'
       - 'contracts/**'
+      - 'deploy/**'
       - 'AGENTS.md'
       - 'README.md'
       - 'Makefile'
@@ -27,6 +28,7 @@ on:
       - 'docs/**'
       - 'tools/**'
       - 'contracts/**'
+      - 'deploy/**'
       - 'AGENTS.md'
       - 'README.md'
       - 'Makefile'
@@ -117,6 +119,9 @@ jobs:
 
       - name: event catalogue
         run: python3 tools/check_events.py
+
+      - name: object storage inventory, policies and document agree
+        run: python3 tools/provision_silo.py --check
 
       - name: decision records
         run: python3 tools/check_adrs.py
