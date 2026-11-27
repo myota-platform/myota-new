@@ -2041,6 +2041,37 @@ paths:
   # Internal — never published
   # ───────────────────────────────────────────────────────────────────────────
 
+  /internal/healthz:
+    get:
+      operationId: geodata.internal.health
+      summary: Liveness for this service
+      description: >-
+        Answers whether this process is running and has a usable configuration.
+        The gateway aggregates this into `/readyz`; nothing else calls it, and it
+        is not published.
+      tags: [geodata-internal]
+      x-internal: true
+      security: []
+      responses:
+        '200':
+          description: The service is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, service]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  service:
+                    type: string
+              example:
+                status: ok
+                service: geodata
+        '503':
+          $ref: '../shared/components.yaml#/components/responses/ProblemServiceUnavailable'
+
   /internal/openapi.json:
     get:
       operationId: geodata.internal.openapi

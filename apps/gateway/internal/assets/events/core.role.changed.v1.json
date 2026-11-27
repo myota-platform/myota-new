@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "An account's roles changed",
+  "description": "Published on every grant or revocation. Consumers invalidate cached scopes for the listed sessions; without it a revoked administrator keeps their cached authority until the cache expires, which is the one thing a privilege change must not allow.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/core"
+        },
+        "type": {
+          "const": "core.role.changed.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "accountId",
+            "change",
+            "roleCode",
+            "sessionIds"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "change": {
+              "type": "string",
+              "enum": [
+                "granted",
+                "revoked"
+              ]
+            },
+            "roleCode": {
+              "type": "string"
+            },
+            "programmeId": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            },
+            "sessionIds": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "description": "Open sessions whose cached scopes are now stale."
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/core",
+      "type": "core.role.changed.v1",
+      "subject": "account:44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+      "time": "2026-11-27T12:40:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "accountId": "44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+        "change": "granted",
+        "roleCode": "geodata.review",
+        "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+        "sessionIds": [
+          "5a3e9c17-2d4b-4f68-8a0e-7c1b5d9f2e34"
+        ]
+      }
+    }
+  ]
+}

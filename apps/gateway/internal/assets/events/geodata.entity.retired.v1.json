@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A place was retired",
+  "description": "Published when an entity leaves the catalogue. Activations that used it keep it: the name and elevation were captured at start, so retiring a place does not rewrite anyone's log. Only new activations are refused.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/geodata"
+        },
+        "type": {
+          "const": "geodata.entity.retired.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "entityId",
+            "retiredAt"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "entityId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "retiredAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/geodata",
+      "type": "geodata.entity.retired.v1",
+      "subject": "entity:8f3c1e00-0000-4000-8000-000000000001",
+      "time": "2026-11-27T13:15:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "entityId": "8f3c1e00-0000-4000-8000-000000000001",
+        "retiredAt": "2026-11-27T13:15:00Z",
+        "reason": "Merged into the adjacent entity."
+      }
+    }
+  ]
+}

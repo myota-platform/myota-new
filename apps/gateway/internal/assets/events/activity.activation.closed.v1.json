@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "An activation was closed",
+  "description": "Published when an activation closes. Optional for `core`, which consumes it only to update a participant's digest; the award evaluation is queued by `activity` itself as a job, not driven by this event.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/activity"
+        },
+        "type": {
+          "const": "activity.activation.closed.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "activationId",
+            "accountId",
+            "callsign",
+            "entityId",
+            "programmeId",
+            "qsoCount",
+            "points",
+            "endedAt"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "activationId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "callsign": {
+              "type": "string"
+            },
+            "entityId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "programmeId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "qsoCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "points": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "endedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/activity",
+      "type": "activity.activation.closed.v1",
+      "subject": "activation:1b2d4e60-8f3a-4c72-9d05-7e1a4c8b2f63",
+      "time": "2026-11-24T16:30:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "activationId": "1b2d4e60-8f3a-4c72-9d05-7e1a4c8b2f63",
+        "accountId": "44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+        "callsign": "EA7KLK",
+        "entityId": "8f3c1e00-0000-4000-8000-000000000001",
+        "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+        "qsoCount": 214,
+        "points": 428,
+        "endedAt": "2026-11-24T16:30:00Z"
+      }
+    }
+  ]
+}

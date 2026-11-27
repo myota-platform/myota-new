@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A programme became active",
+  "description": "Published when a programme is published. Until a consumer has seen this event it must not accept submissions against the programme, because the programme's categories and policy are not yet known to it.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/core"
+        },
+        "type": {
+          "const": "core.programme.published.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "programmeId",
+            "slug",
+            "name",
+            "entityTypeCodes"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "programmeId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "slug": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "entityTypeCodes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/core",
+      "type": "core.programme.published.v1",
+      "subject": "programme:7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+      "time": "2026-11-27T12:00:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+        "slug": "sota",
+        "name": "Summits on the Air",
+        "entityTypeCodes": [
+          "summit"
+        ]
+      }
+    }
+  ]
+}

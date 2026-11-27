@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "An account was created",
+  "description": "Published when registration creates a pending account. Consumers use it to create their own projection of the account; none of them may read `myota_core` directly.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/core"
+        },
+        "type": {
+          "const": "core.account.created.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "accountId",
+            "participationType",
+            "displayName",
+            "createdAt"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "participationType": {
+              "type": "string",
+              "enum": [
+                "OPERATOR",
+                "SWL"
+              ]
+            },
+            "displayName": {
+              "type": "string"
+            },
+            "primaryCallsign": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "createdAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/core",
+      "type": "core.account.created.v1",
+      "subject": "account:44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+      "time": "2026-11-27T10:04:11Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "accountId": "44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+        "participationType": "OPERATOR",
+        "displayName": "Ana Ruiz",
+        "primaryCallsign": "EA7KLK",
+        "createdAt": "2026-11-27T10:04:11Z"
+      }
+    }
+  ]
+}
