@@ -304,14 +304,34 @@ is **incomplete**, regardless of whether the code works.
   ```sh
   python3 tools/check_diagrams.py            # local: report gaps, fail on defects
   python3 tools/check_diagrams.py --strict   # CI gate: Mermaid must be rendered
-  python3 tools/check_diagrams.py --full     # also require the DSL to be compiled
+  python3 tools/check_diagrams.py --full     # CI gate: the DSL must compile too
   ```
 
-  It renders every Mermaid block, validates the DSL structurally, and states
-  plainly what it could not verify. `--strict` fails if Mermaid could not be
-  rendered; `--full` additionally fails if the DSL could not be compiled, which
-  needs a Java runtime. Use `--strict` as the CI gate, and `--full` wherever Java
-  is available.
+  `--full` compiles `workspace.dsl` with `structurizr-cli`. **Use it** — the
+  heuristic fallback cannot see identifier resolution, view-key syntax, or
+  environment matching, and a model that passed heuristics has already shipped
+  broken once. Requires a Java runtime and the CLI (`STRUCTURIZR_CLI`, or
+  `/opt/structurizr/structurizr.sh`, or on `PATH`).
+- **Do not claim the DSL is valid without compiling it.** A check that prints
+  success for input it never parsed is worse than no check. The summary line says
+  which layer ran — "compiled" or "checked heuristically" — and that difference is
+  real.
+
+### Structurizr grammar you will trip over
+
+- **Tags are one comma-separated string**, not separate arguments:
+  `"External"`, or `"Element,Database"`.
+- **`softwareSystem` has no technology field.** Signature is
+  `<name> [description] [tags]`. Only `container`, `component`, `deploymentNode`
+  and `infrastructureNode` take technology.
+- **The DSL is line-oriented.** `{` must end the line; `deployment s "Live" { include * }`
+  is a token error.
+- **`!identifiers hierarchical`** makes containers inside a software system
+  resolvable only as `<system>.<name>` from outside it. Omitted here on purpose.
+- **View keys must match `[a-zA-Z0-9_-]`**, and a deployment view's environment
+  name doubles as its key.
+- **`theme default` fetches over the network.** Omitted so the file validates
+  offline.
 
 ### Why this is a rule and not a preference
 

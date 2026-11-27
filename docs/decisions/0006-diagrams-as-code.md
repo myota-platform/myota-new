@@ -108,13 +108,46 @@ runtime in CI. That is the next step.
 
 ## Verification
 
-`python3 tools/check_diagrams.py`:
+`python3 tools/check_diagrams.py --full`:
 
 - renders every Mermaid block and fails on any parse error;
-- checks DSL brace balance, declared identifiers, and `containerInstance` targets;
-- checks that every dynamic-view step is a declared relationship;
+- **compiles the DSL with `structurizr-cli`** when one is available;
+- otherwise falls back to heuristics: brace balance, argument arity, declared
+  identifiers, `containerInstance` targets, and dynamic-view steps;
 - prints explicitly what it could not verify.
 
-Negative test performed: injecting an undeclared dynamic step and a malformed
-Mermaid node produced two failures and a non-zero exit. A check that has never
-failed is not evidence.
+Negative tests performed:
+
+| Injected fault | Heuristics | CLI |
+| --- | --- | --- |
+| Undeclared relationship in a dynamic view | caught | caught |
+| Malformed Mermaid node | caught | n/a |
+| `softwareSystem` with a technology argument (arity) | caught | caught |
+| `!identifiers hierarchical` breaking name resolution | **missed** | caught |
+
+That last row is the reason the CLI layer exists. It is not decoration.
+
+## Postscript: the model shipped broken
+
+The first version of `workspace.dsl` was committed with a claim that it was
+"structurally validated". It was not valid: two `softwareSystem` declarations
+carried a technology argument, which the parser rejects as *too many tokens*, and
+`!identifiers hierarchical` made every container reference from outside the
+software system unresolvable.
+
+The heuristic checker printed `OK: Structurizr model structurally valid` for an
+invalid file. That is the worst failure mode a check can have — a false pass is
+worse than no check, because it transfers confidence that was never earned.
+
+Three changes follow from it:
+
+1. **The CLI is now the authority.** Heuristics run first, because they give better
+   error messages, but `--full` compiles the file and fails if it cannot.
+2. **The summary line states which layer actually ran** — "compiled" or "checked
+   heuristically" — instead of a blanket "valid".
+3. **`STRUCTURIZR_CLI=none` exists** so the heuristic-only path is testable rather
+   than assumed, which is how the missed-fault row above was established.
+
+The general lesson, which applies past this file: a check must be able to report
+that it verified nothing. An unqualified success message that can be printed for
+broken input is worse than a failure.

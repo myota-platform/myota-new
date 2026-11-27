@@ -143,18 +143,111 @@ def check_mermaid() -> bool:
 # Structurizr
 # ---------------------------------------------------------------------------
 
+# Structurizr DSL element signatures: how many quoted strings each may take,
+# not counting the identifier. Derived from the DSL grammar; a declaration with
+# more strings than its type allows is a "too many tokens" error.
+SIGNATURES = {
+    #                    name  [desc] [tech] [instances] [tags]
+    "person":             4,   # name, description, tags  (+ loc? no)
+    "softwareSystem":     3,   # name, description, tags — NO technology field
+    "container":          4,   # name, description, technology, tags
+    "component":          4,   # name, description, technology, tags
+    "deploymentNode":     5,   # name, description, technology, instances, tags
+    "infrastructureNode": 4,   # name, description, technology, tags
+    "deploymentEnvironment": 2,  # name, tags
+}
+
 DECL = re.compile(
-    r"^\s*(\w+)\s*=\s*(person|softwareSystem|container|component|"
-    r"deploymentNode|infrastructureNode|containerInstance|deploymentEnvironment)\b",
+    r"^\s*(?:(\w+)\s*=\s*)?(person|softwareSystem|container|component|"
+    r"deploymentNode|infrastructureNode)\b(.*)$",
     re.M,
 )
-REL = re.compile(r"^\s*(\w+)\s*->\s*(\w+)\s", re.M)
+
+STRING = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
 
-def check_structurizr() -> None:
+def count_strings(rest: str) -> int:
+    """Count quoted strings after the element type, ignoring any trailing '{'."""
+    return len(STRING.findall(rest.split("{", 1)[0]))
+
+
+def check_arity(text: str) -> None:
+    """Catch the 'too many tokens' class: more strings than a type accepts.
+
+    This is the error that shipped in the first version of workspace.dsl —
+    a softwareSystem declared with a technology argument, which the parser
+    reads as a fourth token and rejects. Brace counting could not see it.
+    """
+    for m in DECL.finditer(text):
+        ident, kind, rest = m.group(1), m.group(2), m.group(3)
+        allowed = SIGNATURES[kind]
+        n = count_strings(rest)
+        line = text[:m.start()].count("\n") + 1
+        name = ident or "(anonymous)"
+        if n > allowed:
+            fail(f"workspace.dsl:{line}: {kind} {name!r} has {n} quoted argument(s), "
+                 f"max {allowed} — the parser will report 'too many tokens'. "
+                 f"Tags are a single comma-separated string, not separate arguments.")
+            continue
+        if kind != "person" and n < 1:
+            fail(f"workspace.dsl:{line}: {kind} {name!r} has no name")
+        # A softwareSystem or container with a technology-looking second string
+        # is a common confusion; flag only the softwareSystem case, which is the
+        # one the grammar forbids.
+        if kind == "softwareSystem" and n == 3:
+            args = STRING.findall(rest)
+            third = args[2]
+            if "," in third or " " in third and third[0].isupper() and len(third) < 40:
+                notes.append((f"workspace.dsl:{line}: softwareSystem {name!r} has three "
+                              f"arguments — the third is tags. If {third!r} was meant as "
+                              f"technology, move it into the description.", True))
+
+
+def run_cli(workspace: Path) -> bool:
+    """Validate with the real Structurizr CLI when one is available.
+
+    Returns True when the CLI ran and accepted the workspace. Brace counting and
+    arity checking are heuristics; only the parser is authoritative.
+    """
+    cli = os.environ.get("STRUCTURIZR_CLI")
+    if cli == "none":
+        notes.append((
+            "workspace.dsl was checked heuristically but NOT compiled: "
+            "STRUCTURIZR_CLI=none.", True))
+        return False
+    if not cli:
+        for cand in ("structurizr.sh", "structurizr", "/opt/structurizr/structurizr.sh"):
+            found = shutil.which(cand) if not cand.startswith("/") else (
+                cand if Path(cand).exists() else None)
+            if found:
+                cli = found
+                break
+    if not cli:
+        notes.append((
+            "workspace.dsl was checked heuristically but NOT compiled: no Java or no "
+            "structurizr-cli. Set STRUCTURIZR_CLI, or paste the DSL into "
+            "https://structurizr.com/dsl.", True))
+        return False
+
+    with tempfile.TemporaryDirectory() as tmp:
+        r = subprocess.run(
+            [cli, "validate", "-workspace", str(workspace)],
+            capture_output=True, text=True, timeout=300, cwd=tmp,
+        )
+    out = (r.stdout + r.stderr).strip()
+    if r.returncode != 0 or "Error" in out or "error" in out:
+        for line in out.splitlines():
+            if line.strip():
+                fail(f"structurizr-cli: {line.strip()[:200]}")
+        return False
+    print("  ok    structurizr-cli compiled the workspace")
+    return True
+
+
+def check_structurizr() -> bool:
     if not DSL.exists():
         fail(f"{DSL.relative_to(ROOT)}: missing")
-        return
+        return False
 
     text = DSL.read_text()
     print(f"Structurizr: {DSL.relative_to(ROOT)}")
@@ -165,28 +258,29 @@ def check_structurizr() -> None:
         depth += code.count("{") - code.count("}")
         if depth < 0:
             fail(f"workspace.dsl:{lineno}: unbalanced closing brace")
-            return
+            return False
     if depth != 0:
         fail(f"workspace.dsl: {depth} unclosed brace(s)")
-        return
+        return False
     print("  ok    braces balanced")
 
     model_part, _, views_part = text.partition("views {")
 
-    declared = {m.group(1) for m in DECL.finditer(model_part)}
-    if not declared:
-        fail("workspace.dsl: no elements declared")
-        return
+    declared = {m.group(1) for m in re.finditer(
+        r"^\s*(\w+)\s*=\s*(?:person|softwareSystem|container|component|"
+        r"deploymentNode|infrastructureNode)\b", model_part, re.M)}
     print(f"  ok    {len(declared)} element(s) declared")
 
-    # containerInstance takes a bare identifier, not name = container.
+    check_arity(text)
+
     instances = set(re.findall(r"^\s*containerInstance\s+(\w+)\s*$", text, re.M))
     unknown = instances - declared
     if unknown:
         fail(f"workspace.dsl: containerInstance of undeclared element(s): "
              f"{', '.join(sorted(unknown))}")
 
-    model_rels = {(m.group(1), m.group(2)) for m in REL.finditer(model_part)}
+    rel = re.compile(r"^\s*(\w+)\s*->\s*(\w+)\s", re.M)
+    model_rels = {(m.group(1), m.group(2)) for m in rel.finditer(model_part)}
     for src, dst in sorted(model_rels):
         for side, name in (("source", src), ("target", dst)):
             if name not in declared:
@@ -194,10 +288,9 @@ def check_structurizr() -> None:
                      f"{side} {name!r}")
     print(f"  ok    {len(model_rels)} relationship(s) declared")
 
-    # Every dynamic-view step must correspond to a declared relationship.
     for view_name, body in re.findall(
             r"dynamic\s+\w+\s+\"([^\"]+)\".*?\{(.*?)\n\s*\}", views_part, re.S):
-        steps = [(m.group(1), m.group(2)) for m in REL.finditer(body)]
+        steps = [(m.group(1), m.group(2)) for m in rel.finditer(body)]
         for src, dst in steps:
             if (src, dst) not in model_rels:
                 fail(f"workspace.dsl: dynamic view {view_name!r} steps "
@@ -205,16 +298,7 @@ def check_structurizr() -> None:
         if steps:
             print(f"  ok    dynamic view {view_name!r}: {len(steps)} step(s) all declared")
 
-    for kind in ("systemContext", "container", "deployment"):
-        if not re.search(rf"^\s*{kind}\s+\w+\s+\"", views_part, re.M):
-            notes.append((f"workspace.dsl: no {kind} view defined", True))
-
-    if shutil.which("java") is None:
-        notes.append((
-            "workspace.dsl was structurally checked but NOT compiled: no Java "
-            "runtime. Run `structurizr-cli` or paste into structurizr.com/dsl.", True,
-        ))
-        print("  note  no Java — structural check only, DSL not compiled")
+    return run_cli(DSL)
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +307,7 @@ def main() -> int:
     strict = "--strict" in sys.argv[1:] or "--full" in sys.argv[1:]
     full = "--full" in sys.argv[1:]
     rendered = check_mermaid()
-    check_structurizr()
+    compiled = check_structurizr()
 
     print()
     if notes:
@@ -247,8 +331,9 @@ def main() -> int:
             print(f"  - {m}")
         return 1
 
-    scope = "rendered" if rendered else "syntax-checked only"
-    print(f"OK: all Mermaid diagrams {scope}; Structurizr model structurally valid")
+    mermaid_scope = "rendered" if rendered else "syntax-checked only"
+    dsl_scope = "compiled" if compiled else "checked heuristically"
+    print(f"OK: Mermaid {mermaid_scope}; Structurizr DSL {dsl_scope}")
     return 0
 
 

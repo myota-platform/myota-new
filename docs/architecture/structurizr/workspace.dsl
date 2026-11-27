@@ -14,12 +14,25 @@
 //
 // Or paste the contents into https://structurizr.com/dsl — no install needed.
 //
-// Structurizr is not installed on this host (no Java runtime), so this file is
-// prepared but has not been rendered here. See README.md in this directory.
+// Validated with structurizr-cli 2025.11.09: `validate` passes and `export
+// -format mermaid` produces all six views. Check it with:
+//
+//   python3 tools/check_diagrams.py --full
+//
+// Grammar notes that are easy to get wrong (each cost a debugging round):
+//   - tags are ONE comma-separated string, never separate arguments
+//   - softwareSystem takes name, description, tags — there is no technology field
+//   - the DSL is line-oriented: "{" must end the line
+//   - !identifiers hierarchical would make containers resolvable only as
+//     myota.<name> from outside the software system, so it is deliberately absent
+//   - a deployment view's environment name doubles as its key ([a-zA-Z0-9_-])
+//   - "theme default" fetches over the network and is omitted so this validates offline
 
 workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur radio initiatives." {
 
-    !identifiers hierarchical
+    // Flat identifiers: every element name below is unique, so relationships can use
+    // short names at any scope. With `!identifiers hierarchical` a container declared
+    // inside the software system would only resolve as `myota.<name>` from outside it.
 
     model {
 
@@ -54,8 +67,8 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
         // External systems
         // ------------------------------------------------------------------
 
-        objectStorage = softwareSystem "Object Storage" "S3-compatible store for import sources, profile images, and issued certificates. Uploads use presigned URLs so file bytes never traverse an API replica." "S3-compatible" "External"
-        smtp = softwareSystem "SMTP Relay" "Outbound email. Consumed by core only, through the notification ledger." "SMTP" "External"
+        objectStorage = softwareSystem "Object Storage" "S3-compatible object store. Holds import sources, profile images, and issued certificates. Uploads use presigned URLs so file bytes never traverse an API replica." "External"
+        smtp = softwareSystem "SMTP Relay" "SMTP relay for outbound email. Consumed by core only, through the notification ledger." "External"
 
         // ------------------------------------------------------------------
         // Relationships — people to front ends
@@ -192,7 +205,7 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
             activity -> activityDb "Inserts an idempotent ops.job and advances the cursor"
         }
 
-        deployment myota "LocalK3s" "Deployment on the local K3s cluster." {
+        deployment myota "Local K3s" "LocalK3s" "Deployment on the local K3s cluster." {
             include *
             autolayout lr
         }
@@ -212,6 +225,5 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
             }
         }
 
-        theme default
     }
 }
