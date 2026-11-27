@@ -297,8 +297,20 @@ is **incomplete**, regardless of whether the code works.
   this, and it exists because a flow diagram that invents a connection is a
   diagram that lies.
 - **Diagrams are Mermaid blocks, not committed images.** Do not add `.svg` or
-  `.png` diagrams to `docs/`. If a raster export is needed for a slide, generate
-  it and leave it out of the repository.
+  `.png` *diagrams* to `docs/`. GitHub renders the Mermaid; a committed image of a
+  diagram is a second copy that drifts.
+- **UI mockups are the exception, and the opposite trade.** GitHub shows `.html`
+  as source, so the PNGs in `docs/ui/renders/` are the only viewable form. They
+  are committed, they are generated, and they must be regenerated whenever the
+  markup or the stylesheet changes:
+
+  ```sh
+  node tools/render_mockups.mjs          # writes docs/ui/renders/*.png
+  node tools/render_mockups.mjs --check  # fails if a render is stale
+  ```
+
+  A screenshot taken by hand drifts the moment someone edits the CSS. Use the
+  script or the images are wrong.
 - **Run the check before committing:**
 
   ```sh
@@ -306,6 +318,8 @@ is **incomplete**, regardless of whether the code works.
   python3 tools/check_diagrams.py --strict   # CI gate: Mermaid must be rendered
   python3 tools/check_diagrams.py --full     # CI gate: the DSL must compile too
   ```
+
+  Mockup renders have their own gate: `node tools/render_mockups.mjs --check`.
 
   `--full` compiles `workspace.dsl` with `structurizr-cli`. **Use it** — the
   heuristic fallback cannot see identifier resolution, view-key syntax, or

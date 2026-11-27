@@ -80,7 +80,7 @@ The non-negotiable engineering rules are in [`AGENTS.md`](AGENTS.md):
 - [docs/architecture/consolidation.md](docs/architecture/consolidation.md) — what was removed and why
 - [docs/architecture/messaging.md](docs/architecture/messaging.md) — messaging without a broker
 - [docs/architecture/scaling.md](docs/architecture/scaling.md) — the horizontal-scaling contract
-- [docs/ui/index.html](docs/ui/index.html) — eight UI mockups (open in a browser)
+- [docs/ui/RENDERS.md](docs/ui/RENDERS.md) — eight UI screens, rendered and viewable
 - [docs/decisions/](docs/decisions/) — ADRs
 - [docs/architecture/structurizr/](docs/architecture/structurizr/README.md) — the C4 model
 

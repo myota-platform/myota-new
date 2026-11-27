@@ -62,22 +62,22 @@ An ADR is required when a rule in [AGENTS.md](../AGENTS.md) needs to be broken.
 
 ## UI mockups
 
-[**ui/index.html**](ui/index.html) — open it in a browser to browse all eight
-screens.
-
-Four admin screens and four participant screens, static and responsive:
+**[docs/ui/RENDERS.md](ui/RENDERS.md) — the gallery.** Eight screens, rendered as
+PNG so they are visible in the repository. GitHub shows HTML as source, so the
+images are the viewable form and the `.html` files are the interactive originals.
 
 | Admin | Participant |
 | --- | --- |
-| [Operations overview](ui/admin-01-operations.html) | [Discover](ui/participant-01-home.html) |
-| [Geodata review](ui/admin-02-geodata-review.html) | [Map explorer](ui/participant-02-map.html) |
-| [Import run detail](ui/admin-03-import-run.html) | [Live activation](ui/participant-03-activation.html) |
-| [Programmes and awards](ui/admin-04-programmes-awards.html) | [Awards](ui/participant-04-awards.html) |
+| [Operations overview](ui/renders/admin-01-operations.png) | [Discover](ui/renders/participant-01-home.png) |
+| [Geodata review](ui/renders/admin-02-geodata-review.png) | [Map explorer](ui/renders/participant-02-map.png) |
+| [Import run detail](ui/renders/admin-03-import-run.png) | [Live activation](ui/renders/participant-03-activation.png) |
+| [Programmes and awards](ui/renders/admin-04-programmes-awards.png) | [Awards](ui/renders/participant-04-awards.png) |
+
+Interactive versions: [`ui/index.html`](ui/index.html) — open locally in a browser.
 
 They share one stylesheet ([ui/assets/mockup.css](ui/assets/mockup.css)), contain
 no JavaScript framework, make no network requests, and follow
-`prefers-color-scheme`. They exist to fix layout and information density before
-implementation — they are not application code.
+`prefers-color-scheme`. Regenerate the images with `node tools/render_mockups.mjs`.
 
 ## Conventions used throughout
 
