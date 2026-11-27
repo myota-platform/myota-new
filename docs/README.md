@@ -10,7 +10,7 @@ read in this order.
 | [architecture/README.md](architecture/README.md) | What the system is: services, boundaries, integration, deployment. Start here. |
 | [architecture/consolidation.md](architecture/consolidation.md) | What was removed and why. The ledger of every simplification. |
 | [architecture/data-model.md](architecture/data-model.md) | Every table, grouped by the database that owns it. |
-| [architecture/geodata-imports.md](architecture/geodata-imports.md) | The import pipeline end to end, five stages and five states. |
+| [architecture/geodata-imports.md](architecture/geodata-imports.md) | The import pipeline end to end: five stages, five states plus `failed`. |
 | [architecture/gateway-and-contracts.md](architecture/gateway-and-contracts.md) | Why the gateway holds the contract and serves the playground. |
 | [architecture/messaging.md](architecture/messaging.md) | Inter-service messaging without a broker: cursors, partitions, retention, failure modes. |
 | [architecture/scaling.md](architecture/scaling.md) | The horizontal-scaling contract: what breaks at N replicas and what prevents it. |
@@ -68,5 +68,5 @@ implementation — they are not application code.
   idempotency, consumer checkpoint, dead letter, job.
 - **audience** — the session property (`participant` or `admin`) that keeps the
   two login surfaces separate.
-- **stage / state** — an import run has five stages and five states; they are not
+- **stage / state** — an import run has five stages and five non-terminal states plus `failed`; they are not
   the same axis and are documented separately.

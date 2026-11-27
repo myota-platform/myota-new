@@ -47,7 +47,8 @@ parameterised by the service's own database.
 This is the central simplification. The previous design had four domain services
 sharing three databases, so `identity` and `programmes` both wrote `myota_core`
 and neither could claim sole ownership. That is why ownership rules had to be
-restated in prose and re-checked by hand.
+restated in prose and policed after the fact by a lint script
+(`tools/check-database-ownership.mjs`).
 
 Here, **one service owns one database, and nothing else may connect to it.**
 
@@ -75,9 +76,12 @@ the same transaction as the domain change; consumers read them through an intern
 HTTP feed with durable per-partition cursors. Work that needs competing consumers
 uses a job table with `FOR UPDATE SKIP LOCKED` rather than a queue server.
 
-Synchronous HTTP between services is not used to compose a user response; the
-gateway fans out only when a single screen genuinely needs two domains, and it
-calls at most two services.
+Synchronous HTTP between services is not used to compose a user response. A
+screen that needs two domains makes two calls from the front end. Three narrow
+synchronous calls are permitted because they are integrity or authorization
+checks rather than composition — scope introspection, entity geometry at
+activation close, and deletion impact — each with a 2 s timeout and a documented
+fallback. A chain of more than one synchronous hop is forbidden.
 
 There is no NATS, no Redis, no RabbitMQ. The reasoning — including what it costs —
 is in [ADR-0004](../decisions/0004-drop-message-broker.md) and
@@ -169,16 +173,21 @@ See [auth-model.md](auth-model.md).
 
 The import capability is the most valuable and most intricate part of the system,
 so it is preserved — but collapsed from nine persisted stages to five, and from
-two worker applications to one worker mode.
+three separately deployed processes (`geodata`, `geodata-worker`,
+`geodata-importer`) to one service's worker mode.
 
 ```
 Upload ──► Normalise ──► Validate ──► Conflate ──► Review ──► Publish
  (S3)      (adapters)   (bounded)    (scoring)   (admin)    (atomic)
 ```
 
-Adapters: GeoJSON, Shapefile (zipped), GPX, OSM PBF, CSV + WKT. Heavy parsing
-and geometry work runs in `geodata-worker`; the API only creates runs and serves
-status.
+Source adapters (who produced the data): `PARKSERVE_US`, `OSM`, `GOVERNMENT_GIS`,
+`MANUAL`. Input formats (what the bytes are): GeoJSON, WFS GeoJSON, ArcGIS
+FeatureServer JSON, KML, GPX, zipped Shapefile, OSM PBF, CSV+WKT. An adapter maps
+one or more formats to the normalised feature stream.
+
+Heavy parsing and geometry work runs in `geodata-worker`; the API only creates
+runs and serves status.
 
 See [geodata-imports.md](geodata-imports.md).
 

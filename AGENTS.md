@@ -34,7 +34,10 @@ Every service is defined by its HTTP contract before it is implemented.
   responses to the committed document. Drift fails CI.
 - REST conventions: plural resource nouns, HTTP verbs for semantics, stable
   opaque identifiers, RFC 9457 `application/problem+json` for errors, cursor
-  pagination (`{ items, nextCursor }`, never a bare array), no verbs in paths.
+  pagination (`{ items, nextCursor }`, never a bare array). Resource paths are
+  nouns; a **state transition** may be a sub-resource action
+  (`POST /v1/imports/{id}/complete`, `/promote`) when it is not expressible as a
+  field update. Do not invent `/getFoo` or `/doBar`-style endpoints.
 - Every mutating operation documents and honours `Idempotency-Key`.
 
 ## 2. Microservices
@@ -87,8 +90,15 @@ RabbitMQ, no Kafka. The durable log is the outbox; consumers pull from it.
   subset: `id`, `type`, `source`, `subject`, `time`, `datacontenttype`, `data`).
   Schema changes get the same review as API changes.
 - **Synchronous HTTP between services is not used to compose a user response.**
-  The gateway fans out only when one screen genuinely needs two domains, and it
-  calls at most two services.
+  A user request is served by exactly one service; if a screen needs two domains,
+  the front end makes two calls.
+- Three narrow synchronous calls are allowed because they are authorization or
+  integrity checks, not composition. Each must have a 2 s timeout, a documented
+  fallback, and be listed here:
+  1. `geodata`/`activity` → `core` for scope introspection (cached per session).
+  2. `activity` → `geodata` for entity geometry when closing an activation.
+  3. `geodata` → `activity` for deletion impact before retiring an entity.
+  A chain of more than one synchronous hop is forbidden.
 
 Adding a broker back requires an ADR. If event volume passes ~10⁶/day, or a
 consumer must survive a multi-day outage without a resync, that ADR is justified —
@@ -194,8 +204,11 @@ See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
 - Test layers, all runnable locally and in CI:
   - **unit** — pure logic, no I/O;
   - **contract** — service matches `contracts/` OpenAPI and event schemas;
-  - **integration** — real Postgres and real NATS (containers), including
-    outbox → stream → consumer paths;
+  - **integration** — real Postgres (a container, migrated from the same
+    migrations as production), including outbox → pull → job → handler paths;
+  - **multi-replica** — the scaling contract: run two or more replicas of the
+    component under test, kill one mid-flight, assert no lost or duplicated work
+    (see [scaling.md](docs/architecture/scaling.md), Validation);
   - **end-to-end** — through the gateway against a deployed stack.
 - Tests are deterministic and independent: no shared mutable fixtures, no
   ordering dependencies, no reliance on wall-clock sleeps.
@@ -249,9 +262,12 @@ each existed to run one loop. Each is now a job kind or a run mode of an
 existing service. Pod count is roughly unchanged — what disappears is twelve
 CI pipelines and the duplicated outbox/retry/dead-letter code in each.
 
-**`outbox-worker` held credentials for all three databases** — a boundary
-violation disguised as a convenience. The relay is per-database and part of the
-owning service.
+**Publishing required a broker that duplicated the outbox.** The relay was
+already scoped correctly — one instance group per database — but it existed only
+to move rows from `ops.outbox_event` into NATS. That is a second durable log in
+front of the first, and publication stalled when the broker was down even though
+the event was committed. The broker is gone; the relay now writes nothing, and
+consumers pull from the log.
 
 **Notifications existed in two databases.** Core had `email_delivery` +
 `email_delivery_attempt` + `email_dead_letter` + `email_dead_letter_redrive`;
@@ -285,9 +301,11 @@ proxied through the API, making its memory proportional to file size. All three
 are fixed by rule 9, and the connection wall (600 connections needed at 20
 replicas, 100 available) is closed by PgBouncer.
 
-**The contract was declared but never served.** Four `openapi.yaml` files existed
-and nothing exposed them — there was no Swagger UI anywhere in the deployment.
-The gateway now embeds and serves the composed contract with a playground.
+**The contract was declared but never served.** One `openapi.yaml` existed and
+nothing exposed it: the gateway had no `/docs` or `/openapi.json` route, and there
+was no Swagger UI anywhere in the deployment. API-first was enforced by a script
+that compared routes to the file, not by an interface anyone could call. The
+gateway now embeds and serves the composed contract with a playground.
 
 **The upload limit contradicted itself.** The contract said 20 MiB; the code
 defaulted to 1 GiB. Numeric limits now live in `libs/limits` and are imported by
@@ -297,7 +315,7 @@ both the contract generator and the validator.
 scope they documented. Authorization is checked in one place in `core` and
 re-exposed by introspection; services do not re-implement role logic.
 
-**A 1 540-row Unicode case-folding table was shipped as data.** Replaced by
+**A 1 530-row Unicode case-folding table was shipped as data.** Replaced by
 `citext` plus a normalised email key column.
 
 ---

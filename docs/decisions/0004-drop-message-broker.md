@@ -16,6 +16,13 @@ surface area in `/root/myota-next`:
 | Streams | 2 (`MYOTA_ACTIVITY_WORK`, `MYOTA_GEODATA_WORK`) plus fact stream |
 | Durable consumers configured | 6+ |
 
+The old relay was already correctly scoped — one instance group per owning
+database, each receiving only its own `OUTBOX_DATABASE_URL`
+(`myota-next/docs/architecture.md:80-82`). That is not the problem being solved
+here. The problem is that a second durable log existed at all, and that
+publication stalled when the broker was unavailable even though the event was
+already committed.
+
 The cluster runs no other messaging infrastructure. Node capacity is 12 CPU /
 64 GB / 256 pods, so the constraint is not capacity — it is the number of stateful
 systems to operate, and the number of failure modes to reason about.

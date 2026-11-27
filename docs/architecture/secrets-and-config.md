@@ -63,25 +63,34 @@ Small and explicit. Every entry has an owner and a rotation path.
 | `core-db` | `url` | core | On compromise; 90-day scheduled |
 | `geodata-db` | `url` | geodata | On compromise; 90-day scheduled |
 | `activity-db` | `url` | activity | On compromise; 90-day scheduled |
-| `core-session-key` | `ed25519-private`, `kid` | core | 180 days, two keys valid during rollover |
+| `core-session-key` | `ed25519-private`, `kid` | core (mounted only by core) | 180 days, two keys valid during rollover |
 | `nats-credentials` | `url`, `user`, `password` | all | 180 days |
 | `s3-credentials` | `access-key`, `secret-key`, `endpoint`, `bucket-prefix` | geodata, activity | 180 days |
 | `smtp-credentials` | `host`, `port`, `user`, `password`, `from` | core | On provider change |
 | `webauthn-rp` | `rp-id`, `rp-name`, `origin` | core | On domain change |
 
 Eight secrets. The legacy deployment had `registry-credentials` duplicated into
-14 namespaces plus per-service URL bundles, SMTP credentials, NATS credentials,
-and object-storage keys scattered across `myota-auth`, `myota-database-urls`,
-`myota-database-migration-urls`, `myota-nats-credentials`,
-`myota-object-storage`, `myota-postgres-auth`, `myota-seaweedfs-s3-config`,
-`myota-smtp`, and `myota-smtp-qualification-server`.
+16 namespaces (`infra/REMOVE-SEALED-SECRETS.md`), plus per-service URL bundles,
+SMTP credentials, NATS credentials, and object-storage keys scattered across
+`myota-auth`, `myota-database-urls`, `myota-database-migration-urls`,
+`myota-nats-credentials`, `myota-object-storage`, `myota-postgres-auth`,
+`myota-seaweedfs-s3-config`, `myota-smtp`, and
+`myota-smtp-qualification-server`.
 
-### One namespace, one secret per service
+### One namespace, one secret per concern
 
-There is no per-namespace duplication because there is one namespace. A service
-mounts only its own secret; the deployment template references exactly one
-`secretName` per service, so a compromised `activity` pod cannot read the core
-session key.
+There is no per-namespace duplication because there is one namespace. Each service
+mounts its own database secret plus only the shared secrets it actually uses:
+
+| Service | Mounts |
+| --- | --- |
+| `core` | `core-db`, `core-session-key`, `smtp-credentials`, `webauthn-rp` |
+| `geodata` | `geodata-db`, `s3-credentials` |
+| `activity` | `activity-db`, `s3-credentials` |
+| `gateway` | nothing — it verifies signatures with a public key compiled in |
+
+A service never mounts another service's database secret or the core session key,
+so a compromised `activity` pod cannot read credentials for `myota_core`.
 
 ### No registry credentials in the cluster
 
@@ -105,7 +114,6 @@ data:
   OTEL_EXPORTER_OTLP_ENDPOINT: ""
   SESSION_ACCESS_TTL: 15m
   SESSION_REFRESH_IDLE: 720h
-  MFA_REQUIRED_ADMIN: "true"
   REGISTRATION_ENABLED: "true"
 ```
 

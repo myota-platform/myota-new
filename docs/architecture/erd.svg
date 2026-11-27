@@ -35,8 +35,8 @@
   <rect x="586" y="150" width="268" height="22" rx="8" fill="#f1f3f1"/>
   <rect x="586" y="164" width="268" height="8" fill="#f1f3f1"/>
   <text x="596" y="166" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account_mfa</text>
-  <text x="596" y="186" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK account_id</text>
-  <text x="596" y="199" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">method</text>
+  <text x="596" y="186" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK (account_id, method)</text>
+  <text x="596" y="199" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">secret_ref</text>
   <text x="596" y="212" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">confirmed_at</text>
   <rect x="868" y="150" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
   <rect x="868" y="150" width="268" height="22" rx="8" fill="#f1f3f1"/>
@@ -108,7 +108,7 @@
   <rect x="868" y="350" width="268" height="22" rx="8" fill="#f1f3f1"/>
   <rect x="868" y="364" width="268" height="8" fill="#f1f3f1"/>
   <text x="878" y="366" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">ops.outbox_event</text>
-  <text x="878" y="386" font-size="9.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">shared by all three databases</text>
+  <text x="878" y="386" font-size="9.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">same schema in each database</text>
   <text x="878" y="399" font-size="9.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">idempotency · checkpoint</text>
   <text x="878" y="412" font-size="9.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">dead_letter · job</text>
   <rect x="14" y="472" width="1436" height="236" rx="14" fill="#e5eff8" stroke="#1f5d8f" stroke-width="1.5" stroke-dasharray="7 5"/>

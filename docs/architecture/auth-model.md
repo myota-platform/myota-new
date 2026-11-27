@@ -73,6 +73,9 @@ The gateway verifies `aud` against the route prefix before proxying:
 | `/v1/entities/**`, `/v1/imports/**` (write) | `admin` |
 | `/v1/entities/**` (read), `/v1/programmes/**` (read) | anonymous allowed |
 | `/v1/admin/imports/**` | `admin` |
+| `/v1/proposals/**` | `participant` (create, own only) · `admin` (read all) |
+| `/v1/tiles/**`, `/v1/public/**` | anonymous |
+| `/v1/statistics/**` | `participant` or anonymous, depending on route |
 
 A mismatch is `401` with `problem+json` type `about:blank#wrong-audience`, never a
 redirect to a login page (which would leak which audience the route expects).
@@ -84,12 +87,14 @@ An account with an admin role must have a confirmed `account_mfa` row before
 `/v1/admin/auth/mfa/enrol`, which requires an existing admin session — so a new
 admin is provisioned by another admin, then enrols on first login.
 
-Supported: TOTP (`totp-rs`) and WebAuthn passkeys (`webauthn-rs`). Recovery codes
-are single-use rows in `account_mfa` with `method='recovery'`.
+Supported: TOTP (`totp-rs`) and WebAuthn passkeys (`webauthn-rs`). Recovery
+codes live in `account_recovery_code` as single-use hashes.
 
-There is no "skip MFA" flag. If the operator loses the second factor, another
-admin resets it. This is a deliberate operational cost in exchange for removing a
-bypass that exists in the legacy system as an environment variable.
+There is no "skip MFA" flag and no environment variable that disables it — not
+even for local development, where a test admin is provisioned with a fixed TOTP
+seed instead. If the operator loses the second factor, another admin resets it.
+This is a deliberate operational cost in exchange for removing a bypass that can
+be switched on by configuration.
 
 ## Authorization
 

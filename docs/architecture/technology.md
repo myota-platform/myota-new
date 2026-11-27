@@ -65,9 +65,9 @@ Two services have a specific reason to leave Go:
 ### Gateway — Chi, not a full framework
 
 The gateway does four things: route by prefix, enforce edge policy, serve static
-contract files, reverse-proxy. Chi is `net/http` with a router — 3 kLOC of
-readable code, `httputil.ReverseProxy` for the proxy, `embed.FS` for the
-contracts. A framework would add middleware the gateway does not need.
+contract files, reverse-proxy. Chi is `net/http` with a router — roughly 1 kLOC of
+readable code including the contract composition, `httputil.ReverseProxy` for the
+proxy, and `embed.FS` for the contracts. A framework would add middleware the gateway does not need.
 
 Rejected: Kong, Traefik-as-gateway, Envoy. All are correct products, but they
 move the contract and the playground out of the repository and into configuration

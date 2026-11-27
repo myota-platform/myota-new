@@ -93,24 +93,36 @@ rather than discovering problems one at a time.
 
 ### Stage 4 — Conflate
 
-For each valid candidate, find published entities within 50 m using the GiST
-index, then score:
+For each valid candidate, find published entities within a distance band using the
+GiST index, then compute a similarity score and store it with a **reason payload**
+so the reviewer can see *why* a match was proposed.
+
+```sql
+-- candidate set: bounding-box prefilter, then exact distance
+SELECT e.id, ST_Distance(e.centroid, c.geom) AS metres
+  FROM entity e
+ WHERE e.status = 'published'
+   AND e.centroid && ST_Expand(c.geom, $radius)
+   AND ST_DWithin(e.centroid, c.geom, $radius);
+```
+
+The score combines name similarity, distance, and type agreement, and its weights
+are **configuration, not constants** — they belong to the programme's policy,
+because "same name" means different things for a lighthouse and a mountain range.
+`conflation_candidate` stores the finished `score` plus the components that
+produced it:
 
 ```
-score = 0.45 * name_similarity
-      + 0.35 * distance_score        (1.0 at 0 m, 0 at 50 m)
-      + 0.20 * type_match
+conflation_candidate
+  score         numeric      the computed similarity
+  reason jsonb { name: 0.82, distance_m: 38, name_weight: …, distance_weight: … }
+  resolution    new | merge | skip | unresolved
 ```
 
-| Score | Resolution |
-| --- | --- |
-| ≥ 0.85 | auto-merge candidate — proposes updating the existing entity |
-| 0.55–0.85 | flagged for human review |
-| < 0.55 | treated as new |
-
-This is the same scoring the legacy system used; the difference is that it
-produces one `conflation_candidate` row with a reason payload instead of
-threading state through a promotion queue.
+The legacy system also persisted a `similarity` value on
+`conflation_candidate` (`geo/001_geodata_baseline.sql`), so the shape is familiar;
+what changes is that the weights are explicit policy and the reason is retained
+rather than implied.
 
 ### Stage 5 — Publish
 
@@ -136,7 +148,7 @@ that had to be reconciled by hand.
 
 ## State machine
 
-Five states. Each has a writer and a meaning.
+Five non-terminal states plus one terminal `failed`. Each has a writer and a meaning.
 
 ```
 queued ──► running ──► review ──► publishing ──► completed

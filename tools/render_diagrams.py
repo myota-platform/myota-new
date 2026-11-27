@@ -248,7 +248,7 @@ CORE_TABLES = [
                  ("participation_type", "plain"), ("status", "plain")], ACCENT),
     ("account_credential", [("PK account_id", "pk"), ("password_hash", "plain"),
                             ("locked_until", "plain")], ACCENT),
-    ("account_mfa", [("PK account_id", "pk"), ("method", "plain"),
+    ("account_mfa", [("PK (account_id, method)", "pk"), ("secret_ref", "plain"),
                      ("confirmed_at", "plain")], ACCENT),
     ("auth_session", [("PK id", "pk"), ("FK account_id", "fk"),
                       ("audience · participant|admin", "plain")], ACCENT),
@@ -269,9 +269,9 @@ CORE_TABLES = [
                                   ("version · rules jsonb", "plain")], ACCENT),
     ("notification", [("PK id", "pk"), ("FK account_id", "fk"),
                       ("status · attempts", "plain")], ACCENT),
-    ("ops.outbox_event", [("shared by all three databases", "muted"),
+    ("ops.outbox_event", [("same schema in each database", "muted"),
                           ("idempotency · checkpoint", "muted"),
-                          ("dead_letter · job", "muted")], FAINT),
+                          ("dead_letter · job", "muted"), ("different rows per database", "muted")], FAINT),
 ]
 
 GEO_TABLES = [

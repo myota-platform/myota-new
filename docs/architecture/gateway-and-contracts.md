@@ -76,15 +76,19 @@ The gateway does exactly these, and nothing else:
 | Token verification | signature and expiry; forwards the token unchanged |
 | Request id | generate `X-Request-ID` if absent, echo in response |
 | Trace propagation | create root span, forward `traceparent` |
-| Body limit | 2 MiB for JSON routes; uploads go direct to the import endpoints with their own limit |
+| Body limit | 2 MiB for JSON routes. File bytes never pass through the gateway: uploads are presigned S3 URLs issued by `geodata-api`. |
 | CORS | explicit allowlist, credentials allowed only for the two web origins |
 | Request counting | **Not here.** Traefik owns rate limiting — a counter in a replica multiplies the limit by the replica count. |
 | Problem responses | normalise upstream 5xx into `problem+json` |
 | Health aggregation | `/readyz` reports upstream reachability |
 
 It does **not**: aggregate responses from several services, hold business rules,
-cache domain data, count requests (Traefik does that), or terminate TLS (Traefik
-does that too).
+cache domain data, touch a database, count requests (Traefik does that), or
+terminate TLS (Traefik does that too).
+
+Token revocation is the one thing it deliberately leaves alone: the gateway checks
+signature and expiry, and `core` checks `auth_revocation` on admin routes. A gateway
+that queried Postgres would be a database client with a replica-count problem.
 
 CORS is the exception worth explaining: it stays in the gateway because it is
 stateless configuration, not a counter. Two replicas answering CORS identically is
@@ -125,8 +129,8 @@ to a separate configuration surface that cannot be:
 - reviewed in the same pull request as a handler change.
 
 The requirement was explicit: one gateway that *holds* the contracts. That means
-it is code. The routing itself is 200 lines of Go over `net/http`; a product would
-add a control plane, a CRD, and an admin API to replace those 200 lines.
+it is code. The routing itself is a few hundred lines of Go over `net/http`; a
+product would add a control plane, a CRD, and an admin API to replace them.
 
 ## Failure behaviour
 

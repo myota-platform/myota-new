@@ -24,8 +24,8 @@ simplification, what it replaces, and what it costs.
 Each of the removed applications existed to run one loop. `activity-notifications`
 consumed one durable and wrote to one table. `email-worker` consumed one subject
 and sent SMTP. `identity-maintenance` ran a nightly sweep. `outbox-worker` was a
-relay for all three databases at once, which was itself a boundary violation — a
-single process holding credentials for every database.
+relay, correctly scoped to one database per instance, but still a separate
+deployable whose only job was to move rows from a table to a broker.
 
 **Four backend codebases, each with a reason to be separate.** The reduction is in
 code and pipelines, not in pod count: a domain service runs as three workloads
@@ -126,7 +126,7 @@ mechanism, one retry policy, one dead-letter path, one redrive tool.
 
 | Machine | Before | After |
 | --- | --- | --- |
-| Import run | 11 states | 5 states + `failed` |
+| Import run | 11 states | 5 non-terminal states + `failed` |
 | Award request | draft, submitted, under_review, approved, rejected, issued, expired, cancelled | `requested`, `approved`, `rejected`, `issued` |
 | Activation | active, closing, closed, cancelled, reconciled | `active`, `closed`, `cancelled` |
 
@@ -141,7 +141,7 @@ state nobody designed.
 | --- | --- |
 | `core.activation`, `core.qso`, `core.award`, `core.award_rule` | Legacy monolith leftovers that survived the baseline migration and were never dropped. Activity owns these. |
 | `core.service_state` | Python-era JSONB serialisation dump, superseded by real tables. |
-| `core.identity_casefold_mapping` (1 540 rows) | A Unicode 15.0 case-folding table shipped as data. Replaced by `citext` plus a normalised `email_key`. |
+| `core.identity_casefold_mapping` (1 530 rows) | A Unicode 15.0 case-folding table shipped as data. Replaced by `citext` plus a normalised `email_key`. |
 | `core.identity_auth_state_migration` | A one-off backfill marker. Irrelevant in a fresh schema. |
 | `core.oidc_provider_mapping` | Superseded by `identity_oidc_provider_mapping`; the old table was never dropped. |
 | `geo.entity_type` | Duplicate of `core.programme_entity_type`. |
@@ -156,9 +156,11 @@ Net: roughly 30% fewer tables, with no capability lost.
 
 ## Contracts: 4 documents → 1 published
 
-Four `openapi.yaml` files existed; none was served. The gateway now composes them
-into one published document with a playground. Service documents remain as the
-source of truth but are internal.
+One `openapi.yaml` existed (plus a reference copy), and nothing served it: the
+gateway's route handler has no `/docs` or `/openapi.json` path, so API-first was a
+contract file validated by a script rather than an interface anyone could use. The
+gateway now composes service documents into one published document with a
+playground. Service documents remain the source of truth but are internal.
 
 ## Sealed Secrets removed
 

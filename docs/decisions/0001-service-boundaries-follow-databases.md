@@ -6,8 +6,8 @@
 
 The previous architecture had four domain services and three databases:
 `identity` and `programmes` both wrote `myota_core`. Neither could claim sole
-ownership of the schema, so ownership had to be restated in prose and
-re-checked by hand whenever someone added a table. Every role check that
+ownership of the schema, so ownership had to be restated in prose and enforced
+after the fact by a lint script (`tools/check-database-ownership.mjs`). Every role check that
 involved a programme became either a cross-service call or a violation.
 
 At the same time, the operational plumbing — outbox, idempotency checkpoints,
