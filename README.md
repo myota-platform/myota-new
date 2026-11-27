@@ -14,33 +14,67 @@ repository.
 
 ## Status
 
-The monorepo is being established. Structure, service inventory, and the first
-vertical slice are tracked in `docs/`.
+The architecture is designed and documented; implementation has not started.
+Start at [**docs/**](docs/README.md).
 
-## Engineering rules
+## The design in one screen
 
-The non-negotiable rules for this repository are in [`AGENTS.md`](AGENTS.md):
+```
+                    ┌──────────────┐   ┌──────────────┐
+                    │ Admin console│   │Participant app│     separate logins
+                    └──────┬───────┘   └──────┬───────┘
+                           └────────┬─────────┘
+                                    ▼
+                            ┌───────────────┐
+                            │  API gateway  │  holds the contract
+                            │  /docs        │  serves the playground
+                            └───┬───┬───┬───┘
+                ┌───────────────┘   │   └───────────────┐
+                ▼                   ▼                   ▼
+          ┌──────────┐        ┌──────────┐        ┌──────────┐
+          │   core   │        │ geodata  │        │ activity │
+          └────┬─────┘        └────┬─────┘        └────┬─────┘
+               ▼                   ▼                   ▼
+          myota_core           myota_geo          myota_activity
+         (PostgreSQL)      (PostgreSQL+PostGIS)    (PostgreSQL)
+```
 
-- API First — OpenAPI 3.1 contracts with served Swagger UI documentation and
-  playground
-- Microservices — one deployable per bounded context, each owning its data
-- Communication between services via pub/sub (NATS JetStream)
-- Job persistence external to the process
-- Monorepo layout: `apps/`, `contracts/`, `libs/`, `deploy/`, `docs/`, `tools/`
-- Deployment on the local K3s cluster — namespace `myota`, Fleet workspace
-  `myota`
-- Test-driven development
+Three services, three databases, one gateway. A service owns its database
+exclusively; nothing else connects to it.
 
 ## Layout
 
 ```
-apps/        deployable services and web front ends
-contracts/   OpenAPI documents and event schemas
-libs/        shared libraries
-deploy/      Helm charts and Fleet definitions (deploy/fleet/myota)
-docs/        architecture, runbooks, decision records
+apps/        deployable services (core, geodata, activity, gateway)
+contracts/   OpenAPI documents and event schemas — source of truth
+libs/        shared libraries: ops, limits, ui-tokens
+web/         admin and participant front ends
+deploy/      Helm charts, Fleet definitions, SOPS secret files
+docs/        architecture, decisions, UI mockups
 tools/       scripts and code generation
 ```
+
+## Rules
+
+The non-negotiable engineering rules are in [`AGENTS.md`](AGENTS.md):
+
+- API First — OpenAPI 3.1, with the gateway serving `/docs` and `/openapi.json`
+- Microservices — one service per database, each owning its schema
+- Pub/sub between services — NATS JetStream, at-least-once, idempotent consumers
+- Job persistence external to the process
+- Monorepo
+- Deployment on the local K3s cluster — namespace `myota`, Fleet workspace `myota`
+- No Sealed Secrets — SOPS with age
+- Separate admin and participant logins, enforced by session audience
+- Test-driven development
+
+## Documentation
+
+- [docs/README.md](docs/README.md) — index of everything
+- [docs/architecture/README.md](docs/architecture/README.md) — the design
+- [docs/architecture/consolidation.md](docs/architecture/consolidation.md) — what was removed and why
+- [docs/ui/index.html](docs/ui/index.html) — eight UI mockups (open in a browser)
+- [docs/decisions/](docs/decisions/) — ADRs
 
 ## License
 

@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 760" width="1180" height="760" role="img" aria-labelledby="ctxTitle ctxDesc" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+<title id="ctxTitle">MyOTA target system context</title>
+<desc id="ctxDesc">Two browser applications reach one API gateway over HTTPS. The gateway serves the composed OpenAPI contract and the playground, and routes to three domain services. Each service owns exactly one PostgreSQL database. Services exchange facts through NATS JetStream and share an S3-compatible object store.</desc>
+<defs>
+    <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5"
+            markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5c6b62"/>
+    </marker>
+    <marker id="arwA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5"
+            markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#2f6f4e"/>
+    </marker>
+    <marker id="arwD" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5"
+            markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#8a978f"/>
+    </marker>
+  </defs>
+  <rect width="1180" height="760" fill="#f6f7f5"/>
+  <text x="40" y="44" font-size="19" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">MyOTA — target system context</text>
+  <text x="40" y="65" font-size="12.5" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">One gateway, three domain services, three databases. No service reads another service&#x27;s database.</text>
+  <text x="40" y="108" font-size="10.5" font-weight="700" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" letter-spacing="0.09em">CLIENTS</text>
+  <rect x="40" y="118" width="196" height="66" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <text x="58" y="143" font-size="13.5" font-weight="650" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Admin console</text>
+  <text x="58" y="162" font-size="11" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Separate login · MFA required</text>
+  <text x="58" y="176" font-size="10.5" font-weight="500" fill="#8a978f" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">audience=admin</text>
+  <rect x="40" y="200" width="196" height="66" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <text x="58" y="225" font-size="13.5" font-weight="650" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Participant app</text>
+  <text x="58" y="244" font-size="11" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Separate login · mobile first</text>
+  <text x="58" y="258" font-size="10.5" font-weight="500" fill="#8a978f" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">audience=participant</text>
+  <rect x="300" y="118" width="214" height="148" rx="12" fill="#e6f1ea" stroke="#2f6f4e" stroke-width="1.8"/>
+  <text x="318" y="145" font-size="16" font-weight="750" fill="#2f6f4e" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">API gateway</text>
+  <text x="318" y="167" font-size="11.5" font-weight="400" fill="#2c4a3a" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Routing · edge audience checks</text>
+  <text x="318" y="186" font-size="11.5" font-weight="400" fill="#2c4a3a" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Holds the contract set</text>
+  <text x="318" y="205" font-size="11.5" font-weight="400" fill="#2c4a3a" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Serves /docs playground</text>
+  <text x="318" y="224" font-size="11.5" font-weight="400" fill="#2c4a3a" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Rate limit · CORS · request id</text>
+  <text x="318" y="253" font-size="10.5" font-weight="600" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">stateless · no domain logic</text>
+  <text x="560" y="108" font-size="10.5" font-weight="700" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" letter-spacing="0.09em">DOMAIN SERVICES</text>
+  <rect x="560" y="118" width="214" height="134" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <rect x="560" y="118" width="4" height="134" rx="2" fill="#8fb9a1"/>
+  <text x="578" y="144" font-size="15" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">core</text>
+  <text x="578" y="163" font-size="11.5" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Identity + Programmes</text>
+  <text x="578" y="181" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">accounts · credentials · sessions</text>
+  <text x="578" y="195" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">callsigns · roles · MFA</text>
+  <text x="578" y="209" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">programmes · content · policy</text>
+  <text x="578" y="223" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">notifications (one ledger)</text>
+  <text x="578" y="242" font-size="10" font-weight="650" fill="#8fb9a1" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">modes: api · worker · relay</text>
+  <rect x="560" y="258" width="214" height="134" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <rect x="560" y="258" width="4" height="134" rx="2" fill="#1f5d8f"/>
+  <text x="578" y="284" font-size="15" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">geodata</text>
+  <text x="578" y="303" font-size="11.5" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Spatial catalogue</text>
+  <text x="578" y="321" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">entities · geometry · tiles</text>
+  <text x="578" y="335" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">imports · adapters · snapshots</text>
+  <text x="578" y="349" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">conflation · review · provenance</text>
+  <text x="578" y="363" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PostGIS in this database only</text>
+  <text x="578" y="382" font-size="10" font-weight="650" fill="#1f5d8f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">modes: api · worker · relay</text>
+  <rect x="560" y="398" width="214" height="134" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <rect x="560" y="398" width="4" height="134" rx="2" fill="#9a6208"/>
+  <text x="578" y="424" font-size="15" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">activity</text>
+  <text x="578" y="443" font-size="11.5" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Activations + awards</text>
+  <text x="578" y="461" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">activations · QSOs · ADIF</text>
+  <text x="578" y="475" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">award rules · issuance</text>
+  <text x="578" y="489" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">statistics · leaderboards</text>
+  <text x="578" y="503" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">no spatial columns</text>
+  <text x="578" y="522" font-size="10" font-weight="650" fill="#9a6208" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">modes: api · worker · relay</text>
+  <text x="830" y="108" font-size="10.5" font-weight="700" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" letter-spacing="0.09em">DATA</text>
+  <rect x="830" y="142" width="240" height="80" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <rect x="830" y="142" width="4" height="80" rx="2" fill="#8fb9a1"/>
+  <text x="848" y="170" font-size="13.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">myota_core</text>
+  <text x="848" y="190" font-size="10.5" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PostgreSQL 16 · owned by core</text>
+  <text x="848" y="206" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">one owner · no shared access</text>
+  <rect x="830" y="282" width="240" height="80" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <rect x="830" y="282" width="4" height="80" rx="2" fill="#1f5d8f"/>
+  <text x="848" y="310" font-size="13.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">myota_geo</text>
+  <text x="848" y="330" font-size="10.5" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PostgreSQL 16 + PostGIS · geodata</text>
+  <text x="848" y="346" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">one owner · no shared access</text>
+  <rect x="830" y="422" width="240" height="80" rx="10" fill="#ffffff" stroke="#c7cec8" stroke-width="1.4"/>
+  <rect x="830" y="422" width="4" height="80" rx="2" fill="#9a6208"/>
+  <text x="848" y="450" font-size="13.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">myota_activity</text>
+  <text x="848" y="470" font-size="10.5" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">PostgreSQL 16 · activity</text>
+  <text x="848" y="486" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">one owner · no shared access</text>
+  <text x="40" y="592" font-size="10.5" font-weight="700" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" letter-spacing="0.09em">SHARED INFRASTRUCTURE</text>
+  <rect x="560" y="596" width="176" height="74" rx="9" fill="#fbfcfb" stroke="#c7cec8" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="574" y="620" font-size="12.5" font-weight="650" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">NATS JetStream</text>
+  <text x="574" y="638" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">durable streams</text>
+  <text x="574" y="653" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">at-least-once</text>
+  <rect x="758" y="596" width="176" height="74" rx="9" fill="#fbfcfb" stroke="#c7cec8" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="772" y="620" font-size="12.5" font-weight="650" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">S3-compatible store</text>
+  <text x="772" y="638" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">uploads · avatars</text>
+  <text x="772" y="653" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">certificates</text>
+  <rect x="956" y="596" width="176" height="74" rx="9" fill="#fbfcfb" stroke="#c7cec8" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <text x="970" y="620" font-size="12.5" font-weight="650" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">SMTP relay</text>
+  <text x="970" y="638" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">consumed by core</text>
+  <text x="970" y="653" font-size="10.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">only</text>
+  <path d="M236 151 H296" fill="none" stroke="#2f6f4e" stroke-width="1.8" marker-end="url(#arwA)"/>
+  <path d="M236 233 H296" fill="none" stroke="#2f6f4e" stroke-width="1.8" marker-end="url(#arwA)"/>
+  <path d="M514 168 H556" fill="none" stroke="#2f6f4e" stroke-width="1.6" marker-end="url(#arwA)"/>
+  <path d="M514 196 C 534 196, 536 200, 556 202" fill="none" stroke="#2f6f4e" stroke-width="1.6" marker-end="url(#arwA)"/>
+  <path d="M514 224 C 534 300, 536 350, 556 356" fill="none" stroke="#2f6f4e" stroke-width="1.6" marker-end="url(#arwA)"/>
+  <path d="M774 182 H826" fill="none" stroke="#5c6b62" stroke-width="1.4" marker-end="url(#arw)"/>
+  <path d="M774 322 H826" fill="none" stroke="#5c6b62" stroke-width="1.4" marker-end="url(#arw)"/>
+  <path d="M774 462 H826" fill="none" stroke="#5c6b62" stroke-width="1.4" marker-end="url(#arw)"/>
+  <path d="M612 536 C 612 566, 610 584, 612 592" fill="none" stroke="#8a978f" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#arwD)"/>
+  <path d="M706 536 C 736 566, 764 584, 794 592" fill="none" stroke="#8a978f" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#arwD)"/>
+  <text x="266" y="144" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">HTTPS</text>
+  <text x="266" y="226" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">HTTPS</text>
+  <text x="798" y="176" font-size="9.5" font-weight="650" fill="#8a978f" text-anchor="end" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">SQL</text>
+  <text x="798" y="316" font-size="9.5" font-weight="650" fill="#8a978f" text-anchor="end" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">SQL</text>
+  <text x="798" y="456" font-size="9.5" font-weight="650" fill="#8a978f" text-anchor="end" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">SQL</text>
+  <text x="620" y="570" font-size="9.5" font-weight="650" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">events</text>
+  <rect x="40" y="700" width="1100" height="38" rx="8" fill="#ffffff" stroke="#dfe3df" stroke-width="1.1"/>
+  <text x="58" y="724" font-size="11" font-weight="500" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">One database per service · cross-service references are opaque ids, never foreign keys · the gateway holds and serves the contract · admin and participant sessions are distinct audiences.</text>
+</svg>

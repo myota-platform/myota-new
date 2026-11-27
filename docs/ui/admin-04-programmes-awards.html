@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Programmes and awards · MyOTA Admin</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  tr.is-active td { background: var(--accent-soft); }
+  .cond { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+  .cond:last-of-type { border-bottom: 0; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span>MyOTA Admin<small>Operations console</small></span>
+    </div>
+
+    <nav aria-label="Admin sections">
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" href="admin-01-operations.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Operations
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Geodata</div>
+        <a class="nav-item" href="admin-02-geodata-review.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+          Review queue <span class="nav-count">24</span>
+        </a>
+        <a class="nav-item" href="admin-03-import-run.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+          Imports <span class="nav-count">3</span>
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          Entities
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Platform</div>
+        <a class="nav-item" href="admin-04-programmes-awards.html" aria-current="page">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-3a4 4 0 014-4h6a4 4 0 014 4v3"/></svg>
+          Programmes
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          Activity
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M17 11h5M19.5 8.5v5"/></svg>
+          Identity
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="avatar" aria-hidden="true">VK</span>
+      <span class="who"><strong>Volker K.</strong><span>Programme admin</span></span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="mobile-bar" id="navToggle" aria-label="Toggle navigation" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <h1>Programmes and awards</h1>
+      <div class="spacer"></div>
+      <button class="btn btn--primary btn--sm">New programme</button>
+    </header>
+
+    <main class="content">
+
+      <div class="tabs card" style="padding:0 8px">
+        <button class="tab" aria-selected="true">Programmes</button>
+        <button class="tab" aria-selected="false">Award definitions</button>
+        <button class="tab" aria-selected="false">Policy drafts</button>
+      </div>
+
+      <div class="grid grid--main-side">
+        <div class="stack">
+
+          <section class="card">
+            <div class="card-head"><h3>Programmes</h3><div class="spacer"></div><span class="xs faint">4 programmes</span></div>
+            <div class="card-body tight table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Name</th>
+                    <th scope="col">Slug</th>
+                    <th scope="col" class="num">Entities</th>
+                    <th scope="col" class="num">Activations</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="is-active">
+                    <td><strong>POTA-compatible</strong></td>
+                    <td class="mono xs">pota</td>
+                    <td class="num">8 412</td>
+                    <td class="num">2 194</td>
+                    <td><span class="badge badge--ok"><span class="dot"></span>Active</span></td>
+                    <td class="muted xs">2 h ago</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Coastal Lights</strong></td>
+                    <td class="mono xs">coastal</td>
+                    <td class="num">1 087</td>
+                    <td class="num">418</td>
+                    <td><span class="badge badge--ok"><span class="dot"></span>Active</span></td>
+                    <td class="muted xs">Yesterday</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Summits</strong></td>
+                    <td class="mono xs">summits</td>
+                    <td class="num">3 260</td>
+                    <td class="num">905</td>
+                    <td><span class="badge badge--ok"><span class="dot"></span>Active</span></td>
+                    <td class="muted xs">3 days ago</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Rivers &amp; Wetlands</strong></td>
+                    <td class="mono xs">wetlands</td>
+                    <td class="num">612</td>
+                    <td class="num">0</td>
+                    <td><span class="badge">Draft</span></td>
+                    <td class="muted xs">1 week ago</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h3>Coastal Activation 2026</h3>
+              <div class="spacer"></div>
+              <span class="badge badge--accent">Award definition</span>
+            </div>
+            <div class="card-body stack">
+              <dl class="dl">
+                <dt>Code</dt><dd class="mono xs">COASTAL-2026</dd>
+                <dt>Programme</dt><dd>Coastal Lights</dd>
+                <dt>Version</dt><dd>3 · published 2026-10-02</dd>
+                <dt>Levels</dt><dd>Bronze · Silver · Gold</dd>
+              </dl>
+
+              <div>
+                <div class="row xs" style="margin-bottom:4px"><span class="muted" style="font-weight:700;text-transform:uppercase;letter-spacing:.06em">Conditions</span></div>
+                <div class="cond">
+                  <span class="badge badge--warn">Bronze</span>
+                  <span class="small">Activate 5 distinct coastal entities in a calendar year</span>
+                  <span class="xs faint mono">5 / 5</span>
+                </div>
+                <div class="cond">
+                  <span class="badge" style="background:var(--surface-3);color:var(--text-muted)">Silver</span>
+                  <span class="small">Activate 12 distinct coastal entities, 3 at night</span>
+                  <span class="xs faint mono">12 / 12</span>
+                </div>
+                <div class="cond">
+                  <span class="badge badge--info">Gold</span>
+                  <span class="small">Activate 20 entities across 3 jurisdictions</span>
+                  <span class="xs faint mono">20 / 20</span>
+                </div>
+              </div>
+
+              <div>
+                <div class="row xs"><span class="muted">Evaluation coverage</span><span class="spacer"></span><span class="mono">82%</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="Evaluation coverage 82 percent"><span style="width:82%"></span></div>
+                <div class="xs faint" style="margin-top:5px">1 053 of 1 284 participants evaluated · last run 06:00</div>
+              </div>
+
+              <div class="row">
+                <button class="btn btn--sm">Preview as participant</button>
+                <button class="btn btn--sm">Recalculate</button>
+                <div class="spacer"></div>
+                <button class="btn btn--primary btn--sm">Publish version 4</button>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <div class="stack">
+          <section class="card">
+            <div class="card-head">
+              <h3>Policy draft</h3>
+              <div class="spacer"></div>
+              <span class="badge badge--warn">In review</span>
+            </div>
+            <div class="card-body stack">
+              <dl class="dl">
+                <dt>Programme</dt><dd>Coastal Lights</dd>
+                <dt>Draft</dt><dd>v4</dd>
+                <dt>Author</dt><dd>Volker K.</dd>
+                <dt>Reviewer</dt><dd>Marta R.</dd>
+                <dt>Changed</dt><dd class="xs">3 rule clauses</dd>
+              </dl>
+              <p class="xs muted" style="margin:0">
+                Adds a night-activation clause and tightens the jurisdiction requirement for Gold.
+                Publishing affects future evaluations only; issued awards are not recalled.
+              </p>
+              <div class="row">
+                <button class="btn btn--sm">Send back</button>
+                <div class="spacer"></div>
+                <button class="btn btn--primary btn--sm">Approve</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Programme coverage</h3></div>
+            <div class="card-body stack">
+              <div>
+                <div class="row xs"><span>POTA-compatible</span><span class="spacer"></span><span class="mono">8 412</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="POTA coverage 91 percent"><span style="width:91%"></span></div>
+              </div>
+              <div>
+                <div class="row xs"><span>Summits</span><span class="spacer"></span><span class="mono">3 260</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="Summits coverage 64 percent"><span style="width:64%"></span></div>
+              </div>
+              <div>
+                <div class="row xs"><span>Coastal Lights</span><span class="spacer"></span><span class="mono">1 087</span></div>
+                <div class="progress progress--warn" style="margin-top:6px" role="img" aria-label="Coastal coverage 38 percent"><span style="width:38%"></span></div>
+              </div>
+              <p class="xs faint" style="margin:4px 0 0">Coverage is published entities over the estimated eligible total for the programme's area of interest.</p>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Recent changes</h3></div>
+            <div class="card-body stack">
+              <div><div class="small">Policy v4 submitted</div><div class="xs faint">Volker K. · 2 h ago</div></div>
+              <div><div class="small">Award version 3 published</div><div class="xs faint">Marta R. · 2026-10-02</div></div>
+              <div><div class="small">Wetlands programme created</div><div class="xs faint">Volker K. · 1 week ago</div></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<span class="mockup-note">Mockup · <a href="index.html">all mockups</a></span>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', function () {
+    var s = document.getElementById('sidebar');
+    var open = s.classList.toggle('is-open');
+    this.setAttribute('aria-expanded', String(open));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geodata review · MyOTA Admin</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .cand {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 10px;
+    padding: 11px 14px; border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  .cand:hover { background: var(--surface-2); }
+  .cand[aria-selected="true"] { background: var(--accent-soft); }
+  .cand:last-child { border-bottom: 0; }
+  .cand-name { font-size: var(--step-1); font-weight: 650; margin-bottom: 3px; }
+  .cand-meta { font-size: .75rem; color: var(--text-muted); }
+  .conf { font-size: .75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cand-list { max-height: 460px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span>MyOTA Admin<small>Operations console</small></span>
+    </div>
+
+    <nav aria-label="Admin sections">
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" href="admin-01-operations.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Operations
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Geodata</div>
+        <a class="nav-item" href="admin-02-geodata-review.html" aria-current="page">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+          Review queue <span class="nav-count">24</span>
+        </a>
+        <a class="nav-item" href="admin-03-import-run.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+          Imports <span class="nav-count">3</span>
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          Entities
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Platform</div>
+        <a class="nav-item" href="admin-04-programmes-awards.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-3a4 4 0 014-4h6a4 4 0 014 4v3"/></svg>
+          Programmes
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          Activity
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M17 11h5M19.5 8.5v5"/></svg>
+          Identity
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="avatar" aria-hidden="true">VK</span>
+      <span class="who"><strong>Volker K.</strong><span>Programme admin</span></span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="mobile-bar" id="navToggle" aria-label="Toggle navigation" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <h1>Geodata review</h1>
+      <div class="spacer"></div>
+      <span class="badge badge--warn">24 pending</span>
+    </header>
+
+    <main class="content">
+
+      <section class="card">
+        <div class="card-body">
+          <div class="row">
+            <div class="search">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+              <label class="sr-only" for="q">Search candidates</label>
+              <input id="q" type="search" placeholder="Search by name, source or reference">
+            </div>
+            <label class="sr-only" for="prog">Programme</label>
+            <select class="select" id="prog">
+              <option selected>All programmes</option>
+              <option>POTA-compatible</option>
+              <option>Coastal Lights</option>
+              <option>Summits</option>
+            </select>
+            <label class="sr-only" for="etype">Entity type</label>
+            <select class="select" id="etype">
+              <option selected>All types</option>
+              <option>Protected area</option>
+              <option>Summit</option>
+              <option>Lighthouse</option>
+            </select>
+            <div class="spacer"></div>
+            <button class="btn">Reject selected</button>
+            <button class="btn btn--primary">Bulk approve</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid grid--side-main">
+
+        <section class="card">
+          <div class="card-head">
+            <h3>Candidates</h3>
+            <div class="spacer"></div>
+            <span class="xs faint">Sorted by confidence</span>
+          </div>
+          <div class="card-body tight cand-list">
+
+            <div class="cand" aria-selected="true">
+              <input type="checkbox" aria-label="Select Puerto de las Palomas" checked>
+              <div>
+                <div class="cand-name">Puerto de las Palomas</div>
+                <div class="cand-meta">Summit · Sierra de Grazalema · IGN BTN25</div>
+              </div>
+              <span class="conf" style="color:var(--ok)">98%</span>
+            </div>
+
+            <div class="cand">
+              <input type="checkbox" aria-label="Select Faro de Trafalgar">
+              <div>
+                <div class="cand-name">Faro de Trafalgar</div>
+                <div class="cand-meta">Lighthouse · Costa de Cádiz · OSM PBF</div>
+              </div>
+              <span class="conf" style="color:var(--ok)">96%</span>
+            </div>
+
+            <div class="cand">
+              <input type="checkbox" aria-label="Select Veluwe Zoom">
+              <div>
+                <div class="cand-name">Veluwe Zoom</div>
+                <div class="cand-meta">Protected area · Gelderland · Natura 2000</div>
+              </div>
+              <span class="conf" style="color:var(--ok)">94%</span>
+            </div>
+
+            <div class="cand">
+              <input type="checkbox" aria-label="Select Lusen Gipfel">
+              <div>
+                <div class="cand-name">Lusen Gipfel</div>
+                <div class="cand-meta">Summit · Bayerischer Wald · OSM PBF</div>
+              </div>
+              <span class="conf" style="color:var(--warn)">87%</span>
+            </div>
+
+            <div class="cand">
+              <input type="checkbox" aria-label="Select Cabo de Gata">
+              <div>
+                <div class="cand-name">Cabo de Gata — Punta de los Frailes</div>
+                <div class="cand-meta">Protected area · Almería · Community proposal</div>
+              </div>
+              <span class="conf" style="color:var(--warn)">82%</span>
+            </div>
+
+            <div class="cand">
+              <input type="checkbox" aria-label="Select Serra de Tramuntana">
+              <div>
+                <div class="cand-name">Serra de Tramuntana</div>
+                <div class="cand-meta">Protected area · Mallorca · WFS GeoJSON</div>
+              </div>
+              <span class="conf" style="color:var(--danger)">61%</span>
+            </div>
+
+          </div>
+        </section>
+
+        <div class="stack">
+          <div class="map" style="min-height:420px">
+            <svg class="map-art" viewBox="0 0 640 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <path d="M0 300 Q 120 250 210 292 T 420 268 T 640 300 L640 420 L0 420 Z" fill="#dfe7e1" opacity=".55"/>
+              <path d="M0 336 Q 150 300 300 336 T 640 344 L640 420 L0 420 Z" fill="#cfdcd3" opacity=".5"/>
+              <path d="M40 268 L120 190 L186 248 L268 150 L352 236 L430 168 L512 244 L600 196" fill="none" stroke="#b9c9be" stroke-width="2"/>
+              <path d="M40 300 L120 222 L186 280 L268 182 L352 268 L430 200 L512 276 L600 228" fill="none" stroke="#c8d5cb" stroke-width="1.5"/>
+              <path d="M92 150 q60 -40 130 -8 t120 4" fill="none" stroke="#ccd9d0" stroke-width="1.2"/>
+              <path d="M380 96 q70 30 140 -6" fill="none" stroke="#ccd9d0" stroke-width="1.2"/>
+              <circle cx="176" cy="120" r="46" fill="#c3d3c8" opacity=".45"/>
+              <circle cx="470" cy="300" r="60" fill="#c3d3c8" opacity=".4"/>
+            </svg>
+
+            <span class="map-pin" style="left:32%;top:38%"></span>
+            <span class="map-pin" style="left:58%;top:52%"></span>
+            <span class="map-pin map-pin--info" style="left:44%;top:64%"></span>
+            <span class="map-pin map-pin--warn" style="left:70%;top:34%"></span>
+            <span class="map-pin map-pin--warn" style="left:22%;top:56%"></span>
+            <span class="map-pin map-pin--danger" style="left:84%;top:62%"></span>
+
+            <div class="map-controls">
+              <button type="button" aria-label="Zoom in">+</button>
+              <button type="button" aria-label="Zoom out">−</button>
+              <button type="button" aria-label="Fit to extent"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+            </div>
+
+            <div class="map-overlay map-legend">
+              <div class="row"><span class="map-pin" style="position:static;transform:none;rotate:0deg;width:10px;height:10px;border-radius:50%"></span> High confidence</div>
+              <div class="row"><span class="map-pin map-pin--warn" style="position:static;transform:none;rotate:0deg;width:10px;height:10px;border-radius:50%"></span> Needs review</div>
+              <div class="row"><span class="map-pin map-pin--danger" style="position:static;transform:none;rotate:0deg;width:10px;height:10px;border-radius:50%"></span> Possible duplicate</div>
+            </div>
+          </div>
+
+          <section class="card">
+            <div class="card-head">
+              <h3>Puerto de las Palomas</h3>
+              <div class="spacer"></div>
+              <span class="badge badge--accent">Summit</span>
+            </div>
+            <div class="card-body stack">
+              <dl class="dl">
+                <dt>Type</dt><dd>Summit · 1 358 m</dd>
+                <dt>Coordinates</dt><dd class="mono">36.7694, −5.4167</dd>
+                <dt>Programme</dt><dd>Summits</dd>
+                <dt>Source adapter</dt><dd>shapefile</dd>
+                <dt>Snapshot</dt><dd class="mono xs">btn25-2026-11.sha256 9f2c…a41e</dd>
+                <dt>Confidence</dt><dd><span class="badge badge--ok">98%</span></dd>
+              </dl>
+              <p class="xs muted" style="margin:0">
+                Provenance: IGN BTN25 (CC-BY 4.0), feature <span class="mono">BTN25_1106_2</span>.
+                Snapshot retrieved 2026-11-24 by <span class="mono">import.fetch</span>.
+              </p>
+              <div class="row">
+                <button class="btn btn--danger btn--sm">Reject</button>
+                <button class="btn btn--sm">Needs info</button>
+                <div class="spacer"></div>
+                <button class="btn btn--primary btn--sm">Approve &amp; publish</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" style="border-color:var(--warn)">
+            <div class="card-body">
+              <div class="row"><span class="badge badge--warn">Conflation</span><span class="small" style="font-weight:600">Possible duplicate</span></div>
+              <p class="small" style="margin:8px 0 10px">
+                Matches published entity <strong>Puerto de las Palomas (Norte)</strong> at
+                38 m distance, score 0.91. Merging updates the existing entity rather than creating a second one.
+              </p>
+              <button class="btn btn--sm">Resolve conflation</button>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<span class="mockup-note">Mockup · <a href="index.html">all mockups</a></span>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', function () {
+    var s = document.getElementById('sidebar');
+    var open = s.classList.toggle('is-open');
+    this.setAttribute('aria-expanded', String(open));
+  });
+</script>
+</body>
+</html>

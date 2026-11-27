@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live activation · MyOTA</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .mobile-nav { display: none; gap: 4px; overflow-x: auto; padding: 8px 14px; }
+  .mobile-nav a {
+    padding: 7px 12px; border-radius: var(--radius-pill); font-size: var(--step-1);
+    font-weight: 600; color: var(--text-muted); white-space: nowrap; background: var(--surface-3);
+  }
+  .mobile-nav a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+  @media (max-width: 780px) { .mobile-nav { display: flex; } }
+
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: currentColor;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+  .timer {
+    font-family: var(--font-mono); font-size: var(--step4); font-weight: 700;
+    letter-spacing: -.02em; font-variant-numeric: tabular-nums;
+  }
+  .qso-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .qso-form .field { display: flex; flex-direction: column; gap: 5px; }
+  .qso-form label { font-size: .75rem; font-weight: 650; color: var(--text-faint); text-transform: uppercase; letter-spacing: .05em; }
+  .qso-form .wide { grid-column: 1 / -1; }
+  .qso-form input.call { font-size: var(--step2); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+  @media (max-width: 560px) { .qso-form { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header class="plain-header">
+  <div class="plain-header-inner">
+    <span class="brand" style="padding:0">
+      <span class="brand-mark" aria-hidden="true">M</span>
+      <span>MyOTA</span>
+    </span>
+    <nav class="plain-nav" aria-label="Main">
+      <a href="participant-01-home.html">Discover</a>
+      <a href="participant-02-map.html">Map</a>
+      <a href="participant-03-activation.html" aria-current="page">Activate</a>
+      <a href="participant-04-awards.html">Awards</a>
+      <a href="#">Account</a>
+    </nav>
+    <div class="spacer"></div>
+    <a href="#" class="avatar" aria-label="Signed in as EA7KLK">EA</a>
+  </div>
+</header>
+
+<nav class="mobile-nav" aria-label="Main mobile">
+  <a href="participant-01-home.html">Discover</a>
+  <a href="participant-02-map.html">Map</a>
+  <a href="participant-03-activation.html" aria-current="page">Activate</a>
+  <a href="participant-04-awards.html">Awards</a>
+  <a href="#">Account</a>
+</nav>
+
+<main class="page">
+
+  <section class="card">
+    <div class="card-body">
+      <div class="row">
+        <div>
+          <div class="row row--tight" style="margin-bottom:4px">
+            <span class="badge badge--ok"><span class="live-dot"></span>Live</span>
+            <span class="xs faint">POTA-compatible · ES-POTA-0431</span>
+          </div>
+          <h1 style="font-size:var(--step3)">EA7KLK/P — Cabo de Gata</h1>
+        </div>
+        <div class="spacer"></div>
+        <div style="text-align:right">
+          <div class="timer">02:14:37</div>
+          <div class="xs faint">elapsed</div>
+        </div>
+        <button class="btn">Share</button>
+        <button class="btn btn--danger">Stop activation</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid grid--kpi">
+    <div class="card kpi"><span class="kpi-label">QSOs</span><span class="kpi-value">147</span></div>
+    <div class="card kpi"><span class="kpi-label">Unique callsigns</span><span class="kpi-value">96</span></div>
+    <div class="card kpi"><span class="kpi-label">Bands</span><span class="kpi-value">4</span></div>
+    <div class="card kpi"><span class="kpi-label">Points</span><span class="kpi-value">312</span></div>
+  </section>
+
+  <div class="grid grid--main-side">
+
+    <div class="stack">
+
+      <section class="card">
+        <div class="card-head"><h3>Log a QSO</h3><div class="spacer"></div><span class="xs faint">Enter submits</span></div>
+        <div class="card-body">
+          <form class="qso-form" onsubmit="return false">
+            <div class="field wide">
+              <label for="call">Worked callsign</label>
+              <input class="input call" id="call" value="DL1ABC" autocomplete="off" autofocus>
+            </div>
+            <div class="field">
+              <label for="band">Band</label>
+              <select class="select" id="band">
+                <option>20 m</option>
+                <option selected>40 m</option>
+                <option>15 m</option>
+                <option>2 m</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="mode">Mode</label>
+              <select class="select" id="mode">
+                <option selected>SSB</option>
+                <option>CW</option>
+                <option>FT8</option>
+                <option>FM</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rsts">RST sent</label>
+              <input class="input" id="rsts" value="59">
+            </div>
+            <div class="field">
+              <label for="rstr">RST received</label>
+              <input class="input" id="rstr" value="57">
+            </div>
+            <div class="wide">
+              <button class="btn btn--primary" style="width:100%">Log QSO</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>Recent QSOs</h3><div class="spacer"></div><span class="xs faint">last 8 of 147</span></div>
+        <div class="card-body tight table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Time</th>
+                <th scope="col">Callsign</th>
+                <th scope="col">Band</th>
+                <th scope="col">Mode</th>
+                <th scope="col">RST</th>
+                <th scope="col" class="num">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="mono xs">14:26</td><td class="mono">DL1ABC</td><td>40 m</td><td>SSB</td><td class="mono">59/57</td><td class="num">2</td></tr>
+              <tr><td class="mono xs">14:24</td><td class="mono">PA3XYZ</td><td>40 m</td><td>SSB</td><td class="mono">59/59</td><td class="num">2</td></tr>
+              <tr><td class="mono xs">14:21</td><td class="mono">F4HOF</td><td>20 m</td><td>CW</td><td class="mono">599/579</td><td class="num">4</td></tr>
+              <tr><td class="mono xs">14:19</td><td class="mono">EA7KLK</td><td>20 m</td><td>FT8</td><td class="mono">-08/-12</td><td class="num">1</td></tr>
+              <tr><td class="mono xs">14:16</td><td class="mono">DL8WX</td><td>15 m</td><td>SSB</td><td class="mono">58/56</td><td class="num">3</td></tr>
+              <tr><td class="mono xs">14:12</td><td class="mono">EA5ABC</td><td>40 m</td><td>SSB</td><td class="mono">59/58</td><td class="num">2</td></tr>
+              <tr><td class="mono xs">14:08</td><td class="mono">G4XYZ</td><td>20 m</td><td>SSB</td><td class="mono">57/55</td><td class="num">4</td></tr>
+              <tr><td class="mono xs">14:02</td><td class="mono">ON4ABC</td><td>40 m</td><td>CW</td><td class="mono">599/599</td><td class="num">2</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="stack">
+      <section class="card">
+        <div class="card-head"><h3>Band breakdown</h3></div>
+        <div class="card-body stack">
+          <div>
+            <div class="row xs"><span>40 m</span><span class="spacer"></span><span class="mono">63</span></div>
+            <div class="progress" style="margin-top:5px" role="img" aria-label="40 metres 43 percent"><span style="width:43%"></span></div>
+          </div>
+          <div>
+            <div class="row xs"><span>20 m</span><span class="spacer"></span><span class="mono">48</span></div>
+            <div class="progress" style="margin-top:5px" role="img" aria-label="20 metres 33 percent"><span style="width:33%"></span></div>
+          </div>
+          <div>
+            <div class="row xs"><span>15 m</span><span class="spacer"></span><span class="mono">24</span></div>
+            <div class="progress" style="margin-top:5px" role="img" aria-label="15 metres 16 percent"><span style="width:16%"></span></div>
+          </div>
+          <div>
+            <div class="row xs"><span>2 m</span><span class="spacer"></span><span class="mono">12</span></div>
+            <div class="progress" style="margin-top:5px" role="img" aria-label="2 metres 8 percent"><span style="width:8%"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-body stack" style="gap:9px">
+          <div class="row"><span class="small" style="font-weight:650">Recent spots</span><div class="spacer"></div><span class="xs faint">spotting</span></div>
+          <div class="xs muted">14:22 · DL1ABC spotted you on 40 m SSB</div>
+          <div class="xs muted">14:10 · F4HOF spotted you on 20 m CW</div>
+          <div class="xs muted">13:58 · EA5ABC spotted you on 40 m SSB</div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h3>Location</h3></div>
+        <div class="card-body tight">
+          <div class="map" style="min-height:180px;border-radius:0 0 var(--radius) var(--radius);border:0">
+            <svg class="map-art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <rect width="400" height="200" fill="#eef2ef"/>
+              <path d="M0 120 Q 90 96 180 128 T 400 140 L400 200 L0 200 Z" fill="#d5e3e7" opacity=".9"/>
+              <path d="M0 150 Q 120 128 240 156 T 400 162 L400 200 L0 200 Z" fill="#c7dade" opacity=".85"/>
+              <path d="M0 120 Q 90 96 180 128 T 400 140" fill="none" stroke="#b7c9c2" stroke-width="2"/>
+              <path d="M40 60 L120 30 L200 66 L280 36 L350 72" fill="none" stroke="#d8e2da" stroke-width="1.6"/>
+            </svg>
+            <span class="map-pin" style="left:46%;top:48%"></span>
+            <div class="map-overlay map-legend" style="left:10px;bottom:10px;padding:6px 9px">
+              <div class="row xs"><span class="mono">36.7256, −2.1934</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+</main>
+
+<span class="mockup-note">Mockup · <a href="index.html">all mockups</a></span>
+</body>
+</html>

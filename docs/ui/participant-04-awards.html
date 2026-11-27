@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Awards · MyOTA</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .mobile-nav { display: none; gap: 4px; overflow-x: auto; padding: 8px 14px; }
+  .mobile-nav a {
+    padding: 7px 12px; border-radius: var(--radius-pill); font-size: var(--step-1);
+    font-weight: 600; color: var(--text-muted); white-space: nowrap; background: var(--surface-3);
+  }
+  .mobile-nav a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+  @media (max-width: 780px) { .mobile-nav { display: flex; } }
+
+  .award { display: flex; flex-direction: column; gap: 10px; }
+  .medal {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--accent-soft); color: var(--accent-strong);
+    display: grid; place-items: center;
+  }
+  .medal--gold { background: var(--warn-soft); color: var(--warn); }
+  .banner {
+    border-radius: var(--radius-lg); padding: 24px;
+    background: radial-gradient(700px 220px at 92% -20%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 70%), linear-gradient(150deg, var(--surface), var(--surface-2));
+    border: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<header class="plain-header">
+  <div class="plain-header-inner">
+    <span class="brand" style="padding:0">
+      <span class="brand-mark" aria-hidden="true">M</span>
+      <span>MyOTA</span>
+    </span>
+    <nav class="plain-nav" aria-label="Main">
+      <a href="participant-01-home.html">Discover</a>
+      <a href="participant-02-map.html">Map</a>
+      <a href="participant-03-activation.html">Activate</a>
+      <a href="participant-04-awards.html" aria-current="page">Awards</a>
+      <a href="#">Account</a>
+    </nav>
+    <div class="spacer"></div>
+    <a href="#" class="avatar" aria-label="Signed in as EA7KLK">EA</a>
+  </div>
+</header>
+
+<nav class="mobile-nav" aria-label="Main mobile">
+  <a href="participant-01-home.html">Discover</a>
+  <a href="participant-02-map.html">Map</a>
+  <a href="participant-03-activation.html">Activate</a>
+  <a href="participant-04-awards.html" aria-current="page">Awards</a>
+  <a href="#">Account</a>
+</nav>
+
+<main class="page">
+
+  <section class="banner">
+    <div class="row">
+      <div>
+        <h1 style="font-size:var(--step4)">Your awards</h1>
+        <p class="muted" style="margin:8px 0 0;max-width:60ch">
+          Four awards in progress, one issued this year. Progress is evaluated nightly against
+          the current published rules.
+        </p>
+      </div>
+      <div class="spacer"></div>
+      <div class="row">
+        <button class="btn">My requests</button>
+        <button class="btn btn--primary">Browse awards</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid grid--2">
+
+    <article class="card">
+      <div class="card-body award">
+        <div class="row">
+          <span class="medal" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M9 13.5L7.5 21l4.5-2.6L16.5 21 15 13.5"/></svg>
+          </span>
+          <div class="spacer"></div>
+          <span class="badge badge--warn">In progress</span>
+        </div>
+        <div>
+          <h4 style="margin-bottom:2px">Coastal Activation 2026</h4>
+          <p class="small muted" style="margin:0">Coastal Lights · Bronze level</p>
+        </div>
+        <div>
+          <div class="row xs"><span>Places activated</span><span class="spacer"></span><span class="mono">3 / 5</span></div>
+          <div class="progress" style="margin-top:6px" role="img" aria-label="3 of 5 places"><span style="width:60%"></span></div>
+        </div>
+        <a class="small" href="#">View details</a>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-body award">
+        <div class="row">
+          <span class="medal" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6-5.4-3-5.4 3 1.2-6L3.3 9.4l6.1-.8z"/></svg>
+          </span>
+          <div class="spacer"></div>
+          <span class="badge badge--accent">Eligible</span>
+        </div>
+        <div>
+          <h4 style="margin-bottom:2px">Summits Explorer</h4>
+          <p class="small muted" style="margin:0">Summits · Silver level</p>
+        </div>
+        <div>
+          <div class="row xs"><span>Distinct summits</span><span class="spacer"></span><span class="mono">12 / 12</span></div>
+          <div class="progress" style="margin-top:6px" role="img" aria-label="12 of 12 summits"><span style="width:100%"></span></div>
+        </div>
+        <a class="small" href="#">Request award</a>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-body award">
+        <div class="row">
+          <span class="medal medal--gold" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M9 13.5L7.5 21l4.5-2.6L16.5 21 15 13.5"/></svg>
+          </span>
+          <div class="spacer"></div>
+          <span class="badge badge--ok">Issued</span>
+        </div>
+        <div>
+          <h4 style="margin-bottom:2px">Parks Bronze 2026</h4>
+          <p class="small muted" style="margin:0">POTA-compatible · Bronze level</p>
+        </div>
+        <div>
+          <div class="row xs"><span>Issued</span><span class="spacer"></span><span class="mono">2026-08-14</span></div>
+          <div class="progress" style="margin-top:6px" role="img" aria-label="Completed"><span style="width:100%"></span></div>
+        </div>
+        <div class="row">
+          <button class="btn btn--ghost btn--sm">Download certificate</button>
+          <div class="spacer"></div>
+          <a class="small" href="#">View details</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="card">
+      <div class="card-body award">
+        <div class="row">
+          <span class="medal" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          </span>
+          <div class="spacer"></div>
+          <span class="badge badge--warn">In progress</span>
+        </div>
+        <div>
+          <h4 style="margin-bottom:2px">Night Operator</h4>
+          <p class="small muted" style="margin:0">Coastal Lights · Endorsement</p>
+        </div>
+        <div>
+          <div class="row xs"><span>Night activations</span><span class="spacer"></span><span class="mono">2 / 6</span></div>
+          <div class="progress" style="margin-top:6px" role="img" aria-label="2 of 6 night activations"><span style="width:33%"></span></div>
+        </div>
+        <a class="small" href="#">View details</a>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="grid grid--main-side">
+
+    <section class="card">
+      <div class="card-head"><h3>Recent awards issued</h3></div>
+      <div class="card-body tight table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Award</th>
+              <th scope="col">Programme</th>
+              <th scope="col">Issued</th>
+              <th scope="col">Certificate</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Parks Bronze 2026</strong></td>
+              <td>POTA-compatible</td>
+              <td class="muted xs">2026-08-14</td>
+              <td><a class="small" href="#">Download</a></td>
+            </tr>
+            <tr>
+              <td><strong>Summits Bronze 2026</strong></td>
+              <td>Summits</td>
+              <td class="muted xs">2026-06-02</td>
+              <td><a class="small" href="#">Download</a></td>
+            </tr>
+            <tr>
+              <td><strong>First Activation</strong></td>
+              <td>POTA-compatible</td>
+              <td class="muted xs">2026-02-19</td>
+              <td><a class="small" href="#">Download</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="stack">
+      <section class="card">
+        <div class="card-head"><h3>Progress by programme</h3></div>
+        <div class="card-body stack">
+          <div>
+            <div class="row xs"><span>POTA-compatible</span><span class="spacer"></span><span class="mono">24 entities</span></div>
+            <div class="progress" style="margin-top:6px" role="img" aria-label="POTA progress 58 percent"><span style="width:58%"></span></div>
+          </div>
+          <div>
+            <div class="row xs"><span>Summits</span><span class="spacer"></span><span class="mono">12 summits</span></div>
+            <div class="progress" style="margin-top:6px" role="img" aria-label="Summits progress 44 percent"><span style="width:44%"></span></div>
+          </div>
+          <div>
+            <div class="row xs"><span>Coastal Lights</span><span class="spacer"></span><span class="mono">3 lighthouses</span></div>
+            <div class="progress" style="margin-top:6px" role="img" aria-label="Coastal progress 15 percent"><span style="width:15%"></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-body">
+          <div class="row row--tight" style="margin-bottom:6px">
+            <span class="badge badge--accent">Next milestone</span>
+          </div>
+          <p class="small" style="margin:0">
+            Two more coastal activations unlock <strong>Coastal Activation 2026 · Bronze</strong>.
+            The nearest eligible places are <strong>Faro de Trafalgar</strong> (28 km) and
+            <strong>Cabo de Gata</strong> (34 km).
+          </p>
+          <div class="row" style="margin-top:12px">
+            <a class="btn btn--sm" href="participant-02-map.html">Find places</a>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+</main>
+
+<span class="mockup-note">Mockup · <a href="index.html">all mockups</a></span>
+</body>
+</html>

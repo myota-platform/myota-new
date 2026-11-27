@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operations overview · MyOTA Admin</title>
+<link rel="stylesheet" href="assets/mockup.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span>MyOTA Admin<small>Operations console</small></span>
+    </div>
+
+    <nav aria-label="Admin sections">
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" href="admin-01-operations.html" aria-current="page">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Operations
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Geodata</div>
+        <a class="nav-item" href="admin-02-geodata-review.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+          Review queue <span class="nav-count">24</span>
+        </a>
+        <a class="nav-item" href="admin-03-import-run.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+          Imports <span class="nav-count">3</span>
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          Entities
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Platform</div>
+        <a class="nav-item" href="admin-04-programmes-awards.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-3a4 4 0 014-4h6a4 4 0 014 4v3"/></svg>
+          Programmes
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          Activity
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M17 11h5M19.5 8.5v5"/></svg>
+          Identity
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="avatar" aria-hidden="true">VK</span>
+      <span class="who"><strong>Volker K.</strong><span>Programme admin</span></span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="mobile-bar" id="navToggle" aria-label="Toggle navigation" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <h1>Operations overview</h1>
+      <div class="spacer"></div>
+      <label class="sr-only" for="range">Date range</label>
+      <select class="select" id="range">
+        <option>Last 7 days</option>
+        <option selected>Last 30 days</option>
+        <option>Last 90 days</option>
+      </select>
+      <button class="btn">Export</button>
+    </header>
+
+    <main class="content">
+
+      <section class="grid grid--kpi" aria-label="Key metrics">
+        <div class="card kpi">
+          <span class="kpi-label">Active imports</span>
+          <span class="kpi-value">3</span>
+          <span class="kpi-delta kpi-delta--up">+2 since yesterday</span>
+          <span class="kpi-foot">of 6 runs this week</span>
+        </div>
+        <div class="card kpi">
+          <span class="kpi-label">Pending review</span>
+          <span class="kpi-value">24</span>
+          <span class="kpi-delta kpi-delta--up">+8</span>
+          <span class="kpi-foot">oldest 4 days</span>
+        </div>
+        <div class="card kpi">
+          <span class="kpi-label">Failed jobs</span>
+          <span class="kpi-value">2</span>
+          <span class="kpi-delta kpi-delta--down">needs attention</span>
+          <span class="kpi-foot">geodata · import.fetch</span>
+        </div>
+        <div class="card kpi">
+          <span class="kpi-label">Active participants</span>
+          <span class="kpi-value">1 284</span>
+          <span class="kpi-delta kpi-delta--up">+62</span>
+          <span class="kpi-foot">activated in last 30 days</span>
+        </div>
+      </section>
+
+      <div class="grid grid--main-side">
+
+        <div class="stack">
+          <section class="card">
+            <div class="card-head">
+              <h3>Recent import runs</h3>
+              <div class="spacer"></div>
+              <a class="btn btn--sm" href="admin-03-import-run.html">Open run detail</a>
+            </div>
+            <div class="card-body tight table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Run</th>
+                    <th scope="col">Source</th>
+                    <th scope="col">Stage</th>
+                    <th scope="col" class="num">Progress</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="mono">run-0042<div class="xs faint" style="font-family:var(--font);font-weight:400">09:12</div></td>
+                    <td>IGN BTN25</td>
+                    <td>Conflate</td>
+                    <td class="num">1 284 / 4 190</td>
+                    <td><span class="badge badge--info"><span class="dot"></span>Running</span></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">run-0041<div class="xs faint" style="font-family:var(--font);font-weight:400">08:40</div></td>
+                    <td>OSM PBF · Spain</td>
+                    <td>Review</td>
+                    <td class="num">892 / 892</td>
+                    <td><span class="badge badge--warn"><span class="dot"></span>In review</span></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">run-0040<div class="xs faint" style="font-family:var(--font);font-weight:400">07:55</div></td>
+                    <td>Natura 2000</td>
+                    <td>Publish</td>
+                    <td class="num">2 140 / 2 140</td>
+                    <td><span class="badge badge--ok"><span class="dot"></span>Complete</span></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">run-0039<div class="xs faint" style="font-family:var(--font);font-weight:400">07:31</div></td>
+                    <td>Bayerischer Wald</td>
+                    <td>Validate</td>
+                    <td class="num">410 / 3 002</td>
+                    <td><span class="badge badge--info"><span class="dot"></span>Running</span></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">run-0038<div class="xs faint" style="font-family:var(--font);font-weight:400">06:58</div></td>
+                    <td>Veluwe GPX</td>
+                    <td>—</td>
+                    <td class="num">0 / 186</td>
+                    <td><span class="badge badge--danger"><span class="dot"></span>Failed</span></td>
+                  </tr>
+                  <tr>
+                    <td class="mono">run-0037<div class="xs faint" style="font-family:var(--font);font-weight:400">Yesterday</div></td>
+                    <td>Community</td>
+                    <td>Review</td>
+                    <td class="num">14 / 14</td>
+                    <td><span class="badge badge--warn"><span class="dot"></span>In review</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h3>Imports per week</h3>
+              <div class="spacer"></div>
+              <span class="xs muted">Last 12 weeks · 63 runs</span>
+            </div>
+            <div class="card-body">
+              <div class="bars" role="img" aria-label="Bar chart of import runs per week over twelve weeks, rising from 3 to 9">
+                <div style="height:33%"></div>
+                <div style="height:41%"></div>
+                <div style="height:29%"></div>
+                <div style="height:54%"></div>
+                <div style="height:62%"></div>
+                <div style="height:49%"></div>
+                <div style="height:71%"></div>
+                <div style="height:66%"></div>
+                <div style="height:83%"></div>
+                <div style="height:77%"></div>
+                <div style="height:91%"></div>
+                <div style="height:100%"></div>
+              </div>
+              <div class="row xs faint" style="justify-content:space-between;margin-top:8px">
+                <span>W36</span><span>W38</span><span>W40</span><span>W42</span><span>W44</span><span>W47</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="stack">
+          <section class="card">
+            <div class="card-head"><h3>Service health</h3></div>
+            <div class="card-body stack">
+              <div class="row"><span class="small">core</span><span class="spacer"></span><span class="xs faint mono">18 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">geodata</span><span class="spacer"></span><span class="xs faint mono">34 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">activity</span><span class="spacer"></span><span class="xs faint mono">21 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">gateway</span><span class="spacer"></span><span class="xs faint mono">4 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Queue depth</h3></div>
+            <div class="card-body stack">
+              <div>
+                <div class="row xs"><span>geodata · import</span><span class="spacer"></span><span class="muted mono">3 / 4</span></div>
+                <div class="progress progress--warn" style="margin-top:6px" role="img" aria-label="Import queue 75 percent"><span style="width:75%"></span></div>
+              </div>
+              <div>
+                <div class="row xs"><span>geodata · enrich</span><span class="spacer"></span><span class="muted mono">12</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="Enrichment queue 24 percent"><span style="width:24%"></span></div>
+              </div>
+              <div>
+                <div class="row xs"><span>activity · award</span><span class="spacer"></span><span class="muted mono">41</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="Award queue 41 percent"><span style="width:41%"></span></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Recent alerts</h3><div class="spacer"></div><span class="badge badge--danger">2</span></div>
+            <div class="card-body stack">
+              <div>
+                <div class="row row--tight"><span class="badge badge--danger">Failed</span><span class="xs faint">06:58</span></div>
+                <p class="small" style="margin:6px 0 0">run-0038 · Veluwe GPX — adapter rejected the archive (missing .dbf).</p>
+              </div>
+              <div>
+                <div class="row row--tight"><span class="badge badge--warn">Slow</span><span class="xs faint">05:20</span></div>
+                <p class="small" style="margin:6px 0 0">geodata-worker p95 batch time 71 s, above the 45 s budget.</p>
+              </div>
+              <div>
+                <div class="row row--tight"><span class="badge badge--info">Info</span><span class="xs faint">Yesterday</span></div>
+                <p class="small" style="margin:6px 0 0">MFA enforced for all admin accounts.</p>
+              </div>
+            </div>
+          </section>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<span class="mockup-note">Mockup · <a href="index.html">all mockups</a></span>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', function () {
+    var s = document.getElementById('sidebar');
+    var open = s.classList.toggle('is-open');
+    this.setAttribute('aria-expanded', String(open));
+  });
+</script>
+</body>
+</html>

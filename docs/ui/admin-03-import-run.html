@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import run run-0042 · MyOTA Admin</title>
+<link rel="stylesheet" href="assets/mockup.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">A</span>
+      <span>MyOTA Admin<small>Operations console</small></span>
+    </div>
+
+    <nav aria-label="Admin sections">
+      <div class="nav-group">
+        <div class="nav-label">Overview</div>
+        <a class="nav-item" href="admin-01-operations.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+          Operations
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Geodata</div>
+        <a class="nav-item" href="admin-02-geodata-review.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+          Review queue <span class="nav-count">24</span>
+        </a>
+        <a class="nav-item" href="admin-03-import-run.html" aria-current="page">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+          Imports <span class="nav-count">3</span>
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+          Entities
+        </a>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-label">Platform</div>
+        <a class="nav-item" href="admin-04-programmes-awards.html">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21v-3a4 4 0 014-4h6a4 4 0 014 4v3"/></svg>
+          Programmes
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+          Activity
+        </a>
+        <a class="nav-item" href="#">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0113 0"/><path d="M17 11h5M19.5 8.5v5"/></svg>
+          Identity
+        </a>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="avatar" aria-hidden="true">VK</span>
+      <span class="who"><strong>Volker K.</strong><span>Programme admin</span></span>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="mobile-bar" id="navToggle" aria-label="Toggle navigation" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <nav class="crumbs" aria-label="Breadcrumb">
+        <a href="#">Geodata</a> / <a href="#">Imports</a> / <span class="mono">run-2026-11-24-0042</span>
+      </nav>
+      <div class="spacer"></div>
+      <button class="btn btn--sm">Retry failed</button>
+      <button class="btn btn--danger btn--sm">Cancel import</button>
+    </header>
+
+    <main class="content">
+
+      <section class="card">
+        <div class="card-body">
+          <div class="row">
+            <div>
+              <div class="mono small muted">run-2026-11-24-0042</div>
+              <h2 style="margin-top:4px">IGN BTN25 · Spain</h2>
+            </div>
+            <div class="spacer"></div>
+            <span class="badge badge--info"><span class="dot"></span>Running</span>
+            <span class="xs faint">started 09:12 · 41 min elapsed</span>
+          </div>
+        </div>
+      </section>
+
+      <div class="grid grid--main-side">
+        <div class="stack">
+
+          <section class="card">
+            <div class="card-head"><h3>Pipeline</h3><div class="spacer"></div><span class="xs faint">stage 4 of 5</span></div>
+            <div class="card-body">
+              <div class="steps">
+
+                <div class="step step--done">
+                  <div class="step-rail"><span class="step-dot"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></span><span class="step-line"></span></div>
+                  <div class="step-body">
+                    <strong>Upload complete</strong>
+                    <span>248 MB uploaded in 64 parts · 09:12 · checksum verified</span>
+                  </div>
+                </div>
+
+                <div class="step step--done">
+                  <div class="step-rail"><span class="step-dot"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></span><span class="step-line"></span></div>
+                  <div class="step-body">
+                    <strong>Normalise</strong>
+                    <span>4 190 features read from shapefile · 09:14 · 1 min 52 s</span>
+                  </div>
+                </div>
+
+                <div class="step step--done">
+                  <div class="step-rail"><span class="step-dot"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></span><span class="step-line"></span></div>
+                  <div class="step-body">
+                    <strong>Validate</strong>
+                    <span>4 190 checked · 7 invalid · 09:31 · 16 min 40 s</span>
+                  </div>
+                </div>
+
+                <div class="step step--active">
+                  <div class="step-rail"><span class="step-dot">4</span><span class="step-line"></span></div>
+                  <div class="step-body">
+                    <strong>Conflate</strong>
+                    <span>1 284 of 4 190 candidates · 312 possible duplicates · 6 min elapsed</span>
+                    <div class="progress" style="margin-top:8px;max-width:280px" role="img" aria-label="Conflation progress 31 percent"><span style="width:31%"></span></div>
+                  </div>
+                </div>
+
+                <div class="step">
+                  <div class="step-rail"><span class="step-dot">5</span></div>
+                  <div class="step-body">
+                    <strong>Publish</strong>
+                    <span>Waiting for conflation to finish</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </section>
+
+          <section class="grid grid--kpi">
+            <div class="card kpi"><span class="kpi-label">Features read</span><span class="kpi-value">4 190</span></div>
+            <div class="card kpi"><span class="kpi-label">Candidates</span><span class="kpi-value">4 183</span></div>
+            <div class="card kpi"><span class="kpi-label">Duplicates</span><span class="kpi-value">312</span></div>
+            <div class="card kpi"><span class="kpi-label">Errors</span><span class="kpi-value" style="color:var(--danger)">7</span></div>
+          </section>
+
+          <section class="card">
+            <div class="card-head" style="padding-bottom:0;border-bottom:0">
+              <div class="tabs" style="border-bottom:0;width:100%">
+                <button class="tab" aria-selected="true">Import overview</button>
+                <button class="tab" aria-selected="false">Errors (7)</button>
+                <button class="tab" aria-selected="false">Candidates</button>
+                <button class="tab" aria-selected="false">Audit log</button>
+              </div>
+            </div>
+            <div class="card-body tight table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Severity</th>
+                    <th scope="col">Feature</th>
+                    <th scope="col">Message</th>
+                    <th scope="col">Occurred</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="badge badge--danger">Error</span></td>
+                    <td class="mono xs">BTN25_1188_4</td>
+                    <td class="small">Geometry is invalid: self-intersection at ring 0, node 4.</td>
+                    <td class="muted xs">09:20</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge--danger">Error</span></td>
+                    <td class="mono xs">BTN25_1188_9</td>
+                    <td class="small">Geometry is empty after reprojection from ED50.</td>
+                    <td class="muted xs">09:20</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge--warn">Warning</span></td>
+                    <td class="mono xs">BTN25_0904_1</td>
+                    <td class="small">Name field missing; fell back to reference code.</td>
+                    <td class="muted xs">09:23</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge--warn">Warning</span></td>
+                    <td class="mono xs">BTN25_0777_2</td>
+                    <td class="small">Feature outside the configured area of interest.</td>
+                    <td class="muted xs">09:24</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge badge--danger">Error</span></td>
+                    <td class="mono xs">BTN25_0451_7</td>
+                    <td class="small">Entity type <span class="mono">PEAK</span> not accepted by programme.</td>
+                    <td class="muted xs">09:25</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+        </div>
+
+        <div class="stack">
+          <section class="card">
+            <div class="card-head"><h3>Source</h3></div>
+            <div class="card-body">
+              <dl class="dl">
+                <dt>Repository</dt><dd>IGN BTN25</dd>
+                <dt>Adapter</dt><dd>shapefile</dd>
+                <dt>Snapshot</dt><dd class="mono xs">9f2c…a41e</dd>
+                <dt>Licence</dt><dd>CC-BY 4.0</dd>
+                <dt>Programme</dt><dd>POTA-compatible</dd>
+                <dt>Uploaded by</dt><dd>Volker K.</dd>
+              </dl>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Files</h3></div>
+            <div class="card-body stack">
+              <div class="row"><span class="small mono">btn25.shp</span><span class="spacer"></span><span class="xs faint">198 MB</span></div>
+              <div class="row"><span class="small mono">btn25.dbf</span><span class="spacer"></span><span class="xs faint">42 MB</span></div>
+              <div class="row"><span class="small mono">btn25.shx</span><span class="spacer"></span><span class="xs faint">1.2 MB</span></div>
+              <div class="row"><span class="small mono">btn25.prj</span><span class="spacer"></span><span class="xs faint">168 B</span></div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head"><h3>Worker</h3></div>
+            <div class="card-body">
+              <dl class="dl">
+                <dt>Job kind</dt><dd class="mono xs">import.preprocess</dd>
+                <dt>Attempt</dt><dd>1 of 5</dd>
+                <dt>Lease</dt><dd>293 s remaining</dd>
+                <dt>Replica</dt><dd class="mono xs">geodata-worker-7c9f</dd>
+                <dt>Memory</dt><dd>612 MB / 1.5 GiB</dd>
+              </dl>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<span class="mockup-note">Mockup · <a href="index.html">all mockups</a></span>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', function () {
+    var s = document.getElementById('sidebar');
+    var open = s.classList.toggle('is-open');
+    this.setAttribute('aria-expanded', String(open));
+  });
+</script>
+</body>
+</html>

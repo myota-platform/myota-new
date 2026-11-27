@@ -1,0 +1,260 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1464 1050" width="1464" height="1050" role="img" aria-labelledby="erdTitle erdDesc" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+<title id="erdTitle">MyOTA entity relationships</title>
+<desc id="erdDesc">Three databases shown as bands. Each band lists the tables owned by one service, with primary and foreign keys. Cross-database references are opaque identifiers with no foreign key constraint.</desc>
+<defs>
+    <marker id="fk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
+            markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5c6b62"/>
+    </marker>
+    <marker id="xfk" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
+            markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#9a6208"/>
+    </marker>
+  </defs>
+  <rect width="1464" height="1050" fill="#f6f7f5"/>
+  <text x="22" y="40" font-size="19" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">MyOTA — entity relationships</text>
+  <text x="22" y="61" font-size="12" font-weight="400" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">Each band is one database with exactly one owning service. Amber identifiers cross databases as opaque ids — no foreign key, no distributed transaction.</text>
+  <rect x="14" y="92" width="1436" height="336" rx="14" fill="#e6f1ea" stroke="#2f6f4e" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="28" y="118" font-size="14.5" font-weight="750" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">myota_core</text>
+  <text x="28" y="134" font-size="10.5" font-weight="500" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">owned by · core · PostgreSQL 16</text>
+  <rect x="22" y="150" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="22" y="150" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="22" y="164" width="268" height="8" fill="#f1f3f1"/>
+  <text x="32" y="166" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account</text>
+  <text x="32" y="186" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="32" y="199" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">email · citext</text>
+  <text x="32" y="212" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">participation_type</text>
+  <rect x="304" y="150" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="304" y="150" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="304" y="164" width="268" height="8" fill="#f1f3f1"/>
+  <text x="314" y="166" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account_credential</text>
+  <text x="314" y="186" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK account_id</text>
+  <text x="314" y="199" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">password_hash</text>
+  <text x="314" y="212" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">locked_until</text>
+  <rect x="586" y="150" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="586" y="150" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="586" y="164" width="268" height="8" fill="#f1f3f1"/>
+  <text x="596" y="166" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account_mfa</text>
+  <text x="596" y="186" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK account_id</text>
+  <text x="596" y="199" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">method</text>
+  <text x="596" y="212" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">confirmed_at</text>
+  <rect x="868" y="150" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="868" y="150" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="868" y="164" width="268" height="8" fill="#f1f3f1"/>
+  <text x="878" y="166" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">auth_session</text>
+  <text x="878" y="186" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="878" y="199" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK account_id</text>
+  <text x="878" y="212" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">audience · participant|admin</text>
+  <rect x="1150" y="150" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="1150" y="150" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="1150" y="164" width="268" height="8" fill="#f1f3f1"/>
+  <text x="1160" y="166" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">callsign</text>
+  <text x="1160" y="186" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="1160" y="199" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK account_id</text>
+  <text x="1160" y="212" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">value · UNIQUE(acct)</text>
+  <rect x="22" y="250" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="22" y="250" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="22" y="264" width="268" height="8" fill="#f1f3f1"/>
+  <text x="32" y="266" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account_primary_callsign</text>
+  <text x="32" y="286" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK account_id</text>
+  <text x="32" y="299" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK callsign_id · UNIQUE</text>
+  <rect x="304" y="250" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="304" y="250" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="304" y="264" width="268" height="8" fill="#f1f3f1"/>
+  <text x="314" y="266" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">role_definition</text>
+  <text x="314" y="286" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK role_code</text>
+  <text x="314" y="299" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">scopes text[]</text>
+  <rect x="586" y="250" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="586" y="250" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="586" y="264" width="268" height="8" fill="#f1f3f1"/>
+  <text x="596" y="266" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account_role</text>
+  <text x="596" y="286" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="596" y="299" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK account_id · FK role_code</text>
+  <text x="596" y="312" font-size="9.5" font-weight="650" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">programme_id → ext</text>
+  <rect x="868" y="250" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="868" y="250" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="868" y="264" width="268" height="8" fill="#f1f3f1"/>
+  <text x="878" y="266" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">callsign_evidence</text>
+  <text x="878" y="286" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="878" y="299" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK callsign_id</text>
+  <text x="878" y="312" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">status</text>
+  <rect x="1150" y="250" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="1150" y="250" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="1150" y="264" width="268" height="8" fill="#f1f3f1"/>
+  <text x="1160" y="266" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">programme</text>
+  <text x="1160" y="286" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="1160" y="299" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">slug · UNIQUE</text>
+  <text x="1160" y="312" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">status</text>
+  <rect x="22" y="350" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="22" y="350" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="22" y="364" width="268" height="8" fill="#f1f3f1"/>
+  <text x="32" y="366" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">programme_entity_type</text>
+  <text x="32" y="386" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK programme_id</text>
+  <text x="32" y="399" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">category_code</text>
+  <rect x="304" y="350" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="304" y="350" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="304" y="364" width="268" height="8" fill="#f1f3f1"/>
+  <text x="314" y="366" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">programme_policy_version</text>
+  <text x="314" y="386" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK programme_id</text>
+  <text x="314" y="399" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">version · rules jsonb</text>
+  <rect x="586" y="350" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="586" y="350" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="586" y="364" width="268" height="8" fill="#f1f3f1"/>
+  <text x="596" y="366" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">notification</text>
+  <text x="596" y="386" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="596" y="399" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK account_id</text>
+  <text x="596" y="412" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">status · attempts</text>
+  <rect x="868" y="350" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="868" y="350" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="868" y="364" width="268" height="8" fill="#f1f3f1"/>
+  <text x="878" y="366" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">ops.outbox_event</text>
+  <text x="878" y="386" font-size="9.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">shared by all three databases</text>
+  <text x="878" y="399" font-size="9.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">idempotency · checkpoint</text>
+  <text x="878" y="412" font-size="9.5" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">dead_letter · job</text>
+  <rect x="14" y="472" width="1436" height="236" rx="14" fill="#e5eff8" stroke="#1f5d8f" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="28" y="498" font-size="14.5" font-weight="750" fill="#1f5d8f" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">myota_geo</text>
+  <text x="28" y="514" font-size="10.5" font-weight="500" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">owned by · geodata · PostgreSQL 16 + PostGIS</text>
+  <rect x="22" y="530" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="22" y="530" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="22" y="544" width="268" height="8" fill="#f1f3f1"/>
+  <text x="32" y="546" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">entity</text>
+  <text x="32" y="566" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="32" y="579" font-size="9.5" font-weight="650" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">programme_id → ext:core</text>
+  <text x="32" y="592" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">geom · centroid · bbox</text>
+  <rect x="304" y="530" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="304" y="530" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="304" y="544" width="268" height="8" fill="#f1f3f1"/>
+  <text x="314" y="546" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">entity_category</text>
+  <text x="314" y="566" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK entity_id</text>
+  <text x="314" y="579" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">category_code</text>
+  <rect x="586" y="530" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="586" y="530" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="586" y="544" width="268" height="8" fill="#f1f3f1"/>
+  <text x="596" y="546" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">entity_review</text>
+  <text x="596" y="566" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK entity_id</text>
+  <text x="596" y="579" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">decision · reviewer</text>
+  <rect x="868" y="530" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="868" y="530" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="868" y="544" width="268" height="8" fill="#f1f3f1"/>
+  <text x="878" y="546" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">entity_provenance</text>
+  <text x="878" y="566" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK entity_id</text>
+  <text x="878" y="579" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">snapshot_id · confidence</text>
+  <rect x="1150" y="530" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="1150" y="530" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="1150" y="544" width="268" height="8" fill="#f1f3f1"/>
+  <text x="1160" y="546" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">source</text>
+  <text x="1160" y="566" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="1160" y="579" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">adapter · licence</text>
+  <rect x="22" y="630" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="22" y="630" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="22" y="644" width="268" height="8" fill="#f1f3f1"/>
+  <text x="32" y="646" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">source_snapshot</text>
+  <text x="32" y="666" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="32" y="679" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK source_id</text>
+  <text x="32" y="692" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">checksum · object_key</text>
+  <rect x="304" y="630" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="304" y="630" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="304" y="644" width="268" height="8" fill="#f1f3f1"/>
+  <text x="314" y="646" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">import_run</text>
+  <text x="314" y="666" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="314" y="679" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">stage · status</text>
+  <text x="314" y="692" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">counts jsonb</text>
+  <rect x="586" y="630" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="586" y="630" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="586" y="644" width="268" height="8" fill="#f1f3f1"/>
+  <text x="596" y="646" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">import_candidate</text>
+  <text x="596" y="666" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="596" y="679" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK run_id</text>
+  <text x="596" y="692" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">state · geom</text>
+  <rect x="868" y="630" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="868" y="630" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="868" y="644" width="268" height="8" fill="#f1f3f1"/>
+  <text x="878" y="646" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">conflation_candidate</text>
+  <text x="878" y="666" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="878" y="679" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK candidate_id</text>
+  <text x="878" y="692" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">score · resolution</text>
+  <rect x="1150" y="630" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="1150" y="630" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="1150" y="644" width="268" height="8" fill="#f1f3f1"/>
+  <text x="1160" y="646" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">import_schedule</text>
+  <text x="1160" y="666" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="1160" y="679" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK source_id</text>
+  <text x="1160" y="692" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">cron · enabled</text>
+  <rect x="14" y="752" width="1436" height="236" rx="14" fill="#fdf1dc" stroke="#9a6208" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="28" y="778" font-size="14.5" font-weight="750" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">myota_activity</text>
+  <text x="28" y="794" font-size="10.5" font-weight="500" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">owned by · activity · PostgreSQL 16</text>
+  <rect x="22" y="810" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="22" y="810" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="22" y="824" width="268" height="8" fill="#f1f3f1"/>
+  <text x="32" y="826" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">activation</text>
+  <text x="32" y="846" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="32" y="859" font-size="9.5" font-weight="650" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account_id → ext:core</text>
+  <text x="32" y="872" font-size="9.5" font-weight="650" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">entity_id → ext:geodata</text>
+  <rect x="304" y="810" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="304" y="810" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="304" y="824" width="268" height="8" fill="#f1f3f1"/>
+  <text x="314" y="826" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">qso</text>
+  <text x="314" y="846" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="314" y="859" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK activation_id</text>
+  <text x="314" y="872" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">band · mode · worked_at</text>
+  <rect x="586" y="810" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="586" y="810" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="586" y="824" width="268" height="8" fill="#f1f3f1"/>
+  <text x="596" y="826" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">log_import</text>
+  <text x="596" y="846" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="596" y="859" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK activation_id</text>
+  <text x="596" y="872" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">format · accepted</text>
+  <rect x="868" y="810" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="868" y="810" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="868" y="824" width="268" height="8" fill="#f1f3f1"/>
+  <text x="878" y="826" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">qso_correction</text>
+  <text x="878" y="846" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="878" y="859" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK qso_id</text>
+  <text x="878" y="872" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">changes jsonb</text>
+  <rect x="1150" y="810" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="1150" y="810" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="1150" y="824" width="268" height="8" fill="#f1f3f1"/>
+  <text x="1160" y="826" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">award_definition</text>
+  <text x="1160" y="846" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="1160" y="859" font-size="9.5" font-weight="650" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">programme_id → ext:core</text>
+  <text x="1160" y="872" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">rules jsonb · version</text>
+  <rect x="22" y="910" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="22" y="910" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="22" y="924" width="268" height="8" fill="#f1f3f1"/>
+  <text x="32" y="926" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">award_request</text>
+  <text x="32" y="946" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="32" y="959" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK award_id</text>
+  <text x="32" y="972" font-size="9.5" font-weight="650" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">account_id → ext:core</text>
+  <rect x="304" y="910" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="304" y="910" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="304" y="924" width="268" height="8" fill="#f1f3f1"/>
+  <text x="314" y="926" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">award_progress</text>
+  <text x="314" y="946" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK award_id · account_id</text>
+  <text x="314" y="959" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">satisfied · progress</text>
+  <rect x="586" y="910" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="586" y="910" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="586" y="924" width="268" height="8" fill="#f1f3f1"/>
+  <text x="596" y="926" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">award_issuance</text>
+  <text x="596" y="946" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="596" y="959" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK award_id</text>
+  <text x="596" y="972" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">certificate_key</text>
+  <rect x="868" y="910" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="868" y="910" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="868" y="924" width="268" height="8" fill="#f1f3f1"/>
+  <text x="878" y="926" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">statistic_snapshot</text>
+  <text x="878" y="946" font-size="9.5" font-weight="700" fill="#2f6f4e" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">PK id</text>
+  <text x="878" y="959" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">scope · scope_id</text>
+  <text x="878" y="972" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">payload jsonb</text>
+  <rect x="1150" y="910" width="268" height="74" rx="8" fill="#ffffff" stroke="#c7cec8" stroke-width="1.2"/>
+  <rect x="1150" y="910" width="268" height="22" rx="8" fill="#f1f3f1"/>
+  <rect x="1150" y="924" width="268" height="8" fill="#f1f3f1"/>
+  <text x="1160" y="926" font-size="11.5" font-weight="700" fill="#17201b" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">leaderboard_entry</text>
+  <text x="1160" y="946" font-size="9.5" font-weight="650" fill="#5c6b62" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">FK snapshot_id</text>
+  <text x="1160" y="959" font-size="9.5" font-weight="400" fill="#3f4d45" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">rank · value</text>
+  <path d="M82 428 V 458" fill="none" stroke="#9a6208" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#xfk)"/>
+  <text x="92" y="448" font-size="10" font-weight="600" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">programme_id</text>
+  <path d="M322 708 V 738" fill="none" stroke="#9a6208" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#xfk)"/>
+  <text x="332" y="728" font-size="10" font-weight="600" fill="#9a6208" text-anchor="start" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">entity_id</text>
+  <text x="452" y="448" font-size="10" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">account_id and programme_id also reach activity the same way</text>
+  <text x="452" y="728" font-size="10" font-weight="400" fill="#8a978f" text-anchor="start" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">an account closed in core publishes an event; activity and geodata detach</text>
+</svg>

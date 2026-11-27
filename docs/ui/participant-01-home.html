@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Discover · MyOTA</title>
+<link rel="stylesheet" href="assets/mockup.css">
+<style>
+  .mobile-nav { display: none; gap: 4px; overflow-x: auto; padding: 8px 14px; }
+  .mobile-nav a {
+    padding: 7px 12px; border-radius: var(--radius-pill); font-size: var(--step-1);
+    font-weight: 600; color: var(--text-muted); white-space: nowrap;
+    background: var(--surface-3);
+  }
+  .mobile-nav a[aria-current="page"] { background: var(--accent); color: var(--on-accent); }
+  @media (max-width: 780px) { .mobile-nav { display: flex; } }
+  .place { display: block; color: inherit; }
+  .place:hover { text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header class="plain-header">
+  <div class="plain-header-inner">
+    <span class="brand" style="padding:0">
+      <span class="brand-mark" aria-hidden="true">M</span>
+      <span>MyOTA</span>
+    </span>
+    <nav class="plain-nav" aria-label="Main">
+      <a href="participant-01-home.html" aria-current="page">Discover</a>
+      <a href="participant-02-map.html">Map</a>
+      <a href="participant-03-activation.html">Activate</a>
+      <a href="participant-04-awards.html">Awards</a>
+      <a href="#">Account</a>
+    </nav>
+    <div class="spacer"></div>
+    <a href="#" class="avatar" aria-label="Signed in as EA7KLK">EA</a>
+  </div>
+</header>
+
+<nav class="mobile-nav" aria-label="Main mobile">
+  <a href="participant-01-home.html" aria-current="page">Discover</a>
+  <a href="participant-02-map.html">Map</a>
+  <a href="participant-03-activation.html">Activate</a>
+  <a href="participant-04-awards.html">Awards</a>
+  <a href="#">Account</a>
+</nav>
+
+<main class="page">
+
+  <section class="hero">
+    <h1>Find a place worth activating</h1>
+    <p>
+      Every hill, lighthouse and nature reserve you can operate from — with the
+      rules, the boundaries and the awards that go with it.
+    </p>
+    <div class="row" style="margin-top:18px">
+      <div class="search" style="flex:1 1 280px;max-width:420px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></svg>
+        <label class="sr-only" for="s">Search places</label>
+        <input id="s" type="search" placeholder="Place name, reference or callsign">
+      </div>
+      <button class="btn btn--primary">Search places</button>
+      <button class="btn">Use my location</button>
+    </div>
+  </section>
+
+  <section class="grid grid--2" aria-label="Quick actions">
+    <a class="tile" href="participant-02-map.html">
+      <span class="tile-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></svg>
+      </span>
+      <h4>Browse the map</h4>
+      <p>Explore eligible places near you, with boundaries and activation status.</p>
+    </a>
+    <a class="tile" href="participant-03-activation.html">
+      <span class="tile-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18"/><circle cx="12" cy="6" r="2.4"/><path d="M7 20l5-11 5 11"/></svg>
+      </span>
+      <h4>Start an activation</h4>
+      <p>Log QSOs live from the field and close out when you pack down.</p>
+    </a>
+    <a class="tile" href="participant-04-awards.html">
+      <span class="tile-icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="9" r="5"/><path d="M9 13.5L7.5 21l4.5-2.6L16.5 21 15 13.5"/></svg>
+      </span>
+      <h4>Track your awards</h4>
+      <p>See how close you are to the next level and download issued certificates.</p>
+    </a>
+  </section>
+
+  <section>
+    <div class="row" style="margin-bottom:12px">
+      <h2>Near you</h2>
+      <div class="spacer"></div>
+      <a href="participant-02-map.html" class="small">See all on the map</a>
+    </div>
+
+    <div class="grid grid--2">
+
+      <article class="card">
+        <div class="card-body">
+          <div class="row row--tight" style="margin-bottom:6px">
+            <span class="badge badge--accent">Summit</span>
+            <span class="xs faint">12 km</span>
+          </div>
+          <h4 style="margin-bottom:2px">Puerto de las Palomas</h4>
+          <p class="small muted" style="margin-bottom:10px">Sierra de Grazalema · Andalucía · 1 358 m</p>
+          <div class="row">
+            <span class="xs faint">47 activations</span>
+            <div class="spacer"></div>
+            <a class="btn btn--ghost btn--sm" href="participant-03-activation.html">Activate</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <div class="row row--tight" style="margin-bottom:6px">
+            <span class="badge badge--info">Lighthouse</span>
+            <span class="xs faint">28 km</span>
+          </div>
+          <h4 style="margin-bottom:2px">Faro de Trafalgar</h4>
+          <p class="small muted" style="margin-bottom:10px">Costa de Cádiz · Andalucía · 6 m</p>
+          <div class="row">
+            <span class="xs faint">19 activations</span>
+            <div class="spacer"></div>
+            <a class="btn btn--ghost btn--sm" href="participant-03-activation.html">Activate</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <div class="row row--tight" style="margin-bottom:6px">
+            <span class="badge badge--accent">Protected area</span>
+            <span class="xs faint">34 km</span>
+          </div>
+          <h4 style="margin-bottom:2px">Cabo de Gata — Punta de los Frailes</h4>
+          <p class="small muted" style="margin-bottom:10px">Parque Natural · Almería · 12 m</p>
+          <div class="row">
+            <span class="xs faint">8 activations</span>
+            <div class="spacer"></div>
+            <a class="btn btn--ghost btn--sm" href="participant-03-activation.html">Activate</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-body">
+          <div class="row row--tight" style="margin-bottom:6px">
+            <span class="badge badge--warn">Needs review</span>
+            <span class="xs faint">41 km</span>
+          </div>
+          <h4 style="margin-bottom:2px">Serra de Tramuntana</h4>
+          <p class="small muted" style="margin-bottom:10px">Mallorca · Illes Balears · 1 445 m</p>
+          <div class="row">
+            <span class="xs faint">Boundary under review</span>
+            <div class="spacer"></div>
+            <a class="btn btn--ghost btn--sm" href="participant-02-map.html">View</a>
+          </div>
+        </div>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="grid grid--main-side">
+    <div>
+      <h2 style="margin-bottom:12px">Programmes</h2>
+      <div class="grid grid--2">
+        <div class="card"><div class="card-body">
+          <h4 style="margin-bottom:4px">POTA-compatible</h4>
+          <p class="small muted" style="margin-bottom:10px">Parks and protected areas worldwide.</p>
+          <div class="row"><span class="badge badge--ok">8 412 places</span><span class="xs faint">2 194 activations</span></div>
+        </div></div>
+        <div class="card"><div class="card-body">
+          <h4 style="margin-bottom:4px">Coastal Lights</h4>
+          <p class="small muted" style="margin-bottom:10px">Lighthouses and coastal beacons.</p>
+          <div class="row"><span class="badge badge--ok">1 087 places</span><span class="xs faint">418 activations</span></div>
+        </div></div>
+        <div class="card"><div class="card-body">
+          <h4 style="margin-bottom:4px">Summits</h4>
+          <p class="small muted" style="margin-bottom:10px">Named peaks above 1 000 m.</p>
+          <div class="row"><span class="badge badge--ok">3 260 places</span><span class="xs faint">905 activations</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <aside class="card">
+      <div class="card-head"><h3>Your progress</h3></div>
+      <div class="card-body stack">
+        <div>
+          <div class="row xs"><span>Activations this year</span><span class="spacer"></span><span class="mono">18 / 30</span></div>
+          <div class="progress" style="margin-top:6px" role="img" aria-label="18 of 30 activations"><span style="width:60%"></span></div>
+        </div>
+        <div>
+          <div class="row xs"><span>Unique places</span><span class="spacer"></span><span class="mono">42 / 100</span></div>
+          <div class="progress" style="margin-top:6px" role="img" aria-label="42 of 100 unique places"><span style="width:42%"></span></div>
+        </div>
+        <hr style="border:0;border-top:1px solid var(--border);margin:4px 0">
+        <div class="row">
+          <span class="avatar" aria-hidden="true">EA</span>
+          <span class="who"><strong>EA7KLK</strong><span>Operator · 2 callsigns</span></span>
+        </div>
+        <a class="btn btn--sm" href="participant-04-awards.html">View awards</a>
+      </div>
+    </aside>
+  </section>
+
+</main>
+
+<span class="mockup-note">Mockup · <a href="index.html">all mockups</a></span>
+</body>
+</html>
