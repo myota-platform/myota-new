@@ -39,12 +39,24 @@ const SHOTS = [
   { file: 'admin-02-geodata-review.html',  out: 'renders/admin-02-geodata-review-mobile', w: 390, h: 844, full: true },
   { file: 'participant-02-map.html',       out: 'renders/participant-02-map-mobile',      w: 390, h: 844, full: true },
 
-  // four design directions, each admin + participant
-  ...['01-editorial', '02-brutalist', '03-aurora', '04-organic'].flatMap(dir => [
+  // three sampled directions: one admin + one participant each
+  ...['01-editorial', '02-brutalist', '03-aurora'].flatMap(dir => [
     { file: `styles/${dir}/admin.html`,       out: `styles/${dir}/renders/admin`,       w: 1440, h: 1000, full: true },
     { file: `styles/${dir}/participant.html`, out: `styles/${dir}/renders/participant`, w: 1440, h: 1000, full: true },
   ]),
-  { file: 'styles/04-organic/participant.html', out: 'styles/04-organic/renders/participant-mobile', w: 390, h: 844, full: true },
+
+  // 04-organic is the chosen direction: every screen in both apps
+  ...['admin-01-operations', 'admin-02-geodata-review', 'admin-03-import-run', 'admin-04-programmes-awards',
+      'participant-01-discover', 'participant-02-map', 'participant-03-activation', 'participant-04-awards',
+      'participant-05-check-email', 'participant-06-reset-password'].map(name => ({
+    file: `styles/04-organic/${name}.html`,
+    out:  `styles/04-organic/renders/${name}`,
+    w: 1440, h: 1000, full: true,
+  })),
+  // responsive proof on the two hardest screens
+  { file: 'styles/04-organic/admin-02-geodata-review.html', out: 'styles/04-organic/renders/admin-02-geodata-review-mobile', w: 390, h: 844, full: true },
+  { file: 'styles/04-organic/participant-02-map.html',      out: 'styles/04-organic/renders/participant-02-map-mobile',      w: 390, h: 844, full: true },
+  { file: 'styles/04-organic/participant-03-activation.html', out: 'styles/04-organic/renders/participant-03-activation-mobile', w: 390, h: 844, full: true },
 
   // the style gallery embeds the renders above, so it goes last
   { file: 'index.html',                    out: 'renders/index',                    w: 1200, h: 900,  full: true },

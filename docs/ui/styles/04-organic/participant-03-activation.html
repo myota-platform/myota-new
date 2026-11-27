@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live activation · MyOTA — Organic</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .live i { animation: beat 2.2s ease-in-out infinite; }
+  @keyframes beat { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+  @media (prefers-reduced-motion: reduce) { .live i { animation: none } }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <span class="brand"><span class="leaf" aria-hidden="true">M</span>MyOTA</span>
+    <nav aria-label="Main">
+      <a href="participant-01-discover.html">Discover</a>
+      <a href="participant-02-map.html">Map</a>
+      <a href="participant-03-activation.html" aria-current="page">Activate</a>
+      <a href="participant-04-awards.html">Awards</a>
+    </nav>
+    <span class="who"><span class="face" aria-hidden="true">EA</span>EA7KLK</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="hero" style="padding:28px 34px">
+    <div class="row" style="align-items:flex-start">
+      <div>
+        <div class="row" style="margin-bottom:8px">
+          <span class="live"><i></i>Live</span>
+          <span class="tiny">POTA-compatible · ES-POTA-0431</span>
+        </div>
+        <h1 style="font-size:30px;margin:0">EA7KLK/P — Cabo de Gata</h1>
+      </div>
+      <span class="grow"></span>
+      <div style="text-align:right">
+        <div class="timer">02:14:37</div>
+        <div class="tiny">elapsed</div>
+      </div>
+      <button class="btn-soft btn-line">Share</button>
+      <button class="btn-soft btn-danger">Stop activation</button>
+    </div>
+  </section>
+
+  <section class="kpis" style="margin-bottom:20px">
+    <div class="card kpi tint-good"><div class="k">QSOs</div><div class="v">147</div></div>
+    <div class="card kpi"><div class="k">Unique callsigns</div><div class="v">96</div></div>
+    <div class="card kpi"><div class="k">Bands</div><div class="v">4</div></div>
+    <div class="card kpi"><div class="k">Points</div><div class="v">312</div></div>
+  </section>
+
+  <div class="split split--wide">
+
+    <div class="stack">
+
+      <section class="card">
+        <div class="card-head"><h2>Log a QSO</h2><span class="grow"></span><span class="tiny">Enter submits</span></div>
+        <div class="card-body">
+          <form class="qso-grid" onsubmit="return false">
+            <div class="field wide">
+              <label for="call">Worked callsign</label>
+              <input class="inp call" id="call" value="DL1ABC" autocomplete="off">
+            </div>
+            <div class="field">
+              <label for="band">Band</label>
+              <select class="sel" id="band">
+                <option>20 m</option><option selected>40 m</option>
+                <option>15 m</option><option>2 m</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="mode">Mode</label>
+              <select class="sel" id="mode">
+                <option selected>SSB</option><option>CW</option>
+                <option>FT8</option><option>FM</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rsts">RST sent</label>
+              <input class="inp" id="rsts" value="59">
+            </div>
+            <div class="field">
+              <label for="rstr">RST received</label>
+              <input class="inp" id="rstr" value="57">
+            </div>
+            <div class="wide">
+              <button class="go" style="width:100%;padding:13px">Log QSO</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Recent QSOs</h2><span class="grow"></span><span class="tiny">last 8 of 147</span></div>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Time</th><th scope="col">Callsign</th>
+              <th scope="col">Band</th><th scope="col" class="hide-sm">Mode</th>
+              <th scope="col" class="hide-sm">RST</th><th scope="col">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono tiny">14:26</td><td class="mono">DL1ABC</td><td>40 m</td><td class="hide-sm">SSB</td><td class="mono hide-sm">59/57</td><td class="num">2</td></tr>
+            <tr><td class="mono tiny">14:24</td><td class="mono">PA3XYZ</td><td>40 m</td><td class="hide-sm">SSB</td><td class="mono hide-sm">59/59</td><td class="num">2</td></tr>
+            <tr><td class="mono tiny">14:21</td><td class="mono">F4HOF</td><td>20 m</td><td class="hide-sm">CW</td><td class="mono hide-sm">599/579</td><td class="num">4</td></tr>
+            <tr><td class="mono tiny">14:19</td><td class="mono">EA7KLK</td><td>20 m</td><td class="hide-sm">FT8</td><td class="mono hide-sm">−08/−12</td><td class="num">1</td></tr>
+            <tr><td class="mono tiny">14:16</td><td class="mono">DL8WX</td><td>15 m</td><td class="hide-sm">SSB</td><td class="mono hide-sm">58/56</td><td class="num">3</td></tr>
+            <tr><td class="mono tiny">14:12</td><td class="mono">EA5ABC</td><td>40 m</td><td class="hide-sm">SSB</td><td class="mono hide-sm">59/58</td><td class="num">2</td></tr>
+            <tr><td class="mono tiny">14:08</td><td class="mono">G4XYZ</td><td>20 m</td><td class="hide-sm">SSB</td><td class="mono hide-sm">57/55</td><td class="num">4</td></tr>
+            <tr><td class="mono tiny">14:02</td><td class="mono">ON4ABC</td><td>40 m</td><td class="hide-sm">CW</td><td class="mono hide-sm">599/599</td><td class="num">2</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <div class="stack">
+
+      <section class="card">
+        <div class="card-head"><h2>Band breakdown</h2></div>
+        <div class="card-body">
+          <div class="m">
+            <div class="m-row"><span>40 m</span><span>63</span></div>
+            <div class="track"><i style="width:43%"></i></div>
+          </div>
+          <div class="m">
+            <div class="m-row"><span>20 m</span><span>48</span></div>
+            <div class="track"><i style="width:33%"></i></div>
+          </div>
+          <div class="m">
+            <div class="m-row"><span>15 m</span><span>24</span></div>
+            <div class="track"><i class="ochre" style="width:16%"></i></div>
+          </div>
+          <div class="m">
+            <div class="m-row"><span>2 m</span><span>12</span></div>
+            <div class="track"><i class="clay" style="width:8%"></i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Recent spots</h2></div>
+        <div class="card-body" style="display:grid;gap:9px">
+          <div class="tiny">14:22 · DL1ABC spotted you on 40 m SSB</div>
+          <div class="tiny">14:10 · F4HOF spotted you on 20 m CW</div>
+          <div class="tiny">13:58 · EA5ABC spotted you on 40 m SSB</div>
+        </div>
+      </section>
+
+      <section class="card" style="overflow:hidden">
+        <div class="card-head"><h2>Location</h2></div>
+        <div class="map" style="min-height:170px;border-radius:0 0 var(--r-lg) var(--r-lg);box-shadow:none">
+          <svg class="art" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="400" height="200" fill="#eff1e7"/>
+            <path d="M0 118 Q 90 94 180 126 T 400 138 L400 200 L0 200 Z" fill="#e2ebea"/>
+            <path d="M0 150 Q 120 128 240 156 T 400 162 L400 200 L0 200 Z" fill="#d5e3e4"/>
+            <path d="M0 118 Q 90 94 180 126 T 400 138" fill="none" stroke="#c9d8d4" stroke-width="2.2"/>
+            <path d="M40 62 L120 32 L200 68 L280 38 L350 74" fill="none" stroke="#e4e9de" stroke-width="1.8"/>
+          </svg>
+          <span class="map-pin" style="left:46%;top:50%"></span>
+          <div class="map-legend" style="left:12px;bottom:12px;padding:7px 11px">
+            <span class="mono tiny">36.7256, −2.1934</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

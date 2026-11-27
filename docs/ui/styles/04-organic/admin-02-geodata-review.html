@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Geodata review · MyOTA — Organic</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .review-grid { display: grid; grid-template-columns: minmax(280px,0.9fr) minmax(0,1.5fr); gap: 18px; align-items: start; }
+  @media (max-width: 980px) { .review-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <span class="brand"><span class="leaf" aria-hidden="true">M</span>MyOTA</span>
+    <nav aria-label="Main">
+      <a href="admin-01-operations.html">Operations</a>
+      <a href="admin-02-geodata-review.html" aria-current="page">Geodata</a>
+      <a href="#">Programmes</a>
+      <a href="#">Identity</a>
+    </nav>
+    <span class="who"><span class="face" aria-hidden="true">VK</span>Volker</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="hero" style="padding:34px 40px">
+    <span class="tagline">Geodata · review queue</span>
+    <h1>Twenty-four places are waiting for a verdict.</h1>
+    <p class="lede">
+      Each candidate carries its source, its confidence, and the reason the import
+      proposed it. Most are clean; the ones flagged below need your judgement
+      before they become real places.
+    </p>
+  </section>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding:16px 22px">
+      <div class="search" style="flex:1 1 260px;margin:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>
+        </svg>
+        <input type="search" placeholder="Name, source or reference" aria-label="Search candidates">
+      </div>
+      <select class="sel" style="width:auto" aria-label="Programme">
+        <option>All programmes</option><option>POTA-compatible</option>
+        <option>Coastal Lights</option><option>Summits</option>
+      </select>
+      <select class="sel" style="width:auto" aria-label="Entity type">
+        <option>All types</option><option>Summit</option>
+        <option>Lighthouse</option><option>Protected area</option>
+      </select>
+      <span class="grow"></span>
+      <button class="btn-soft btn-line">Reject selected</button>
+      <button class="go">Approve selected</button>
+    </div>
+  </div>
+
+  <div class="review-grid">
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Candidates</h2>
+        <span class="grow"></span>
+        <span class="pill-count">24 pending</span>
+      </div>
+      <div class="card-body cand-list" style="padding:8px">
+
+        <div class="cand" aria-selected="true">
+          <input type="checkbox" checked aria-label="Select Puerto de las Palomas">
+          <div>
+            <div class="nm">Puerto de las Palomas</div>
+            <div class="mt">Summit · Sierra de Grazalema · IGN BTN25</div>
+          </div>
+          <span class="cf" style="color:var(--sage)">98%</span>
+        </div>
+
+        <div class="cand">
+          <input type="checkbox" aria-label="Select Faro de Trafalgar">
+          <div>
+            <div class="nm">Faro de Trafalgar</div>
+            <div class="mt">Lighthouse · Costa de Cádiz · OSM PBF</div>
+          </div>
+          <span class="cf" style="color:var(--sage)">96%</span>
+        </div>
+
+        <div class="cand">
+          <input type="checkbox" aria-label="Select Veluwe Zoom">
+          <div>
+            <div class="nm">Veluwe Zoom</div>
+            <div class="mt">Protected area · Gelderland · Natura 2000</div>
+          </div>
+          <span class="cf" style="color:var(--sage)">94%</span>
+        </div>
+
+        <div class="cand">
+          <input type="checkbox" aria-label="Select Lusen Gipfel">
+          <div>
+            <div class="nm">Lusen Gipfel</div>
+            <div class="mt">Summit · Bayerischer Wald · OSM PBF</div>
+          </div>
+          <span class="cf" style="color:#9a6a12">87%</span>
+        </div>
+
+        <div class="cand">
+          <input type="checkbox" aria-label="Select Cabo de Gata">
+          <div>
+            <div class="nm">Cabo de Gata — Punta de los Frailes</div>
+            <div class="mt">Protected area · Almería · community proposal</div>
+          </div>
+          <span class="cf" style="color:#9a6a12">82%</span>
+        </div>
+
+        <div class="cand">
+          <input type="checkbox" aria-label="Select Serra de Tramuntana">
+          <div>
+            <div class="nm">Serra de Tramuntana</div>
+            <div class="mt">Protected area · Mallorca · WFS GeoJSON</div>
+          </div>
+          <span class="cf" style="color:var(--clay)">61%</span>
+        </div>
+
+      </div>
+    </section>
+
+    <div class="stack">
+
+      <div class="map" style="min-height:360px">
+        <svg class="art" viewBox="0 0 640 360" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="640" height="360" fill="#eff1e7"/>
+          <path d="M0 236 Q 110 208 200 238 T 400 226 T 640 250 L640 360 L0 360 Z" fill="#dfe8e6"/>
+          <path d="M0 282 Q 140 258 280 284 T 640 292 L640 360 L0 360 Z" fill="#d3e0e1"/>
+          <path d="M30 190 L110 120 L176 176 L250 96 L330 168 L404 110 L478 180 L560 132" fill="none" stroke="#d5ddcd" stroke-width="2.4"/>
+          <path d="M30 216 L110 148 L176 202 L250 124 L330 194 L404 138 L478 206 L560 158" fill="none" stroke="#dde4d6" stroke-width="1.6"/>
+          <ellipse cx="180" cy="140" rx="92" ry="52" fill="#dfe7d8" opacity=".65"/>
+          <ellipse cx="452" cy="196" rx="108" ry="58" fill="#dfe7d8" opacity=".55"/>
+        </svg>
+
+        <span class="map-pin" style="left:31%;top:42%"></span>
+        <span class="map-pin" style="left:56%;top:58%"></span>
+        <span class="map-pin done" style="left:44%;top:70%"></span>
+        <span class="map-pin warn" style="left:68%;top:40%"></span>
+        <span class="map-pin warn" style="left:22%;top:60%"></span>
+        <span class="map-pin act" style="left:82%;top:66%"></span>
+
+        <div class="map-controls">
+          <button aria-label="Zoom in">+</button>
+          <button aria-label="Zoom out">−</button>
+          <button aria-label="Fit">⤢</button>
+        </div>
+
+        <div class="map-legend">
+          <div class="row"><span class="d" style="background:var(--sage)"></span>High confidence</div>
+          <div class="row"><span class="d" style="background:var(--ochre)"></span>Needs a look</div>
+          <div class="row"><span class="d" style="background:var(--clay)"></span>Possible duplicate</div>
+        </div>
+      </div>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Puerto de las Palomas</h2>
+          <span class="grow"></span>
+          <span class="chip hot" style="font-size:11.5px;padding:4px 12px">Summit</span>
+        </div>
+        <div class="card-body">
+          <dl class="dl">
+            <dt>Type</dt><dd>Summit · 1 358 m</dd>
+            <dt>Coordinates</dt><dd class="mono">36.7694, −5.4167</dd>
+            <dt>Programme</dt><dd>Summits</dd>
+            <dt>Source</dt><dd>IGN BTN25 · <span class="mono tiny">shapefile</span></dd>
+            <dt>Snapshot</dt><dd class="mono tiny">btn25-2026-11 · 9f2c…a41e</dd>
+            <dt>Confidence</dt><dd><span class="chip hot" style="padding:2px 10px">98%</span></dd>
+          </dl>
+          <p class="tiny" style="margin:14px 0 0">
+            Feature <span class="mono">BTN25_1106_2</span> under CC-BY 4.0, retrieved
+            24 November by the scheduled fetch.
+          </p>
+          <div class="row" style="margin-top:18px">
+            <button class="btn-soft btn-danger">Reject</button>
+            <button class="btn-soft btn-line">Needs info</button>
+            <span class="grow"></span>
+            <button class="go">Approve &amp; publish</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" style="background:var(--ochre-soft)">
+        <div class="card-body" style="padding:18px 22px">
+          <div class="row" style="margin-bottom:6px">
+            <span class="chip alert">Conflation</span>
+            <strong style="font-size:14px">Possibly the same place</strong>
+          </div>
+          <p class="tiny" style="margin:0 0 12px;color:var(--ink-2);font-size:13px">
+            Matches published <strong>Puerto de las Palomas (Norte)</strong> at 38 m,
+            score 0.91. Merging updates the existing place rather than creating a
+            second one.
+          </p>
+          <button class="btn-soft">Resolve</button>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

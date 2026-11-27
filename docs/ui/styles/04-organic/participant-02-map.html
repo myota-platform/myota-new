@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Map · MyOTA — Organic</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .sheet {
+    position: absolute; right: 16px; bottom: 16px; width: min(330px, calc(100% - 32px));
+    background: rgba(255,253,249,.97); border-radius: var(--r-lg);
+    box-shadow: var(--sh-3); padding: 20px 22px; z-index: 4;
+  }
+  @media (max-width: 680px) {
+    .sheet { position: static; width: auto; margin-top: 14px; box-shadow: var(--sh-1); }
+  }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <span class="brand"><span class="leaf" aria-hidden="true">M</span>MyOTA</span>
+    <nav aria-label="Main">
+      <a href="participant-01-discover.html">Discover</a>
+      <a href="participant-02-map.html" aria-current="page">Map</a>
+      <a href="participant-03-activation.html">Activate</a>
+      <a href="participant-04-awards.html">Awards</a>
+    </nav>
+    <span class="who"><span class="face" aria-hidden="true">EA</span>EA7KLK</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="search" style="margin-bottom:18px">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>
+    </svg>
+    <input type="search" placeholder="Search this area" aria-label="Search this area">
+    <select class="sel" style="width:auto" aria-label="Entity type">
+      <option>All types</option><option>Summit</option>
+      <option>Lighthouse</option><option>Protected area</option>
+    </select>
+    <select class="sel" style="width:auto" aria-label="Programme">
+      <option>All programmes</option><option>POTA-compatible</option>
+      <option>Coastal Lights</option><option>Summits</option>
+    </select>
+    <button class="go">Filter</button>
+  </div>
+
+  <div style="position:relative">
+    <div class="map" style="min-height:520px">
+      <svg class="art" viewBox="0 0 900 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="900" height="520" fill="#eff1e7"/>
+        <!-- land -->
+        <path d="M0 0 L900 0 L900 352 Q 700 318 520 320 T 260 338 Q 140 300 0 328 Z" fill="#f2f4ea"/>
+        <!-- sea -->
+        <path d="M0 328 Q 140 300 260 338 T 520 320 T 900 352 L900 520 L0 520 Z" fill="#e2ebea"/>
+        <path d="M0 392 Q 180 366 360 400 T 900 412 L900 520 L0 520 Z" fill="#d5e3e4"/>
+        <!-- contours -->
+        <path d="M50 120 L170 58 L300 130 L430 72 L570 146 L710 90 L850 158" fill="none" stroke="#e0e6d8" stroke-width="2.4"/>
+        <path d="M40 190 L170 126 L300 198 L430 138 L570 212 L710 156 L860 224" fill="none" stroke="#e4e9de" stroke-width="1.8"/>
+        <path d="M70 260 L200 198 L330 268 L460 208 L600 280 L740 224 L880 290" fill="none" stroke="#e8ece3" stroke-width="1.5"/>
+        <!-- soft ridges -->
+        <ellipse cx="250" cy="148" rx="130" ry="74" fill="#e6ecdd" opacity=".7"/>
+        <ellipse cx="650" cy="198" rx="160" ry="84" fill="#e6ecdd" opacity=".6"/>
+        <!-- coast line -->
+        <path d="M0 328 Q 140 300 260 338 T 520 320 T 900 352" fill="none" stroke="#c9d8d4" stroke-width="2.6"/>
+      </svg>
+
+      <span class="map-pin" style="left:24%;top:36%"></span>
+      <span class="map-pin" style="left:33%;top:28%"></span>
+      <span class="map-pin" style="left:41%;top:46%"></span>
+      <span class="map-pin done" style="left:52%;top:57%"></span>
+      <span class="map-pin done" style="left:63%;top:51%"></span>
+      <span class="map-pin warn" style="left:71%;top:37%"></span>
+      <span class="map-pin" style="left:80%;top:47%"></span>
+      <span class="map-pin warn" style="left:47%;top:31%"></span>
+
+      <div class="map-controls">
+        <button aria-label="Zoom in">+</button>
+        <button aria-label="Zoom out">−</button>
+        <button aria-label="Fit">⤢</button>
+      </div>
+
+      <div class="map-legend">
+        <div class="row"><span class="d" style="background:var(--sage)"></span>Eligible</div>
+        <div class="row"><span class="d" style="background:var(--ochre)"></span>Needs review</div>
+        <div class="row"><span class="d" style="background:#7d9ab3"></span>You have activated</div>
+      </div>
+
+      <div class="sheet">
+        <div class="row" style="margin-bottom:8px">
+          <span class="chip hot">Summit</span>
+          <span class="chip">Eligible</span>
+        </div>
+        <h3 style="font-size:19px;font-weight:680;letter-spacing:-.02em;margin:0 0 3px">
+          Sierra de Grazalema — Puerto de las Palomas
+        </h3>
+        <p class="tiny" style="margin:0 0 14px">Andalucía, Spain</p>
+        <dl class="dl" style="font-size:13.5px">
+          <dt>Reference</dt><dd class="mono tiny">ES-POTA-1188</dd>
+          <dt>Height</dt><dd>1 358 m</dd>
+          <dt>Activations</dt><dd>47 · 3 this month</dd>
+          <dt>Last</dt><dd>2 days ago · DL1ABC</dd>
+        </dl>
+        <div class="row" style="margin-top:16px">
+          <button class="btn-soft btn-line">Save</button>
+          <span class="grow"></span>
+          <a class="go" href="participant-03-activation.html" style="text-decoration:none;display:inline-block">Activate here</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="card" style="margin-top:18px">
+    <div class="card-head"><h2>Nearby places</h2><span class="grow"></span><span class="pill-count">5 within 50 km</span></div>
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Place</th><th scope="col" class="hide-sm">Type</th>
+          <th scope="col">Distance</th><th scope="col" class="hide-sm">Activations</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Puerto de las Palomas</strong></td>
+          <td class="hide-sm">Summit<div class="tiny">Summits</div></td>
+          <td class="num">12 km</td><td class="num hide-sm">47</td>
+          <td><span class="chip-status s-ok"><i></i>Eligible</span></td>
+        </tr>
+        <tr>
+          <td><strong>Faro de Trafalgar</strong></td>
+          <td class="hide-sm">Lighthouse<div class="tiny">Coastal Lights</div></td>
+          <td class="num">28 km</td><td class="num hide-sm">19</td>
+          <td><span class="chip-status s-ok"><i></i>Eligible</span></td>
+        </tr>
+        <tr>
+          <td><strong>Cabo de Gata — Punta de los Frailes</strong></td>
+          <td class="hide-sm">Protected area<div class="tiny">POTA-compatible</div></td>
+          <td class="num">34 km</td><td class="num hide-sm">8</td>
+          <td><span class="chip-status s-ok"><i></i>Eligible</span></td>
+        </tr>
+        <tr>
+          <td><strong>Serra de Tramuntana</strong></td>
+          <td class="hide-sm">Protected area<div class="tiny">POTA-compatible</div></td>
+          <td class="num">41 km</td><td class="num hide-sm">2</td>
+          <td><span class="chip-status s-run"><i></i>Needs review</span></td>
+        </tr>
+        <tr>
+          <td><strong>Peñón de Ifach</strong></td>
+          <td class="hide-sm">Summit<div class="tiny">Summits</div></td>
+          <td class="num">48 km</td><td class="num hide-sm">31</td>
+          <td><span class="chip-status s-info"><i></i>Activated by you</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+</body>
+</html>

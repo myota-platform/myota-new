@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import run · MyOTA — Organic</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <span class="brand"><span class="leaf" aria-hidden="true">M</span>MyOTA</span>
+    <nav aria-label="Main">
+      <a href="admin-01-operations.html">Operations</a>
+      <a href="admin-02-geodata-review.html" aria-current="page">Geodata</a>
+      <a href="#">Programmes</a>
+      <a href="#">Identity</a>
+    </nav>
+    <span class="who"><span class="face" aria-hidden="true">VK</span>Volker</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="card" style="margin-bottom:20px">
+    <div class="card-body" style="display:flex;gap:18px;flex-wrap:wrap;align-items:center;padding:24px 30px">
+      <div>
+        <div class="tiny mono" style="margin-bottom:3px">run-2026-11-24-0042</div>
+        <div style="font-size:24px;font-weight:700;letter-spacing:-.025em">IGN BTN25 · Spain</div>
+      </div>
+      <span class="grow"></span>
+      <span class="chip-status s-run"><i></i>Running</span>
+      <span class="tiny">started 09:12 · 41 min elapsed</span>
+      <button class="btn-soft btn-line">Retry failed</button>
+      <button class="btn-soft btn-danger">Cancel import</button>
+    </div>
+  </section>
+
+  <div class="split split--wide">
+
+    <div class="stack">
+
+      <section class="card">
+        <div class="card-head"><h2>Pipeline</h2><span class="grow"></span><span class="pill-count">stage 4 of 5</span></div>
+        <div class="card-body">
+          <div class="steps">
+
+            <div class="stp done">
+              <div class="rail"><span class="dot">✓</span><span class="line"></span></div>
+              <div class="body">
+                <b>Upload complete</b>
+                <span>248 MB in 64 parts · 09:12 · checksum verified</span>
+              </div>
+            </div>
+
+            <div class="stp done">
+              <div class="rail"><span class="dot">✓</span><span class="line"></span></div>
+              <div class="body">
+                <b>Normalise</b>
+                <span>4 190 features read from shapefile · 09:14 · 1 min 52 s</span>
+              </div>
+            </div>
+
+            <div class="stp done">
+              <div class="rail"><span class="dot">✓</span><span class="line"></span></div>
+              <div class="body">
+                <b>Validate</b>
+                <span>4 190 checked · 7 invalid · 09:31 · 16 min 40 s</span>
+              </div>
+            </div>
+
+            <div class="stp on">
+              <div class="rail"><span class="dot">4</span><span class="line"></span></div>
+              <div class="body">
+                <b>Conflate</b>
+                <span>1 284 of 4 190 candidates · 312 possible duplicates · 6 min elapsed</span>
+                <div class="track" style="margin-top:9px;max-width:280px"><i class="ochre" style="width:31%"></i></div>
+              </div>
+            </div>
+
+            <div class="stp">
+              <div class="rail"><span class="dot">5</span></div>
+              <div class="body">
+                <b>Publish</b>
+                <span>Waiting for conflation to finish</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <section class="kpis" style="margin:0">
+        <div class="card kpi tint-good"><div class="k">Features read</div><div class="v">4 190</div></div>
+        <div class="card kpi"><div class="k">Candidates</div><div class="v">4 183</div></div>
+        <div class="card kpi"><div class="k">Duplicates</div><div class="v">312</div></div>
+        <div class="card kpi tint-warn"><div class="k">Errors</div><div class="v" style="color:#8f3b28">7</div></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Recent errors</h2><span class="grow"></span><span class="pill-count">7 total</span></div>
+        <table>
+          <thead>
+            <tr><th scope="col">Severity</th><th scope="col">Feature</th><th scope="col">Message</th><th scope="col" class="hide-sm">When</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="chip-status s-bad"><i></i>Error</span></td>
+              <td class="mono">BTN25_1188_4</td>
+              <td>Geometry is invalid — self-intersection at ring 0, node 4.</td>
+              <td class="tiny hide-sm">09:20</td>
+            </tr>
+            <tr>
+              <td><span class="chip-status s-bad"><i></i>Error</span></td>
+              <td class="mono">BTN25_1188_9</td>
+              <td>Geometry is empty after reprojection from ED50.</td>
+              <td class="tiny hide-sm">09:20</td>
+            </tr>
+            <tr>
+              <td><span class="chip-status s-run"><i></i>Warning</span></td>
+              <td class="mono">BTN25_0904_1</td>
+              <td>Name missing; fell back to the reference code.</td>
+              <td class="tiny hide-sm">09:23</td>
+            </tr>
+            <tr>
+              <td><span class="chip-status s-run"><i></i>Warning</span></td>
+              <td class="mono">BTN25_0777_2</td>
+              <td>Feature outside the configured area of interest.</td>
+              <td class="tiny hide-sm">09:24</td>
+            </tr>
+            <tr>
+              <td><span class="chip-status s-bad"><i></i>Error</span></td>
+              <td class="mono">BTN25_0451_7</td>
+              <td>Entity type <span class="mono">PEAK</span> is not accepted by the programme.</td>
+              <td class="tiny hide-sm">09:25</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <div class="stack">
+
+      <section class="card">
+        <div class="card-head"><h2>Source</h2></div>
+        <div class="card-body">
+          <dl class="dl">
+            <dt>Repository</dt><dd>IGN BTN25</dd>
+            <dt>Adapter</dt><dd>shapefile</dd>
+            <dt>Snapshot</dt><dd class="mono tiny">9f2c…a41e</dd>
+            <dt>Licence</dt><dd>CC-BY 4.0</dd>
+            <dt>Programme</dt><dd>POTA-compatible</dd>
+            <dt>Uploaded by</dt><dd>Volker</dd>
+          </dl>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Files</h2></div>
+        <div class="card-body" style="display:grid;gap:10px">
+          <div class="row"><span class="mono">btn25.shp</span><span class="grow"></span><span class="tiny">198 MB</span></div>
+          <div class="row"><span class="mono">btn25.dbf</span><span class="grow"></span><span class="tiny">42 MB</span></div>
+          <div class="row"><span class="mono">btn25.shx</span><span class="grow"></span><span class="tiny">1.2 MB</span></div>
+          <div class="row"><span class="mono">btn25.prj</span><span class="grow"></span><span class="tiny">168 B</span></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Worker</h2></div>
+        <div class="card-body">
+          <dl class="dl">
+            <dt>Job kind</dt><dd class="mono tiny">import.preprocess</dd>
+            <dt>Attempt</dt><dd>1 of 5</dd>
+            <dt>Lease</dt><dd>293 s remaining</dd>
+            <dt>Replica</dt><dd class="mono tiny">geodata-worker-7c9f</dd>
+            <dt>Memory</dt><dd>612 MB / 1.5 GiB</dd>
+          </dl>
+          <div class="track" style="margin-top:16px"><i class="ochre" style="width:41%"></i></div>
+          <div class="tiny" style="margin-top:7px">41% of the memory ceiling</div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+</body>
+</html>

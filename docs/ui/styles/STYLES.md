@@ -80,21 +80,66 @@ Sand paper, terracotta and sage, very large radii, shadows instead of borders.
 Humanist type with generous leading. Soft where the others are sharp — the
 direction that reads most like a consumer product and least like an admin tool.
 
-**Admin**
+**Selected.** This is the only direction taken to completion — every screen in
+both applications, plus the two auth screens.
 
-![Organic admin](04-organic/renders/admin.png)
+### Admin
 
-**Participant**
+**[Operations overview](04-organic/admin-01-operations.html)**
 
-![Organic participant](04-organic/renders/participant.png)
+![Organic operations](04-organic/renders/admin-01-operations.png)
 
-On a phone — the responsive behaviour is visible rather than claimed:
+**[Geodata review](04-organic/admin-02-geodata-review.html)**
+
+![Organic geodata review](04-organic/renders/admin-02-geodata-review.png)
+
+**[Import run detail](04-organic/admin-03-import-run.html)**
+
+![Organic import run](04-organic/renders/admin-03-import-run.png)
+
+**[Programmes and awards](04-organic/admin-04-programmes-awards.html)**
+
+![Organic programmes](04-organic/renders/admin-04-programmes-awards.png)
+
+### Participant
+
+**[Discover](04-organic/participant-01-discover.html)**
+
+![Organic discover](04-organic/renders/participant-01-discover.png)
+
+**[Map](04-organic/participant-02-map.html)**
+
+![Organic map](04-organic/renders/participant-02-map.png)
+
+**[Live activation](04-organic/participant-03-activation.html)**
+
+![Organic activation](04-organic/renders/participant-03-activation.png)
+
+**[Awards](04-organic/participant-04-awards.html)**
+
+![Organic awards](04-organic/renders/participant-04-awards.png)
+
+**[Check your email](04-organic/participant-05-check-email.html)**
+
+![Organic check email](04-organic/renders/participant-05-check-email.png)
+
+**[Set a new password](04-organic/participant-06-reset-password.html)**
+
+![Organic reset password](04-organic/renders/participant-06-reset-password.png)
+
+### On a phone
+
+The responsive behaviour is visible rather than claimed — these are the three
+screens where a narrow layout is hardest to get right:
 
 <p align="center">
-  <img src="04-organic/renders/participant-mobile.png" alt="Organic participant on a phone" width="390">
+  <img src="04-organic/renders/participant-02-map-mobile.png" alt="Organic map on a phone" width="270">
+  <img src="04-organic/renders/participant-03-activation-mobile.png" alt="Organic activation on a phone" width="270">
+  <img src="04-organic/renders/admin-02-geodata-review-mobile.png" alt="Organic review on a phone" width="270">
 </p>
 
-Directory: [`04-organic/`](04-organic/) · [admin.html](04-organic/admin.html) · [participant.html](04-organic/participant.html)
+Directory: [`04-organic/`](04-organic/) — ten pages, one stylesheet, one
+`renders/` folder.
 
 ---
 
@@ -128,9 +173,10 @@ feel like to the two audiences:
 - **Warm organic** suits a participant-first product where the hobby is the point
   and the software should feel like an invitation, not an instrument.
 
-None of these are exclusive. The admin and participant apps are separate
-deployables with separate audiences, and the design system does not have to be
-the same for both — only the *product* has to feel like one thing.
+Chosen: **warm organic**, because the platform's purpose is to make obscure
+places feel worth visiting, and the tool should feel like an invitation rather
+than an instrument. It is also the only one taken to completion — all ten screens,
+both colour schemes, three viewports.
 
 ## Regenerating
 

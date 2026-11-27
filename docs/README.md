@@ -79,17 +79,22 @@ images are the viewable form and the `.html` files are the interactive originals
 
 Interactive versions: [`ui/index.html`](ui/index.html) — open locally in a browser.
 
-**[docs/ui/styles/STYLES.md](ui/styles/STYLES.md) — four design directions.** The same two
-screens in four deliberate visual languages: editorial, neo-brutalist, aurora
-glass, and warm organic. Each lives in its own directory with its own stylesheet
-and its own renders, sharing nothing on purpose.
+**[docs/ui/styles/STYLES.md](ui/styles/STYLES.md) — four design directions.**
+The same problem in four deliberate visual languages: editorial, neo-brutalist,
+aurora glass, and warm organic. Each lives in its own directory with its own
+stylesheet and its own renders, sharing nothing on purpose.
 
-| Direction | Admin | Participant |
-| --- | --- | --- |
-| Editorial | [render](ui/styles/01-editorial/renders/admin.png) | [render](ui/styles/01-editorial/renders/participant.png) |
-| Neo-brutalist | [render](ui/styles/02-brutalist/renders/admin.png) | [render](ui/styles/02-brutalist/renders/participant.png) |
-| Aurora glass | [render](ui/styles/03-aurora/renders/admin.png) | [render](ui/styles/03-aurora/renders/participant.png) |
-| Warm organic | [render](ui/styles/04-organic/renders/admin.png) | [render](ui/styles/04-organic/renders/participant.png) |
+The first three are sampled — one admin and one participant screen, enough to
+judge the language. **Warm organic was chosen and taken to completion:** all ten
+screens, both colour schemes, three viewports.
+
+| Direction | Admin | Participant | Scope |
+| --- | --- | --- | --- |
+| Editorial | [render](ui/styles/01-editorial/renders/admin.png) | [render](ui/styles/01-editorial/renders/participant.png) | 2 screens |
+| Neo-brutalist | [render](ui/styles/02-brutalist/renders/admin.png) | [render](ui/styles/02-brutalist/renders/participant.png) | 2 screens |
+| Aurora glass | [render](ui/styles/03-aurora/renders/admin.png) | [render](ui/styles/03-aurora/renders/participant.png) | 2 screens |
+| **Warm organic** (selected) | [operations](ui/styles/04-organic/renders/admin-01-operations.png) · [review](ui/styles/04-organic/renders/admin-02-geodata-review.png) · [import](ui/styles/04-organic/renders/admin-03-import-run.png) · [programmes](ui/styles/04-organic/renders/admin-04-programmes-awards.png) | [discover](ui/styles/04-organic/renders/participant-01-discover.png) · [map](ui/styles/04-organic/renders/participant-02-map.png) · [activation](ui/styles/04-organic/renders/participant-03-activation.png) · [awards](ui/styles/04-organic/renders/participant-04-awards.png) · [check email](ui/styles/04-organic/renders/participant-05-check-email.png) · [reset](ui/styles/04-organic/renders/participant-06-reset-password.png) | **10 screens** |
+
 
 They share one stylesheet ([ui/assets/mockup.css](ui/assets/mockup.css)), contain
 no JavaScript framework, make no network requests, and follow
