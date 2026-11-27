@@ -1,0 +1,138 @@
+# libs/ops — integration and conformance.
+#
+# Triggers on the library, its shared DDL and the generator that keeps the two copies in
+# step. Nothing else: a change to a service does not run this, and a change here does not
+# build service images.
+#
+# Both languages run against a real PostgreSQL, because the guarantees this chunk exists
+# for are database guarantees: `FOR UPDATE SKIP LOCKED`, an advisory lock, a unique index
+# over a partial predicate. A mock would assert that the code calls a function, which is
+# not the property anyone cares about.
+
+name: ops
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'libs/ops/**'
+      - 'tools/gen_ops_sql.py'
+      - '.github/workflows/ops.yml'
+  pull_request:
+    paths:
+      - 'libs/ops/**'
+      - 'tools/gen_ops_sql.py'
+      - '.github/workflows/ops.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ops-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The two implementations must agree, so they run the same fixtures. Two jobs rather
+  # than one: a Go failure and a Rust failure are different work for different people,
+  # and a single job would report whichever ran first.
+  go:
+    name: go
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      OPS_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+    defaults:
+      run:
+        working-directory: libs/ops/go
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.24'
+          cache-dependency-path: libs/ops/go/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: vet
+        run: go vet -tags integration ./...
+
+      # Unit tests without a database, then the integration and conformance suite with
+      # one. Both, because a unit test that only passes when a database is present is a
+      # unit test that is not testing the unit.
+      - name: test
+        run: go test -race -count=1 ./...
+
+      - name: integration and conformance
+        run: go test -race -count=1 -tags integration ./...
+
+  rust:
+    name: rust
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      OPS_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+    defaults:
+      run:
+        working-directory: libs/ops/rust
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: '1.85'
+          components: rustfmt, clippy
+
+      - name: cargo fmt
+        run: cargo fmt --all --check
+
+      - name: clippy
+        run: cargo clippy --all-targets --quiet -- -D warnings
+
+      - name: test
+        run: cargo test --quiet
+
+  # The shared DDL is copied into both modules, because `go:embed` and `include_str!`
+  # cannot reach outside them. This is the check that the copies have not drifted: a
+  # column added on one side would make the other side's queries fail at run time, in
+  # production, on one service only.
+  ddl:
+    name: ddl copies
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: copies match libs/ops/sql
+        run: python3 tools/gen_ops_sql.py --check

@@ -97,6 +97,8 @@ checks-contracts:
 	@python3 tools/gen_gateway_assets.py --check
 	@echo "==> tools/gen_gateway_routes.py --check"
 	@python3 tools/gen_gateway_routes.py --check
+	@echo "==> tools/gen_ops_sql.py --check"
+	@python3 tools/gen_ops_sql.py --check
 
 # Static checks that need no browser: decision records, links, the event
 # catalogue, and design-system conformance for any front end that exists.
@@ -130,13 +132,31 @@ checks-diagrams:
 	@echo "==> tools/check_diagrams.py"
 	@python3 tools/check_diagrams.py
 
+# The ops integration suite: outbox, relay, job claim, idempotency, migrations. It needs a
+# real PostgreSQL, so unlike the rest of `verify` it cannot run on a bare checkout.
+#
+# `checks-ops` reports when it cannot run and passes — the same rule as a missing `mmdc`.
+# `make -C libs/ops test` is the strict form and fails loudly; that is the one CI uses and
+# the one the issue's Verify block names.
+.PHONY: checks-ops
+checks-ops:
+	@if [ -n "$${OPS_TEST_DATABASE_URL:-}" ] || command -v docker >/dev/null 2>&1; then \
+	  echo "==> make -C libs/ops test"; \
+	  $(MAKE) --no-print-directory -C libs/ops test; \
+	else \
+	  echo "==> libs/ops integration suite"; \
+	  echo "  note  no OPS_TEST_DATABASE_URL and no docker — the ops integration tests"; \
+	  echo "        were NOT run. 'make -C libs/ops test' fails loudly in this state;"; \
+	  echo "        CI supplies a postgres service, so CI always runs them."; \
+	fi
+
 .PHONY: verify
 verify: check-toolchains fmt lint test checks-contracts checks-static checks-diagrams
 	@echo ""
 	@echo "verify: ok"
 
 .PHONY: verify-full
-verify-full: verify checks-browser
+verify-full: verify checks-ops checks-browser
 	@echo ""
 	@echo "verify-full: ok  (browser and diagrams rendering included)"
 
@@ -150,12 +170,13 @@ help:
 	@echo "MyOTA repository tasks"
 	@echo ""
 	@echo "  make verify       fmt + lint + test + static and diagram checks  (the gate)"
-	@echo "  make verify-full  verify + browser checks (UI sweep, render freshness)"
+	@echo "  make verify-full  verify + ops integration + browser checks"
 	@echo "  make fmt          gofmt and cargo fmt --check"
 	@echo "  make lint         go vet and cargo clippy -D warnings"
 	@echo "  make test         go test -race and cargo test, per module and crate"
 	@echo "  make checks-static   ADRs, links, event catalogue, storage inventory, design system"
 	@echo "  make checks-contracts  compose the contracts and validate OpenAPI 3.1"
+	@echo "  make checks-ops     ops integration suite (needs a PostgreSQL)"
 	@echo "  make checks-browser  UI sweep, mockup renders, playground renders in a browser"
 	@echo "  make checks-diagrams diagram heuristics (Mermaid, Structurizr name checks)"
 	@echo "  make clean        remove build output"
