@@ -10,6 +10,12 @@
 //
 // Requires Playwright with a Chromium build. Set PLAYWRIGHT_CHROMIUM to an
 // explicit executable if the bundled browser is not installed.
+//
+// The committed images are byte-compared by --check, so they are pinned to the
+// browser that produced them: Playwright's own build via `npm ci`. Two Chromium
+// versions render text identically most of the time and not always — upgrading
+// Playwright means regenerating every render, which is why the lockfile matters
+// here more than in most repositories.
 
 import { chromium } from 'playwright';
 import fs from 'node:fs';
