@@ -113,18 +113,20 @@ two routes — a rule that holds everywhere except where someone remembered it.
 
 The gateway does exactly these, and nothing else:
 
-| Concern | Implementation |
-| --- | --- |
-| Routing | prefix table → upstream |
-| Audience enforcement | verify `aud` against the route class before proxying |
-| Token verification | signature and expiry; forwards the token unchanged |
-| Request id | generate `X-Request-ID` if absent, echo in response |
-| Trace propagation | create root span, forward `traceparent` |
-| Body limit | 2 MiB for JSON routes. File bytes never pass through the gateway: uploads are presigned S3 URLs issued by `geodata-api`. |
-| CORS | explicit allowlist, credentials allowed only for the two web origins |
-| Request counting | **Not here.** Traefik owns rate limiting — a counter in a replica multiplies the limit by the replica count. |
-| Problem responses | normalise upstream 5xx into `problem+json` |
-| Health aggregation | `/readyz` reports upstream reachability |
+| Concern | Implementation | Chunk |
+| --- | --- | --- |
+| Routing | prefix table → upstream, generated from the contract | F3 |
+| Audience enforcement | `aud` against the route class, before proxying | F3 |
+| Token verification | EdDSA signature and expiry, keys fetched from `core` ([ADR-0008](../decisions/0008-gateway-token-verification-keys.md)) | F3 |
+| Request id | generate `X-Request-ID` if absent, echo, and forward it upstream | F3 |
+| Trace propagation | forward a valid `traceparent`, create a root one when absent | F3 |
+| Body limit | 2 MiB, declared length and streamed reads. File bytes never pass through the gateway: uploads are presigned S3 URLs issued by `geodata-api`. | F3 |
+| Problem responses | normalise an upstream 5xx that is not already `problem+json` | F3 |
+| Health aggregation | `/readyz` reports per-upstream reachability | F3 |
+| Metrics | request count and latency by route prefix; upstream health gauge | F3 |
+| CORS | explicit allowlist, credentials allowed only for the two web origins | F6 |
+| Request counting | **Not here.** Traefik owns rate limiting — a counter in a replica multiplies the limit by the replica count. | — |
+| Circuit breaking | `// TODO` — see the note below | — |
 
 It does **not**: aggregate responses from several services, hold business rules,
 cache domain data, touch a database, count requests (Traefik does that), or
@@ -136,19 +138,75 @@ that queried Postgres would be a database client with a replica-count problem.
 
 CORS is the exception worth explaining: it stays in the gateway because it is
 stateless configuration, not a counter. Two replicas answering CORS identically is
-correct; two replicas each counting to 100 is not. Anything that accumulates state
-across requests — rate limits, circuit breakers, retry budgets — lives in Traefik.
+correct; two replicas each counting to 100 is not.
+
+The sentence that used to follow — "anything that accumulates state across requests,
+rate limits *and circuit breakers*, lives in Traefik" — is wrong for breakers, and
+the failure table above promises one. A rate limit that is per-replica breaks a
+security control; a circuit breaker that is per-replica protects each replica and
+multiplies nothing. Traefik's open-source middleware set has no circuit breaker
+either, so the promise had nowhere to live. Tracked as **X1**; until it lands, an
+upstream that is down is discovered by every request timing out rather than by the
+first five failing.
+
+### The administrator audience
+
+The gateway enforces one authorisation rule, and it is the one that has to be
+server-side: a participant credential is never accepted under `/v1/admin/`.
+
+| Request | Result |
+| --- | --- |
+| Bearer token, `aud=admin` | proxied |
+| Bearer token, `aud=participant` | `401 about:blank#wrong-audience` |
+| Bearer token that does not verify | `401 about:blank#unauthorized` |
+| No bearer, `__Host-myota_sid` (participant cookie) | `401 about:blank#wrong-audience` |
+| No bearer, `__Host-myota_admin_sid` | proxied — `core` owns the session table and verifies it |
+| Nothing at all, on a token-free path such as `/v1/admin/auth/login` | proxied |
+| Nothing at all, anywhere else under `/v1/admin/` | `401 about:blank#unauthorized` |
+
+The cookie row is the one that matters. The two audiences have had different cookie
+names since the redesign, but until F3 that difference was a browser convention: the
+server did not care which cookie arrived. It does now.
+
+Everything outside `/v1/admin/` is `AudienceOpen`: the gateway forwards and the
+service decides. It is deliberately not stricter than that, because a route class is
+coarser than the operations under it — `/v1/entities/` is anonymous to read and
+administrator-only to write, so any per-prefix rule that judged `aud` there would
+refuse a participant browsing the map with their own session cookie.
 
 ## The playground
 
-`GET /docs` serves a Scalar-based page — a single static HTML file with an
-embedded script, no CDN, no telemetry. It offers:
+`GET /docs` serves a Scalar-based page. Three files, all from the gateway's own
+binary:
+
+```
+GET /docs                the page — a banner, an empty #app, two script tags
+GET /docs/scalar.js      Scalar 1.85.0 standalone, vendored, MIT, 4.5 MB (1.35 MB gzipped)
+GET /docs/boot.js        the twelve-line call that mounts it
+```
 
 - the full composed API with per-service tags;
 - authorisation input for both audiences, so an operator can try participant and
   admin calls in one place;
 - try-it-out against the live gateway;
-- the event schemas as a separate tab.
+- links to `/event-schemas` and `/event-schemas/{type}`, which serve the CloudEvents
+  schemas as JSON Schema.
+
+**No third party, enforced rather than promised.** The page is served with
+`Content-Security-Policy: script-src 'self'; connect-src 'self'; frame-ancestors
+'none'`, so the browser refuses an off-origin script *and* an off-origin fetch even if
+someone later edits the page. There is no inline script, which is why the mount call
+is a served file rather than a `<script>` block: a nonce would work too, and would
+weaken the statement from "one origin" to "one origin plus whatever we signed today".
+
+`tools/check_playground.mjs` starts the real binary, loads the page in Chromium, and
+fails on a console error, a failed request, a request to another origin, or a mount
+point that stays empty. A page that returns 200 and renders nothing passes every
+string comparison and is useless to the person who needed it.
+
+`/openapi.json` carries a validator and `Cache-Control: max-age=300`, not
+`immutable`: the gateway is redeployed, and a client holding an API description that
+no longer matches the deployment is worse than one that revalidates.
 
 Swagger UI is the fallback if Scalar's licence terms ever become a problem; the
 contract is standard OpenAPI 3.1 and either renderer works.

@@ -65,6 +65,7 @@ no alternatives is a press release; one with no costs is advocacy.
 | [0005](0005-horizontal-scaling.md) | Every workload is horizontally scalable | accepted |
 | [0006](0006-diagrams-as-code.md) | Mermaid projections over a Structurizr model | accepted |
 | [0007](0007-ui-direction-organic.md) | The UI direction is 04‑Organic | accepted |
+| [0008](0008-gateway-token-verification-keys.md) | The gateway verifies tokens with keys published by `core` | accepted |
 
 ## Open items
 
@@ -84,6 +85,7 @@ the rule should link back. The mapping:
 | 0005 | §12 Horizontal scaling is a correctness property |
 | 0006 | §13 Diagrams are part of the change |
 | 0007 | §7 The UI style is 04‑Organic |
+| 0008 | §1 API First · §9 Separate admin and participant surfaces |
 
 `tools/check_adrs.py` verifies every ADR has the required sections, a valid
 status, and a matching reference in `AGENTS.md`.

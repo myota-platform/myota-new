@@ -92,7 +92,7 @@ The gateway verifies `aud` against the route prefix before proxying:
 | `/v1/admin/**` | `admin` — every administrator prefix, without exception |
 | `/v1/auth/**` | anonymous (registration, sign-in, recovery) or `participant` |
 | `/v1/me/**` | `participant` or `admin` — own-account operations |
-| `/v1/activations/**`, `/v1/qsos/**`, `/v1/log-imports/**` | `participant` |
+| `/v1/activations/**`, `/v1/qsos/**`, `/v1/log-imports/**` | `participant` for their own data; `admin` for the read-only review routes the contract declares |
 | `/v1/awards/**` | anonymous for definitions, `participant` for `mine` and requests |
 | `/v1/proposals/**` | `participant` (create, own only) |
 | `/v1/entities/**`, `/v1/imports/**` | anonymous for published reads, `admin` for writes and imports |

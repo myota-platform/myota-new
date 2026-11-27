@@ -29,6 +29,12 @@ Every service is defined by its HTTP contract before it is implemented.
 
   No other service publishes its contract externally. Each service exposes
   `GET /internal/openapi.json` for build-time composition and contract tests only.
+- **The gateway verifies the session token, and refuses when it cannot.**
+  `core` publishes its Ed25519 public keys as a JWKS at
+  `GET /internal/auth/jwks`; the gateway caches them by `kid` and refetches on an
+  unknown one, so a key rotation needs no gateway redeploy. With no usable key the
+  gateway answers 401 on `/v1/admin/**` rather than trusting an unverified `aud`
+  claim. See [ADR-0008](docs/decisions/0008-gateway-token-verification-keys.md).
 - Handlers are written against generated types/interfaces from the contract.
 - Contract tests compare the live service's `/internal/openapi.json` and its
   responses to the committed document. Drift fails CI.

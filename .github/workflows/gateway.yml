@@ -8,6 +8,7 @@ on:
     paths:
       - 'apps/gateway/**'
       - 'contracts/**'
+      - 'tools/gen_gateway_*.py'
       - 'libs/ops/go/**'
       - 'libs/limits/go/**'
       - '.github/workflows/gateway.yml'
@@ -16,6 +17,7 @@ on:
     paths:
       - 'apps/gateway/**'
       - 'contracts/**'
+      - 'tools/gen_gateway_*.py'
       - 'libs/ops/go/**'
       - 'libs/limits/go/**'
       - '.github/workflows/gateway.yml'
@@ -36,3 +38,48 @@ jobs:
       image: myota-new-gateway
       path: apps/gateway
       publish: ${{ github.ref == 'refs/heads/main' }}
+
+  # The binary's behaviour, not its source. `_service-go.yml` runs gofmt, vet and
+  # `go test`; this job proves the two things a Go test cannot: that the generated
+  # files still match the contract, and that /docs renders in a browser and reaches
+  # nothing off-origin.
+  edge:
+    name: edge behaviour
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.24'
+          cache-dependency-path: apps/gateway/go.sum
+
+      - name: generated files match the contract
+        # The route table and the embedded assets are committed build artifacts. A
+        # stale one is a gateway routing by yesterday's contract, which no unit test
+        # would notice because the test reads the same stale file.
+        run: |
+          python3 tools/gen_gateway_assets.py --check
+          python3 tools/gen_gateway_routes.py --check
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: install Playwright
+        env:
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
+        run: |
+          npm ci
+          npx --yes playwright install --with-deps chromium
+
+      - name: build the gateway
+        working-directory: apps/gateway
+        run: go build -trimpath -o bin/gateway .
+
+      - name: /docs renders with no third-party request
+        run: node tools/check_playground.mjs
+

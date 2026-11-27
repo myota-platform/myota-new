@@ -93,6 +93,10 @@ checks-contracts:
 	@python3 tools/compose_contracts.py --check
 	@echo "==> tools/test_compose_contracts.py"
 	@python3 tools/test_compose_contracts.py
+	@echo "==> tools/gen_gateway_assets.py --check"
+	@python3 tools/gen_gateway_assets.py --check
+	@echo "==> tools/gen_gateway_routes.py --check"
+	@python3 tools/gen_gateway_routes.py --check
 
 # Static checks that need no browser: decision records, links, the event
 # catalogue, and design-system conformance for any front end that exists.
@@ -113,6 +117,8 @@ checks-browser: node_modules/.package-lock.json
 	done
 	@echo "==> tools/render_mockups.mjs --check"
 	@node tools/render_mockups.mjs --check
+	@echo "==> tools/check_playground.mjs"
+	@node tools/check_playground.mjs
 
 # Diagrams: heuristics only. --full additionally compiles the Structurizr DSL and
 # renders every Mermaid block, which needs a JRE, structurizr-cli and mmdc — the
@@ -148,7 +154,7 @@ help:
 	@echo "  make test         go test -race and cargo test, per module and crate"
 	@echo "  make checks-static   ADRs, links, event catalogue, design-system conformance"
 	@echo "  make checks-contracts  compose the contracts and validate OpenAPI 3.1"
-	@echo "  make checks-browser  UI sweep and mockup render freshness"
+	@echo "  make checks-browser  UI sweep, mockup renders, playground renders in a browser"
 	@echo "  make checks-diagrams diagram heuristics (Mermaid, Structurizr name checks)"
 	@echo "  make clean        remove build output"
 	@echo ""
