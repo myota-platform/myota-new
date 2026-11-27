@@ -1,0 +1,34 @@
+{
+  "name": "job-lease-expiry",
+  "description": "A lease that lapses is reclaimable by another replica, which is how a killed worker's job comes back without a recovery sweep.",
+  "steps": [
+    {
+      "op": "job.enqueue",
+      "jobs": [
+        {
+          "id": "j1",
+          "kind": "entity.enrich"
+        }
+      ]
+    },
+    {
+      "op": "job.claim",
+      "count": 1,
+      "leaseExpires": true
+    },
+    {
+      "op": "job.claim",
+      "count": 1
+    }
+  ],
+  "expect": {
+    "claimed": [
+      "j1",
+      "j1"
+    ],
+    "claimedAttempts": [
+      1,
+      2
+    ]
+  }
+}

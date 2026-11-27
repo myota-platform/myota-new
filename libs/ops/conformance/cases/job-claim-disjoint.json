@@ -1,0 +1,52 @@
+{
+  "name": "job-claim-disjoint",
+  "description": "Four concurrent claimers take disjoint rows: every job claimed exactly once, none lost.",
+  "steps": [
+    {
+      "op": "job.enqueue",
+      "jobs": [
+        {
+          "id": "j1",
+          "kind": "import.preprocess"
+        },
+        {
+          "id": "j2",
+          "kind": "import.preprocess"
+        },
+        {
+          "id": "j3",
+          "kind": "import.preprocess"
+        },
+        {
+          "id": "j4",
+          "kind": "import.preprocess"
+        },
+        {
+          "id": "j5",
+          "kind": "import.preprocess"
+        },
+        {
+          "id": "j6",
+          "kind": "import.preprocess"
+        },
+        {
+          "id": "j7",
+          "kind": "import.preprocess"
+        },
+        {
+          "id": "j8",
+          "kind": "import.preprocess"
+        }
+      ]
+    },
+    {
+      "op": "job.claim",
+      "count": 2,
+      "claimers": 4
+    }
+  ],
+  "expect": {
+    "claimedCount": 8,
+    "claimedDistinct": true
+  }
+}

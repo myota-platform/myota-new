@@ -1,0 +1,37 @@
+{
+  "name": "outbox-publish-once",
+  "description": "Relaying twice publishes each event once. The second pass finds nothing unpublished, and must not re-publish.",
+  "steps": [
+    {
+      "op": "outbox.write",
+      "events": [
+        {
+          "id": "e1",
+          "subject": "entity:aaa",
+          "type": "geodata.entity.published.v1"
+        },
+        {
+          "id": "e2",
+          "subject": "entity:bbb",
+          "type": "geodata.entity.published.v1"
+        },
+        {
+          "id": "e3",
+          "subject": "entity:ccc",
+          "type": "geodata.entity.published.v1"
+        }
+      ]
+    },
+    {
+      "op": "outbox.relay"
+    },
+    {
+      "op": "outbox.relay"
+    }
+  ],
+  "expect": {
+    "publishedCount": 3,
+    "publishedDistinct": true,
+    "remainingUnpublished": 0
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "name": "job-attempts-dead",
+  "description": "A job that fails maxAttempts times becomes dead and writes one dead letter, instead of retrying forever.",
+  "steps": [
+    {
+      "op": "job.enqueue",
+      "jobs": [
+        {
+          "id": "j1",
+          "kind": "import.fetch"
+        }
+      ],
+      "maxAttempts": 3
+    },
+    {
+      "op": "job.claim",
+      "count": 1
+    },
+    {
+      "op": "job.settle",
+      "outcome": "fail"
+    },
+    {
+      "op": "job.claim",
+      "count": 1
+    },
+    {
+      "op": "job.settle",
+      "outcome": "fail"
+    },
+    {
+      "op": "job.claim",
+      "count": 1
+    },
+    {
+      "op": "job.settle",
+      "outcome": "fail"
+    }
+  ],
+  "expect": {
+    "jobStates": {
+      "j1": "dead"
+    },
+    "deadLetters": 1
+  }
+}

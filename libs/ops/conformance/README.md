@@ -95,10 +95,19 @@ Both run in CI whenever `libs/ops/**` changes — see `gateway.yml`, `activity.y
 
 ## Status
 
-**Specified, not yet implemented.** The fixtures above are the design; the two
-implementations and their runners arrive with chunk F4. This file exists now so F4
-builds against a contract rather than inventing its own tests twice and hoping they
-agree.
+**Implemented.** Ten cases in `cases/`, run by both implementations:
+
+```
+libs/ops/go/conformance_test.go       TestConformance
+libs/ops/rust/tests/conformance.rs    conformance()
+```
+
+Each runner creates a database per case, so a case cannot be influenced by one that ran
+before it, and asserts every key in `expect`. An outcome the runner does not produce, or
+a case it does not recognise, is a failure rather than a skip.
+
+The runner needs a PostgreSQL: `make -C libs/ops test` supplies one through Docker when
+`OPS_TEST_DATABASE_URL` is unset, and CI supplies a service container.
 
 ## What this does not solve
 

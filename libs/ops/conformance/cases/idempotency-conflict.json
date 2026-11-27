@@ -1,0 +1,26 @@
+{
+  "name": "idempotency-conflict",
+  "description": "The same key with a different body is a caller reusing a key for a different operation, and is refused.",
+  "steps": [
+    {
+      "op": "idempotency.request",
+      "key": "k1",
+      "body": "{\"sourceId\":\"1c5e\"}",
+      "status": 201,
+      "response": "{\"id\":\"abc\"}"
+    },
+    {
+      "op": "idempotency.request",
+      "key": "k1",
+      "body": "{\"sourceId\":\"ffff\"}",
+      "status": 201,
+      "response": "{\"id\":\"def\"}"
+    }
+  ],
+  "expect": {
+    "idempotencyOutcomes": [
+      "proceed",
+      "conflict"
+    ]
+  }
+}

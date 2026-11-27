@@ -1,0 +1,36 @@
+{
+  "name": "outbox-duplicate-no-effect",
+  "description": "The same event id twice produces one row: a producer retry cannot turn into two jobs on the consuming side.",
+  "steps": [
+    {
+      "op": "outbox.write",
+      "events": [
+        {
+          "id": "e1",
+          "subject": "account:dupe",
+          "type": "core.account.created.v1"
+        }
+      ]
+    },
+    {
+      "op": "outbox.write",
+      "events": [
+        {
+          "id": "e1",
+          "subject": "account:dupe",
+          "type": "core.account.created.v1"
+        }
+      ],
+      "expectError": true
+    },
+    {
+      "op": "outbox.relay"
+    }
+  ],
+  "expect": {
+    "published": [
+      "e1"
+    ],
+    "publishedCount": 1
+  }
+}

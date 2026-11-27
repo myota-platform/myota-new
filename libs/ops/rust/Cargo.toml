@@ -7,3 +7,27 @@ publish = false
 description = "Outbox, idempotency, job claiming and partition assignment. Mirrors libs/ops/go."
 
 [dependencies]
+# sqlx with runtime queries rather than the compile-time `query!` macros: the macros
+# need a live database (or a checked-in offline cache) at build time, which would make
+# `cargo build` depend on infrastructure. The queries here are a handful of fixed
+# statements covered by integration tests and the conformance suite, so the macros buy
+# little and cost a build prerequisite.
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "uuid",
+    "chrono",
+    "json",
+    "migrate",
+] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

@@ -1,0 +1,37 @@
+{
+  "name": "outbox-order",
+  "description": "Events for one subject publish in seq order, which is the ordering guarantee the partition lease exists to protect.",
+  "steps": [
+    {
+      "op": "outbox.write",
+      "events": [
+        {
+          "id": "e1",
+          "subject": "entity:same",
+          "type": "geodata.entity.updated.v1"
+        },
+        {
+          "id": "e2",
+          "subject": "entity:same",
+          "type": "geodata.entity.updated.v1"
+        },
+        {
+          "id": "e3",
+          "subject": "entity:same",
+          "type": "geodata.entity.updated.v1"
+        }
+      ]
+    },
+    {
+      "op": "outbox.relay"
+    }
+  ],
+  "expect": {
+    "published": [
+      "e1",
+      "e2",
+      "e3"
+    ],
+    "publishedCount": 3
+  }
+}

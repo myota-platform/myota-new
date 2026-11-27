@@ -1,0 +1,26 @@
+{
+  "name": "idempotency-replay",
+  "description": "The same key with the same body returns the stored response and does not execute again.",
+  "steps": [
+    {
+      "op": "idempotency.request",
+      "key": "k1",
+      "body": "{\"sourceId\":\"1c5e\"}",
+      "status": 201,
+      "response": "{\"id\":\"abc\"}"
+    },
+    {
+      "op": "idempotency.request",
+      "key": "k1",
+      "body": "{\"sourceId\":\"1c5e\"}",
+      "status": 201,
+      "response": "{\"id\":\"abc\"}"
+    }
+  ],
+  "expect": {
+    "idempotencyOutcomes": [
+      "proceed",
+      "replay"
+    ]
+  }
+}

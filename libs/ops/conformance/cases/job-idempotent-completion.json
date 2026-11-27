@@ -1,0 +1,33 @@
+{
+  "name": "job-idempotent-completion",
+  "description": "Completing a job twice is not an error: a worker that finishes and then crashes before recording it will be retried.",
+  "steps": [
+    {
+      "op": "job.enqueue",
+      "jobs": [
+        {
+          "id": "j1",
+          "kind": "award.evaluate"
+        }
+      ]
+    },
+    {
+      "op": "job.claim",
+      "count": 1
+    },
+    {
+      "op": "job.settle",
+      "outcome": "complete"
+    },
+    {
+      "op": "job.settle",
+      "outcome": "complete"
+    }
+  ],
+  "expect": {
+    "jobStates": {
+      "j1": "done"
+    },
+    "deadLetters": 0
+  }
+}

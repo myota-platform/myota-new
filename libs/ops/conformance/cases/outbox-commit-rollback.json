@@ -1,0 +1,23 @@
+{
+  "name": "outbox-commit-rollback",
+  "description": "An event written in a transaction that rolls back must never exist. An event without its change is a lie.",
+  "steps": [
+    {
+      "op": "outbox.write_rollback",
+      "events": [
+        {
+          "id": "e1",
+          "subject": "account:rollback",
+          "type": "core.account.created.v1"
+        }
+      ]
+    },
+    {
+      "op": "outbox.relay"
+    }
+  ],
+  "expect": {
+    "publishedCount": 0,
+    "remainingEvents": 0
+  }
+}
