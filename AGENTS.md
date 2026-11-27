@@ -131,10 +131,10 @@ One repository, one review surface, one commit history:
 ```
 apps/            deployable services (core, geodata, activity, gateway)
 contracts/       OpenAPI documents and event schemas (source of truth)
-libs/            shared libraries — ops, ui-tokens, limits
+libs/            shared libraries — ops, limits
 web/             admin and participant front ends
 deploy/          Helm charts, Fleet definitions, SOPS secret files
-docs/            architecture, decisions, UI mockups, runbooks
+docs/            architecture, decisions, UI screens, runbooks
 tools/           repo scripts: check_diagrams.py, contract composition
 ```
 
@@ -147,7 +147,81 @@ tools/           repo scripts: check_diagrams.py, contract composition
   imported by both the contract generator and the validators, so the contract
   cannot disagree with enforcement.
 
-## 6. Deployment on this local K3s cluster
+## 6. The UI style is 04‑Organic
+
+**`docs/ui/styles/04-organic/` is the preferred and only UI direction.** It is
+not one option among four — the other three were samples that informed the choice
+and are now historical.
+
+```
+docs/ui/styles/04-organic/
+  style.css                     the design system — tokens, components, dark variant
+  admin-01…06-*.html            every admin screen
+  participant-01…06-*.html      every participant screen
+  renders/                      generated PNGs, committed so they are viewable
+```
+
+### Rules
+
+- **New UI work starts from `04-organic/style.css`.** Do not extend the baseline
+  in `docs/ui/`, and do not revive `01-editorial`, `02-brutalist` or `03-aurora`.
+  They stay in the repository as the record of what was considered, not as a menu.
+- **The design system is the stylesheet, not a component library.** The custom
+  properties at the top of `style.css` are the contract — colour, radius, shadow,
+  spacing. A new component uses those tokens and never invents a literal value;
+  if a needed value is missing from the scale, add a token.
+- **The visual grammar, stated so it can be checked:**
+  - **no container borders** — cards, panels and controls separate by surface and
+    radius, and sit apart by shadow. A 1 px `var(--line)` hairline is allowed
+    *inside* a surface as a row divider; it is never the outline of a container
+  - **warm palette** — sand, terracotta, sage, ochre carry the chrome. Cool hues
+    appear only where they *describe a thing* — the sea on a map, an informational
+    state — never as surface, border or accent for the interface itself
+  - **generous leading and whitespace** — density is the enemy
+  - **radius carries hierarchy, and surfaces use tokens** — never square corners;
+    `--r-ctl` 14 px for controls and inputs, `--r-lg` 28 px for cards, `--r-xl`
+    34 px for the page shell. A literal radius is acceptable only on a decorative
+    micro-element with no hierarchical meaning (a 2 px hairline, a bar cap, a
+    30 px avatar); it must never appear on a surface, card, control or panel
+- **Colour carries meaning, not position.** `.tint-good`, `.tint-warn`,
+  `.chip-status.s-ok` and friends are chosen per metric. Never tint by
+  `nth-child`: an arbitrary red KPI reads as an error state.
+- **Both colour schemes are required.** Every screen must work in
+  `prefers-color-scheme: dark`. The dark variant is warm charcoal, not blue-black,
+  so the palette still reads as sand-and-clay at night.
+- **Every screen must survive 390 px.** Below 560 px, wide tables become stacked
+  blocks rather than sideways-scrolling tables, and the nav wraps rather than
+  scrolling out of view. A hidden state column or a hidden current page is a bug.
+- **Add every new screen to `SHOTS` in `tools/render_mockups.mjs`,** or its image
+  will not exist and `--check` will not notice.
+
+### Verifying
+
+```sh
+node tools/render_mockups.mjs          # regenerate the images
+node tools/render_mockups.mjs --check  # fails if an image is stale
+node tools/check_ui.mjs                # every page x 3 viewports x 2 schemes
+```
+
+`check_ui.mjs` is the gate that matters. For **every** page under `docs/ui` it
+asserts, at 390 / 768 / 1440 px, in light and dark:
+
+- no JavaScript errors
+- no external network requests — the screens are self-contained
+- no horizontal page overflow
+- **no clipped content**
+
+That last one is why the tool exists rather than a manual look. A card with
+`overflow: hidden` swallows a too-wide table without ever making the page scroll,
+so an overflow check alone reports success while the user sees a truncated
+column. This is not hypothetical: it happened, and the overflow check passed.
+`sr-only` text and decorative absolutely-positioned pseudo-elements are excluded,
+because clipping those is the point.
+
+Both tools need Playwright with a Chromium build. `PLAYWRIGHT_CHROMIUM` forces a
+specific binary; otherwise an already-downloaded build is discovered.
+
+## 7. Deployment on this local K3s cluster
 
 - Target: the local K3s cluster, Fleet workspace **`myota`**, Kubernetes namespace
   **`myota`**.
@@ -217,7 +291,7 @@ See [ADR-0003](docs/decisions/0003-no-sealed-secrets.md),
 [docs/architecture/secrets-and-config.md](docs/architecture/secrets-and-config.md),
 and [docs/architecture/ci-secrets.md](docs/architecture/ci-secrets.md).
 
-## 7. Separate admin and participant surfaces
+## 8. Separate admin and participant surfaces
 
 Two front ends, two login surfaces, one identity store.
 
@@ -260,7 +334,7 @@ The console has **two** account-management areas, because they fail differently:
 
 See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
 
-## 8. Test-driven development
+## 9. Test-driven development
 
 - Write the failing test first, then the smallest implementation that makes it
   pass, then refactor. A commit that adds behaviour without a test is incomplete.
@@ -277,7 +351,7 @@ See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
   ordering dependencies, no reliance on wall-clock sleeps.
 - CI gates on the full suite; a red test is never bypassed to ship.
 
-## 9. Email flows are security-critical, not plumbing
+## 10. Email flows are security-critical, not plumbing
 
 Every account-lifecycle flow lives in `core`. There is one notification ledger,
 one delivery worker, one SMTP credential.
@@ -318,7 +392,7 @@ Rules that must not be relaxed:
 
 See [docs/architecture/email-flows.md](docs/architecture/email-flows.md).
 
-## 10. Horizontal scaling is a correctness property
+## 11. Horizontal scaling is a correctness property
 
 **Any replica must serve any request at any moment, and killing any replica at
 any moment must be invisible.** This applies to every workload, including both
@@ -352,7 +426,7 @@ three times", or "one replica has the state", the change is incomplete.
 Full contract: [scaling.md](docs/architecture/scaling.md),
 [ADR-0005](docs/decisions/0005-horizontal-scaling.md).
 
-## 11. Diagrams are part of the change, not documentation debt
+## 12. Diagrams are part of the change, not documentation debt
 
 The system is described twice, deliberately:
 
@@ -409,9 +483,9 @@ is **incomplete**, regardless of whether the code works.
   node tools/render_mockups.mjs --check  # fails if a render is stale
   ```
 
-  The chosen direction is `docs/ui/styles/04-organic/` — every screen in both
-  applications lives there. Adding a screen means adding it to `SHOTS` in the
-  render script, or its image will not exist and `--check` will not notice.
+  Screens live in `docs/ui/styles/04-organic/` — see rule 6. Adding a screen means
+  adding it to `SHOTS` in the render script, or its image will not exist and
+  `--check` will not notice.
 
   A screenshot taken by hand drifts the moment someone edits the CSS. Use the
   script or the images are wrong.
@@ -513,7 +587,7 @@ that would justify bringing a broker back.
 leader per database" — a throughput ceiling and a publication gap on restart. The
 gateway rate-limited in memory, so N replicas meant N× the limit. Uploads were
 proxied through the API, making its memory proportional to file size. All three
-are fixed by rule 9, and the connection wall (600 connections needed at 20
+are fixed by rule 11, and the connection wall (600 connections needed at 20
 replicas, 100 available) is closed by PgBouncer.
 
 **The contract was declared but never served.** One `openapi.yaml` existed and
