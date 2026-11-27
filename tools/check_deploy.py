@@ -171,6 +171,42 @@ def check(objects: list[dict]) -> list[str]:
                     f"PostgreSQL through the pooler, never the StatefulSet"
                 )
 
+    # ── the pooler rule, as a network mechanism ─────────────────────────────────
+    #
+    # A ConfigMap check stops the mistake being configured; a NetworkPolicy stops it being
+    # made. Both, because the second is what holds when someone debugs with a shell or a new
+    # service is written before this rule is read.
+    policies = {name_of(o): o for o in by_kind(objects, "NetworkPolicy")}
+    for database in DATABASES:
+        policy_name = f"{RELEASE}-{database}-postgres-ingress"
+        policy = policies.get(policy_name)
+        if policy is None:
+            problems.append(
+                f"no NetworkPolicy {policy_name}; any pod could reach {database} directly"
+            )
+            continue
+        rules = policy.get("spec", {}).get("ingress", [])
+        peers = [peer for rule in rules for peer in rule.get("from", [])]
+        pooler_selector = any(
+            peer.get("podSelector", {}).get("matchLabels", {}).get("app.kubernetes.io/name")
+            == f"{RELEASE}-{database}-pgbouncer"
+            for peer in peers
+        )
+        migrate_selector = any(
+            peer.get("podSelector", {}).get("matchLabels", {}).get("myota.role") == "migrate"
+            for peer in peers
+        )
+        host_rule = any("ipBlock" in peer for peer in peers)
+        if not pooler_selector:
+            problems.append(f"{policy_name}: does not admit its own pooler, so nothing works")
+        if not migrate_selector:
+            problems.append(f"{policy_name}: does not admit the migration Job, so migrations fail")
+        if not host_rule:
+            problems.append(
+                f"{policy_name}: has no ipBlock rule, so kubelet probes are refused and the "
+                f"pod is restarted forever"
+            )
+
     # ── migrations ──────────────────────────────────────────────────────────────
     if not jobs:
         problems.append("no migration Job; the schema would have to be applied by hand")

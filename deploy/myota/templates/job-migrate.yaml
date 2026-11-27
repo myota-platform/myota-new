@@ -38,6 +38,9 @@ spec:
     metadata:
       labels:
         {{- include "myota.labels" . | nindent 8 }}
+        # The NetworkPolicy allows only the pooler and these pods to reach PostgreSQL. The
+        # label is the whole authorisation, so it is set here rather than inherited.
+        myota.role: migrate
     spec:
       restartPolicy: Never
       securityContext:

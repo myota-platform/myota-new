@@ -55,9 +55,20 @@ Every service reaches PostgreSQL through its pooler. The only two exceptions are
 **migration Job**, which needs one session for its advisory lock and one transaction for
 its whole migration set, and **the pooler itself**.
 
-`tools/check_deploy.py` enforces it: it renders the chart and fails if any ConfigMap a
-workload reads names a `-postgres` host. A service cannot be pointed at the database
-directly without a red build.
+Two mechanisms, because a rule that is only written down is a rule somebody will not have
+read:
+
+1. **`tools/check_deploy.py`** renders the chart and fails if any ConfigMap a workload reads
+   names a `-postgres` host. A service cannot be *configured* to bypass the pooler.
+2. **A NetworkPolicy per database** allows ingress only from its own pooler, from the
+   migration Job, and from the node (kubelet probes are host traffic). A pod that is
+   neither cannot reach the database even with the right host and password.
+
+Verified on the cluster: a plain pod connecting to `myota-core-postgres:5432` reports
+`DIRECT-BLOCKED`, while the same credentials through `myota-geo-pgbouncer:6432` return
+`POOLER-OK 3.4 …`. The database pods stay `Ready` and the migration Job still succeeds under
+the policy, which is the pair of things that would break if the selectors or the probe
+exception were wrong.
 
 The connection budget, also checked:
 

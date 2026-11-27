@@ -852,9 +852,10 @@ Each service owns exactly one database and no table appears in two of them (ADR-
 | `myota_activity` | `activity` | `postgres:16.4-alpine` | 10 Gi |
 
 - **Every service reaches PostgreSQL through its pooler**, `myota-<db>-pgbouncer:6432`.
-  The only direct clients are the pooler itself and the migration Job. A ConfigMap a
-  workload reads must never name a `-postgres` host; `tools/check_deploy.py` renders the
-  chart and fails if one does.
+  The only direct clients are the pooler itself and the migration Job, and both are
+  enforced twice: `tools/check_deploy.py` fails if any ConfigMap a workload reads names a
+  `-postgres` host, and a NetworkPolicy per database refuses ingress from anything but its
+  pooler, the migration Job, and the node (for kubelet probes).
 - **Transaction pooling constrains the application.** No advisory lock held across
   requests, no prepared statement outside a transaction, no `SET` that outlives a
   statement. The endpoint ConfigMap carries `DATABASE_POOL_MODE` so the constraint is
