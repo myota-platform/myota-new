@@ -1,0 +1,17 @@
+# SOPS configuration for this repository.
+#
+# The recipient is the cluster's existing age key — the same one every other
+# repository on this server uses (infra, bminfo, spainip-k3s). Myota adds no second
+# encryption identity: one cluster, one recipient, or an operator ends up holding two
+# keys and remembering which file needs which.
+#
+# What is encrypted is the `data`/`stringData` of a Kubernetes Secret and nothing
+# else. The surrounding object — kind, name, namespace — stays readable, so a diff
+# shows which secret changed and in which namespace without decrypting it.
+#
+# This does not make Fleet able to apply secrets: secrets are decrypted and applied by
+# hand (ADR-0003). A GitRepo that can decrypt is a GitRepo that can leak.
+creation_rules:
+  - path_regex: "deploy/myota/secrets/.*\\.sops\\.yaml$"
+    encrypted_regex: "^(data|stringData)$"
+    age: "age1cvpkdlz2uysxef3vf4q4zca9trcjdcy3u2dfmy4wfaeqssnsxalqp5u9h2"

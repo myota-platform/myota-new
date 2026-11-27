@@ -534,6 +534,7 @@ The rules that make it true:
 | Event puller | Same partition lease. Duplicates are harmless because the job id is the event id. |
 | Rate limiting | Traefik middleware at the single ingress. **Never in the gateway** — in-process counters multiply the limit by the replica count. |
 | Uploads | Presigned S3 URLs. File bytes must never traverse an API replica. |
+| Object storage | Three buckets per environment on the cluster's Silo server; one credential per environment, never per service. See section 16. |
 | Caches | Local, TTL-bounded, never authoritative. No cross-replica invalidation protocol. |
 | Real-time | Polling with a cursor or `ETag`. No WebSocket, no SSE, no connection pinned to a replica. |
 | DB connections | PgBouncer in transaction mode per database. Application pools are bounded per replica, not per replica count. |
@@ -803,6 +804,42 @@ which is exactly why they are written down: they are review findings, not lint
 findings.
 
 ---
+
+## 16. Files live in Silo, under documented buckets
+
+Object storage is the cluster's Silo server (a PGSTY/MInIO fork) in namespace
+`silo`, shared with other tenants. Myota is one tenant and holds no administrative
+access to it.
+
+- **Three buckets per environment**, named `myota-test-{imports,content,records}`
+  and `myota-prod-{imports,content,records}`. One user per environment —
+  `myota-test`, `myota-prod` — with policy `myota-<env>-only`. Never one bucket,
+  never one credential per service. Reasoning: [ADR-0009](docs/decisions/0009-three-buckets-per-environment.md).
+- **A service writes only its own prefix**, inside the bucket its data class lives
+  in: `geodata` → `imports/` and `entities/`, `activity` → `logs/` and
+  `certificates/`, `core` → `evidence/`. The credential is bucket-scoped, so this is a
+  code rule, not a policy one: build `object_key` from ids, in the owning service.
+- **Object keys are ids, never user input.** `imports/<uploadId>/source`,
+  `entities/<entityId>/<attachmentId>`, `certificates/<issuanceId>`,
+  `evidence/<accountId>/<callsignId>`. The original filename and the media type live
+  in the database. A user-supplied key brings traversal, unicode normalisation
+  differences and personal data into a proxy log.
+- **Two endpoints, and they are not interchangeable.** `S3_ENDPOINT` is the
+  in-cluster ClusterIP, for streaming bytes. `S3_SIGNING_ENDPOINT` is the public
+  hostname, and it is the only one that can presign: a signature covers its `Host`,
+  and a browser cannot reach `silo.silo.svc.cluster.local`. Signing with the wrong one
+  fails as `403 SignatureDoesNotMatch`.
+- **Path-style addressing, region `us-east-1`.** Silo sits behind one hostname with no
+  wildcard ingress rule, so virtual-host addressing fails at TLS.
+- **Never return a credential to a caller.** The only client path is a presigned URL
+  for one key, one method, one expiry.
+- **The imports bucket expires at 30 days**; the other two do not. Anything added to
+  `imports/` is expected to disappear, so never store the only copy of something there.
+- `python3 tools/provision_silo.py --check` must pass: it holds the inventory, the
+  policies and the document to each other. Adding a bucket means editing all three.
+
+Full specification: [object-storage.md](docs/architecture/object-storage.md).
+Provisioning: [deploy/silo/README.md](deploy/silo/README.md).
 
 ## Findings from rebuilding this design
 

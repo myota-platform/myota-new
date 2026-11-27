@@ -51,7 +51,33 @@ deploy/
 ```
 
 The same chart serves both namespaces; only the values and the namespace differ.
-A secret is applied **per namespace**, from the same encrypted file.
+A secret is applied **per namespace**. When the value is genuinely shared — a
+database password that happens to be identical, a TLS key — that is the *same*
+encrypted file applied twice. When it is not, it is one file per environment:
+
+```
+secrets/
+  s3-credentials.myota-test.sops.yaml    → Secret s3-credentials in myota-test
+  s3-credentials.myota-prod.sops.yaml    → Secret s3-credentials in myota
+  core.sops.yaml                         → the same file in both
+```
+
+The S3 credential is a different *identity* per environment, not a duplicated value.
+Putting both in one file would mean an apply in the test namespace carries
+production's key, and the mistake that follows — a test pod writing to production
+storage — is exactly the one the bucket naming is designed to make impossible.
+
+Configuration that differs per environment follows the same shape:
+
+```
+config/
+  myota-test/storage.yaml     ConfigMap in myota-test
+  myota/storage.yaml          ConfigMap in myota
+```
+
+Any value whose correct answer differs between environments lives in the
+per-environment directory. A single file cannot be right for both, and the failure
+mode is silent.
 
 ```yaml
 apiVersion: v1
@@ -181,12 +207,26 @@ Small and explicit. Every entry has an owner and a rotation path.
 | `geodata-db` | `url` | geodata | On compromise; 90-day scheduled |
 | `activity-db` | `url` | activity | On compromise; 90-day scheduled |
 | `core-session-key` | `ed25519-private`, `kid` | core (mounted only by core) | 180 days, two keys valid during rollover |
-| `nats-credentials` | `url`, `user`, `password` | all | 180 days |
-| `s3-credentials` | `access-key`, `secret-key`, `endpoint`, `bucket-prefix` | geodata, activity | 180 days |
-| `smtp-credentials` | `host`, `port`, `user`, `password`, `from` | core | On provider change |
-| `webauthn-rp` | `rp-id`, `rp-name`, `origin` | core | On domain change |
+| `s3-credentials` | `access-key`, `secret-key` | core, geodata, activity | 180 days, or on suspicion |
+| `smtp-credentials` | `user`, `password` | core | On provider change |
+| `webauthn-rp` | `rp-secret` | core | On domain change |
 
-Eight secrets. The legacy deployment had `registry-credentials` duplicated into
+Seven secrets per environment. There is no broker credential: ADR-0004 removed
+the message broker, and with it the `nats-credentials` entry this table used to
+carry — a secret inventory that lists a component the design does not have is an
+inventory an operator provisions by mistake.
+
+The S3 entry holds **only the credential**. The endpoint, the signing endpoint and
+the bucket names used to be listed here under `s3-credentials`, which contradicted
+the rule three sections above: "the endpoint is configuration, the credential is a
+secret". They are a ConfigMap now, per environment, and the reason is not
+bookkeeping — a bucket name that differs between test and production *must* be in a
+reviewable diff, and a value inside an encrypted file is not.
+
+One user per environment, so the credential exists twice under the same name in two
+namespaces. See [object-storage.md](object-storage.md).
+
+The legacy deployment had `registry-credentials` duplicated into
 16 namespaces (`infra/REMOVE-SEALED-SECRETS.md`), plus per-service URL bundles,
 SMTP credentials, NATS credentials, and object-storage keys scattered across
 `myota-auth`, `myota-database-urls`, `myota-database-migration-urls`,
@@ -201,7 +241,7 @@ mounts its own database secret plus only the shared secrets it actually uses:
 
 | Service | Mounts |
 | --- | --- |
-| `core` | `core-db`, `core-session-key`, `smtp-credentials`, `webauthn-rp` |
+| `core` | `core-db`, `core-session-key`, `smtp-credentials`, `webauthn-rp`, `s3-credentials` |
 | `geodata` | `geodata-db`, `s3-credentials` |
 | `activity` | `activity-db`, `s3-credentials` |
 | `gateway` | nothing — it verifies signatures with a public key compiled in |

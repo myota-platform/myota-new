@@ -1,0 +1,83 @@
+# The object-storage inventory: what must exist on Silo, per environment.
+#
+# Read by `tools/provision_silo.py` and by the checks in `make verify`. It is the
+# source of truth for bucket names, the prefixes each one holds, and retention —
+# the prose in docs/architecture/object-storage.md describes this file, and a check
+# fails when the two disagree.
+#
+# Nothing here is secret. Credentials are in deploy/myota/secrets/*.sops.yaml; the
+# endpoint and bucket names the services actually use come from a ConfigMap.
+
+server:
+  # Where Silo answers. The in-cluster address is used for everything except
+  # minting presigned URLs, which must be signed for a host the browser can reach.
+  endpoint: http://silo.silo.svc.cluster.local:9000
+  signing_endpoint: https://silo-api.spainip.es
+  # SigV4 requires a region. Silo ignores the value, but a client that omits it or
+  # disagrees with the server's default gets SignatureDoesNotMatch.
+  region: us-east-1
+  # Silo is reached through one hostname; Traefik has no wildcard rule for it, so
+  # virtual-host addressing fails at TLS. Every client must use path style.
+  path_style: true
+  # Alias used by the operator's `mcli` when running the provisioning commands.
+  alias: myota-silo
+
+environments:
+  test:
+    namespace: myota-test
+    user: myota-test
+    policy: myota-test-only
+    secret_file: deploy/myota/secrets/s3-credentials.myota-test.sops.yaml
+    config_file: deploy/myota/config/myota-test/storage.yaml
+    buckets:
+      - name: myota-test-imports
+        purpose: Import sources and log files. Bulk and transient.
+        prefixes:
+          - { prefix: imports/, owner: geodata, object: import source file, ceiling: 1 GiB }
+          - { prefix: logs/, owner: activity, object: ADIF or CSV log file, ceiling: 32 MiB }
+        retain_days: 30
+        versioning: false
+        # The only bucket whose growth is unbounded if nothing removes anything.
+        expire_incomplete_multipart: false
+      - name: myota-test-content
+        purpose: Published entity attachments.
+        prefixes:
+          - { prefix: entities/, owner: geodata, object: photo, map or document, ceiling: 8 MiB }
+        retain_days: 0
+        versioning: false
+      - name: myota-test-records
+        purpose: Award certificates and callsign evidence. Small, permanent, private.
+        prefixes:
+          - { prefix: certificates/, owner: activity, object: issued award certificate, ceiling: 2 MiB }
+          - { prefix: evidence/, owner: core, object: licence scan, ceiling: 8 MiB }
+        retain_days: 0
+        versioning: false
+
+  prod:
+    namespace: myota
+    user: myota-prod
+    policy: myota-prod-only
+    secret_file: deploy/myota/secrets/s3-credentials.myota-prod.sops.yaml
+    config_file: deploy/myota/config/myota/storage.yaml
+    buckets:
+      - name: myota-prod-imports
+        purpose: Import sources and log files. Bulk and transient.
+        prefixes:
+          - { prefix: imports/, owner: geodata, object: import source file, ceiling: 1 GiB }
+          - { prefix: logs/, owner: activity, object: ADIF or CSV log file, ceiling: 32 MiB }
+        retain_days: 30
+        versioning: false
+        expire_incomplete_multipart: false
+      - name: myota-prod-content
+        purpose: Published entity attachments.
+        prefixes:
+          - { prefix: entities/, owner: geodata, object: photo, map or document, ceiling: 8 MiB }
+        retain_days: 0
+        versioning: false
+      - name: myota-prod-records
+        purpose: Award certificates and callsign evidence. Small, permanent, private.
+        prefixes:
+          - { prefix: certificates/, owner: activity, object: issued award certificate, ceiling: 2 MiB }
+          - { prefix: evidence/, owner: core, object: licence scan, ceiling: 8 MiB }
+        retain_days: 0
+        versioning: false

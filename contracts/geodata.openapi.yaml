@@ -570,7 +570,7 @@ paths:
                 mediaType: image/jpeg
                 sizeBytes: 184320
                 checksumSha256: 6b3a1c9e8f2d4b7a0c5e9d1f3a8b6c2e4d7f0a9b1c3e5d8f2a4b6c0e7d9f1a35
-                uploadUrl: https://objects.example.org/myota-geo/entities/8f3c1e00/photo.jpg?X-Amz-Signature=…
+                uploadUrl: https://silo-api.spainip.es/myota-test-content/entities/8f3c1e00-0000-4000-8000-000000000001/9c4e7a12-3b8d-4f60-a1c5-7e2b9d4f6a08?X-Amz-Signature=…
                 uploadExpiresAt: '2026-11-27T13:20:00Z'
                 confirmedAt: null
         '400':
@@ -998,7 +998,7 @@ paths:
                 $ref: '#/components/schemas/UploadSession'
               example:
                 id: 4d7b2e91-8c6a-4f35-b0d9-2e5a8c1f7b64
-                objectKey: imports/4d7b2e91/upload
+                objectKey: imports/4d7b2e91-8c6a-4f35-b0d9-2e5a8c1f7b64/source
                 sizeBytes: 1048576
                 state: open
                 partSizeBytes: 8388608
@@ -1059,7 +1059,7 @@ paths:
                 $ref: '#/components/schemas/SignedPart'
               example:
                 partNumber: 7
-                uploadUrl: https://objects.example.org/myota-geo/imports/4d7b2e91/upload?partNumber=7&X-Amz-Signature=…
+                uploadUrl: https://silo-api.spainip.es/myota-test-imports/imports/4d7b2e91-8c6a-4f35-b0d9-2e5a8c1f7b64/source?partNumber=7&X-Amz-Signature=…
                 expiresAt: '2026-11-27T14:10:00Z'
         '400':
           $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
@@ -1114,7 +1114,7 @@ paths:
                 $ref: '#/components/schemas/UploadSessionCompleted'
               example:
                 id: 4d7b2e91-8c6a-4f35-b0d9-2e5a8c1f7b64
-                objectKey: imports/4d7b2e91/upload
+                objectKey: imports/4d7b2e91-8c6a-4f35-b0d9-2e5a8c1f7b64/source
                 sizeBytes: 1048576
                 state: completed
                 snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03

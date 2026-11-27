@@ -107,6 +107,8 @@ checks-static:
 	done
 	@if [ -d web/admin ]; then echo "==> design system (web/admin)"; python3 tools/check_design_system.py web/admin; fi
 	@if [ -d web/participant ]; then echo "==> design system (web/participant)"; python3 tools/check_design_system.py web/participant; fi
+	@echo "==> tools/provision_silo.py --check"
+	@python3 tools/provision_silo.py --check
 
 # Browser-dependent checks. Kept separate so `make verify` is usable on a machine
 # without a headless browser; `make verify-full` adds these and CI runs both.
@@ -152,7 +154,7 @@ help:
 	@echo "  make fmt          gofmt and cargo fmt --check"
 	@echo "  make lint         go vet and cargo clippy -D warnings"
 	@echo "  make test         go test -race and cargo test, per module and crate"
-	@echo "  make checks-static   ADRs, links, event catalogue, design-system conformance"
+	@echo "  make checks-static   ADRs, links, event catalogue, storage inventory, design system"
 	@echo "  make checks-contracts  compose the contracts and validate OpenAPI 3.1"
 	@echo "  make checks-browser  UI sweep, mockup renders, playground renders in a browser"
 	@echo "  make checks-diagrams diagram heuristics (Mermaid, Structurizr name checks)"

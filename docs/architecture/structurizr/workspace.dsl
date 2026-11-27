@@ -67,7 +67,7 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
         // External systems
         // ------------------------------------------------------------------
 
-        objectStorage = softwareSystem "Object Storage" "S3-compatible object store. Holds import sources, profile images, and issued certificates. Uploads use presigned URLs so file bytes never traverse an API replica." "External"
+        objectStorage = softwareSystem "Silo object storage" "S3-compatible store (PGSTY Silo) in namespace silo, shared with other tenants. Three buckets per environment: imports (expires 30 days), content, records. Uploads use presigned URLs signed for the public host, so file bytes never traverse an API replica." "External"
         smtp = softwareSystem "SMTP Relay" "SMTP relay for outbound email. Consumed by core only, through the notification ledger." "External"
 
         // ------------------------------------------------------------------
@@ -110,6 +110,7 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
 
         geodata -> objectStorage "Streams import sources and writes attachments" "HTTPS, presigned"
         activity -> objectStorage "Stores award certificates" "HTTPS, presigned"
+        core -> objectStorage "Stores callsign evidence" "HTTPS, presigned"
         core -> smtp "Sends verification, recovery, and address-change mail" "SMTP over TLS"
 
         // ------------------------------------------------------------------

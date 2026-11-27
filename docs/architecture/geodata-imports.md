@@ -61,10 +61,16 @@ file size rather than to request count, so adding replicas would not make one
 upload faster. With presigned URLs the API's cost per upload is a few hundred
 bytes of JSON regardless of file size.
 
-The bucket policy scopes the presigned URL to `imports/{uploadId}/`, so a client
-cannot write outside its own session prefix. The completion call is the trust
-boundary: size and checksum are verified there, and the run is rejected if they
-do not match the session.
+The URL is minted for one key — `imports/{uploadId}/source` — and the SigV4
+signature covers the path, the method and the expiry. A client that edits the path
+invalidates the signature, which is what confines an upload to its own session. There
+is no bucket policy involved and there could not be one: the bucket is private and is
+reached only through presigned URLs. The completion call is the trust boundary — size
+and checksum are verified there against the values recorded at session creation, and
+the run is rejected if they do not match.
+
+The object is up to 1 GiB and lives in the environment's `imports` bucket, which
+expires its contents after 30 days. See [object-storage.md](object-storage.md).
 
 Limits, stated once and enforced in one place:
 

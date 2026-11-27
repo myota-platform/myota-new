@@ -1030,7 +1030,7 @@ paths:
             example:
               value: EA7KLK/P
               evidenceType: licence
-              evidenceObjectKey: evidence/44a1b7c2/licence-2026.pdf
+              evidenceObjectKey: evidence/44a1b7c2-8c5e-4f93-9a07-3d1b6e2f4a85/8b1e5c37-6d2a-4f04-9b83-1a7c5e2f9d46
       responses:
         '201':
           description: The callsign, awaiting verification.

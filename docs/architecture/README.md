@@ -282,6 +282,26 @@ runs and serves status.
 
 See [geodata-imports.md](geodata-imports.md).
 
+## Files live in Silo
+
+Object storage is not a detail of the import pipeline — it holds five classes of
+bytes with five different lifetimes, on a server shared with other tenants of this
+cluster. Six buckets, three per environment, one credential per environment:
+
+| Bucket | Holds | Lifetime |
+| --- | --- | --- |
+| `myota-<env>-imports` | import sources, log files | 30 days |
+| `myota-<env>-content` | entity attachments | as long as the entity |
+| `myota-<env>-records` | award certificates, callsign evidence | permanent; certificates write-once |
+
+Uploads never traverse an API replica: the service mints a presigned URL for one
+key and the browser sends the bytes straight to storage. That URL must be signed for
+the public hostname, because the signature covers it and a browser cannot resolve a
+ClusterIP.
+
+Full detail, including the addressing rules and the permission policies:
+[object-storage.md](object-storage.md).
+
 ## Deployment
 
 Fleet workspace `myota` on the local K3s cluster, in namespace `myota-test` for
