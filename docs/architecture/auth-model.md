@@ -63,13 +63,13 @@ sequenceDiagram
     Core->>Core: verify password AND a confirmed second factor
     Core-->>Op: __Host-myota_admin_sid, audience=admin
 
-    Op->>Gate: GET /v1/admin/imports
+    Op->>Gate: GET /v1/admin/identity/participants
     Gate->>Gate: audience=admin matches the /v1/admin route class
     Gate->>Core: forward
     Core-->>Op: 200
 
     Note over Op,Gate: A participant session attempts the same route
-    Op->>Gate: GET /v1/admin/imports, audience=participant
+    Op->>Gate: GET /v1/admin/identity/participants, audience=participant
     Gate-->>Op: 401 wrong-audience, never a redirect
 ```
 
@@ -87,17 +87,20 @@ sequenceDiagram
 
 The gateway verifies `aud` against the route prefix before proxying:
 
-| Route | Required audience |
+| Route prefix | Required audience |
 | --- | --- |
-| `/v1/admin/**` | `admin` |
-| `/v1/auth/**`, `/v1/me/**` | `participant` or `admin` (own-account operations) |
-| `/v1/activations/**`, `/v1/awards/**`, `/v1/qsos/**` | `participant` |
-| `/v1/entities/**`, `/v1/imports/**` (write) | `admin` |
-| `/v1/entities/**` (read), `/v1/programmes/**` (read) | anonymous allowed |
-| `/v1/admin/imports/**` | `admin` |
-| `/v1/proposals/**` | `participant` (create, own only) · `admin` (read all) |
-| `/v1/tiles/**`, `/v1/public/**` | anonymous |
-| `/v1/statistics/**` | `participant` or anonymous, depending on route |
+| `/v1/admin/**` | `admin` — every administrator prefix, without exception |
+| `/v1/auth/**` | anonymous (registration, sign-in, recovery) or `participant` |
+| `/v1/me/**` | `participant` or `admin` — own-account operations |
+| `/v1/activations/**`, `/v1/qsos/**`, `/v1/log-imports/**` | `participant` |
+| `/v1/awards/**` | anonymous for definitions, `participant` for `mine` and requests |
+| `/v1/proposals/**` | `participant` (create, own only) |
+| `/v1/entities/**`, `/v1/imports/**` | anonymous for published reads, `admin` for writes and imports |
+| `/v1/programmes/**`, `/v1/tiles/**`, `/v1/statistics/**` | anonymous |
+
+The prefix list itself is generated from the contract:
+`python3 tools/compose_contracts.py --routes`. Audience is a property of the route
+*class*, not of the operation, which is why this table is written against prefixes.
 
 A mismatch is `401` with `problem+json` type `about:blank#wrong-audience`, never a
 redirect to a login page (which would leak which audience the route expects).

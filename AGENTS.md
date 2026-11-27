@@ -39,6 +39,25 @@ Every service is defined by its HTTP contract before it is implemented.
   (`POST /v1/imports/{id}/complete`, `/promote`) when it is not expressible as a
   field update. Do not invent `/getFoo` or `/doBar`-style endpoints.
 - Every mutating operation documents and honours `Idempotency-Key`.
+- **The contract is composed, never hand-edited.**
+  `python3 tools/compose_contracts.py --check` reads the three service documents
+  and `contracts/shared/components.yaml`, writes the composed document in memory,
+  validates it as OpenAPI 3.1, and fails when the committed
+  `contracts/public.openapi.yaml` is stale. It also fails when an `operationId`, a
+  path, a tag, or a routed prefix is claimed by two services — duplication that a
+  reviewer would otherwise have to notice.
+- **Every published prefix has exactly one owning service.**
+  `python3 tools/compose_contracts.py --routes` prints the table the gateway
+  routes on; F3 generates its route list from that output rather than keeping a
+  second copy. A route that belongs to nobody is `404`, never a default upstream.
+- Shared types live in `contracts/shared/components.yaml` and are `$ref`ed, never
+  copied into a service document. Two copies cannot be caught by any uniqueness
+  check, and they drift the first time one is edited.
+- Event payloads have a JSON Schema per type under `contracts/events/`, listed in
+  `contracts/events/index.json`. `tools/check_events.py` fails when a type named in
+  `messaging.md` has no schema, when the index and the directory disagree, or when
+  a schema's own example does not validate against it. Adding an event type is
+  three edits in one commit: the document, the schema, the index.
 
 ## 2. Microservices
 

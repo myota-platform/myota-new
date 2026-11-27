@@ -333,3 +333,15 @@ logic, and a table would be a second place to keep in sync.
 | `core` | `activity` | `award.issued` (notification), `activation.closed` (optional) |
 
 Unsubscribed types are ignored by the puller and never become jobs.
+
+That table is the specification of which events exist. `contracts/events/` holds one
+JSON Schema per type, catalogued in `contracts/events/index.json`, and
+`tools/check_events.py` fails when the two disagree — a type in the table with no
+schema, or a schema for a type nobody declares. The envelope is a CloudEvents 1.0
+subset: `specversion`, `id`, `source`, `type`, `subject`, `time`,
+`datacontenttype`, `data`.
+
+`core.notification.requested.v1` is the one type with more than one producer: any
+service may raise it, and `core` is the only sender. Its `source` is therefore the
+requesting service, not always `/core` — the type namespace names the domain owner,
+not the publisher.

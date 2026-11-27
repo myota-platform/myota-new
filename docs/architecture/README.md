@@ -140,22 +140,30 @@ is in [ADR-0004](../decisions/0004-drop-message-broker.md) and
 
 ### Event contract
 
-Events are CloudEvents-shaped and versioned in `contracts/events/`. A minimal
-registry:
+Events are CloudEvents-shaped and versioned in `contracts/events/`, one JSON
+Schema per type, catalogued in `contracts/events/index.json`. This table and that
+directory are checked against each other by `tools/check_events.py` — an event in
+one and not the other fails the build.
 
 | Event | Producer | Consumers |
 | --- | --- | --- |
-| `core.account.created.v1` | core | activity, geodata (cache warm) |
+| `core.account.created.v1` | core | activity |
 | `core.account.closed.v1` | core | activity, geodata |
-| `core.programme.published.v1` | core | geodata, activity |
-| `core.programme.archived.v1` | core | geodata, activity |
-| `geodata.entity.published.v1` | geodata | activity (read model), core (search index) |
+| `core.programme.published.v1` | core | activity, geodata |
+| `core.programme.archived.v1` | core | activity, geodata |
+| `core.role.changed.v1` | core | activity, geodata (invalidate cached scopes) |
+| `core.notification.requested.v1` | any service | core (the only sender) |
+| `geodata.entity.published.v1` | geodata | activity |
 | `geodata.entity.retired.v1` | geodata | activity |
 | `geodata.import.completed.v1` | geodata | core (admin notification) |
-| `activity.activation.started.v1` | activity | core (optional notification) |
-| `activity.activation.closed.v1` | activity | core, geodata (activation counters) |
-| `activity.award.issued.v1` | activity | core (notification, certificate link) |
-| `core.notification.requested.v1` | any | core |
+| `activity.activation.closed.v1` | activity | core |
+| `activity.award.issued.v1` | activity | core (notification) |
+
+Two entries here disagreed with `messaging.md` before the contract set was written:
+`activity.activation.started.v1` was listed with no consumer and no schema, and
+`geodata.entity.published.v1` was said to feed a search index that this design does
+not have. Both were removed. `messaging.md` is the specification; this table
+describes it.
 
 ### Delivery rules
 

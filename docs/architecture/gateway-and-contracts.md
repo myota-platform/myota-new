@@ -32,12 +32,20 @@ gateway/
   playground/            static Scalar bundle (embedded)
 ```
 
-The service documents are composed into `public.openapi.yaml` at build time by a
-small generator (`tools/compose-contracts`). Each service exposes
-`GET /internal/openapi.json`, and the generator fetches it in CI, so a handler that
-is not documented fails the build rather than silently existing.
+The service documents are composed into `public.openapi.yaml` at build time by
+`tools/compose_contracts.py`. Each service exposes its own document at
+`GET /internal/openapi.json`; `--fetch <service>=<url>` composes from the live
+service instead of the committed file and reports every operation the two
+disagree on, so a handler that is not documented fails the build rather than
+silently existing.
+
+Composition is offline by default (`--check` reads the committed documents), which
+is what lets the contract gate run before any service is deployed. From F3 onward
+the same flag pair runs against the deployed test environment.
 
 ## Routes
+
+The gateway's own endpoints:
 
 ```
 GET  /openapi.json            composed contract (public)
@@ -45,27 +53,61 @@ GET  /docs                    interactive playground
 GET  /docs/{service}          playground filtered to one service
 GET  /healthz  /readyz        gateway health
 GET  /metrics                 Prometheus
-
-/v1/auth/**            → core       (participant audience)
-/v1/admin/auth/**      → core       (admin audience)
-/v1/admin/identity/admins/**       → core  (admin audience, scope identity.admins.manage)
-/v1/admin/identity/participants/** → core  (admin audience, scope identity.participants.manage)
-/v1/admin/**           → core | geodata | activity  (admin audience)
-/v1/me/**              → core
-/v1/accounts/**        → core
-/v1/programmes/**      → core
-/v1/proposals/**       → geodata
-/v1/entities/**        → geodata
-/v1/imports/**         → geodata
-/v1/tiles/**           → geodata
-/v1/activations/**     → activity
-/v1/qsos/**            → activity
-/v1/awards/**          → activity
-/v1/statistics/**      → activity
-/v1/public/**          → core | geodata | activity   (anonymous)
 ```
 
-A request that matches no prefix is `404` with `problem+json`, never a guess.
+Every API prefix belongs to **exactly one** service. That is what makes the
+routing table derivable from the contract instead of maintained beside it:
+
+```
+$ python3 tools/compose_contracts.py --routes
+/v1/activations/                   activity
+/v1/admin/auth/                    core
+/v1/admin/award-requests/          activity
+/v1/admin/awards/                  activity
+/v1/admin/email-suppressions/      core
+/v1/admin/identity/                core
+/v1/admin/notifications/           core
+/v1/admin/programmes/              core
+/v1/admin/proposals/               geodata
+/v1/admin/qso-corrections/         activity
+/v1/admin/sources/                 geodata
+/v1/auth/                          core
+/v1/awards/                        activity
+/v1/entities/                      geodata
+/v1/imports/                       geodata
+/v1/log-imports/                   activity
+/v1/me/                            core
+/v1/programmes/                    core
+/v1/proposals/                     geodata
+/v1/qsos/                          activity
+/v1/statistics/                    activity
+/v1/tiles/                         geodata
+```
+
+`/v1/admin/` is three segments deep for exactly one reason: every service has
+administrator endpoints, so a single `/v1/admin/` prefix would belong to all three
+at once. Two segments everywhere else.
+
+A request that matches no prefix is `404` with `problem+json`, never a guess — and
+never a fall through to a default upstream.
+
+### Audiences per prefix
+
+| Prefix | Audience |
+| --- | --- |
+| `/v1/admin/**` | `admin` only. Every admin prefix, without exception. |
+| `/v1/auth/**`, `/v1/proposals/**` | `participant`, or anonymous for registration and recovery |
+| `/v1/activations/**`, `/v1/qsos/**`, `/v1/log-imports/**` | `participant` |
+| `/v1/me/**` | either audience — own-account operations |
+| `/v1/entities/**`, `/v1/imports/**` | anonymous read of published entities; `admin` for writes and imports |
+| `/v1/awards/**` | anonymous for definitions; `participant` for `mine` and requests |
+| `/v1/programmes/**`, `/v1/tiles/**`, `/v1/statistics/**` | anonymous |
+
+Two endpoints were moved out of `/v1/me/` during contract composition so the table
+above stays a partition: a participant's awards live at `/v1/awards/mine`, not
+`/v1/me/awards`. They are `activity`'s rows, and putting them under a prefix owned
+by `core` would have required the gateway to carry a longest-prefix exception for
+two routes — a rule that holds everywhere except where someone remembered it.
 
 ## Edge responsibilities
 
