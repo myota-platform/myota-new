@@ -76,6 +76,18 @@ images are the viewable form and the `.html` files are the interactive originals
 
 Interactive versions: [`ui/index.html`](ui/index.html) — open locally in a browser.
 
+**[docs/ui/styles/STYLES.md](ui/styles/STYLES.md) — four design directions.** The same two
+screens in four deliberate visual languages: editorial, neo-brutalist, aurora
+glass, and warm organic. Each lives in its own directory with its own stylesheet
+and its own renders, sharing nothing on purpose.
+
+| Direction | Admin | Participant |
+| --- | --- | --- |
+| Editorial | [render](ui/styles/01-editorial/renders/admin.png) | [render](ui/styles/01-editorial/renders/participant.png) |
+| Neo-brutalist | [render](ui/styles/02-brutalist/renders/admin.png) | [render](ui/styles/02-brutalist/renders/participant.png) |
+| Aurora glass | [render](ui/styles/03-aurora/renders/admin.png) | [render](ui/styles/03-aurora/renders/participant.png) |
+| Warm organic | [render](ui/styles/04-organic/renders/admin.png) | [render](ui/styles/04-organic/renders/participant.png) |
+
 They share one stylesheet ([ui/assets/mockup.css](ui/assets/mockup.css)), contain
 no JavaScript framework, make no network requests, and follow
 `prefers-color-scheme`. Regenerate the images with `node tools/render_mockups.mjs`.

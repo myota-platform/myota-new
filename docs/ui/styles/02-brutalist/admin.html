@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPS // MyOTA — Brutalist</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="top">
+  <div class="top-inner">
+    <span class="mark">MyOTA//</span>
+    <nav aria-label="Main">
+      <a href="#" aria-current="page">Ops</a>
+      <a href="#">Geodata</a>
+      <a href="#">Programmes</a>
+      <a href="#">Identity</a>
+    </nav>
+    <span class="who"><b>ADMIN</b> VK</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div>
+      <span class="eyebrow">Last 30 days</span>
+      <h1>3 imports<br><span class="inv">running</span><br>24 waiting.</h1>
+      <p class="sub">
+        Six runs across three programmes. Spanish coastal set conflating now.
+        Veluwe archive rejected before it reached the database.
+      </p>
+    </div>
+    <dl class="tiles">
+      <div class="tile"><dt>Active imports</dt><dd>3</dd></div>
+      <div class="tile"><dt>Pending review</dt><dd>24</dd></div>
+      <div class="tile"><dt>Failed jobs</dt><dd>2</dd></div>
+      <div class="tile"><dt>Participants</dt><dd>1284</dd></div>
+    </dl>
+  </section>
+
+  <div class="split">
+
+    <div class="stack">
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Recent import runs</h2>
+          <span class="tag">6 / 63</span>
+          <span class="spacer"></span>
+          <span class="tag">ops.job</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Run</th>
+              <th scope="col">Source</th>
+              <th scope="col" class="hide-sm">Stage</th>
+              <th scope="col">Progress</th>
+              <th scope="col">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="id">run-0042</td>
+              <td>IGN BTN25</td>
+              <td class="hide-sm">Conflate</td>
+              <td class="num">1284/4190</td>
+              <td><span class="pill p-run">Running</span></td>
+            </tr>
+            <tr>
+              <td class="id">run-0041</td>
+              <td>OSM PBF · Spain</td>
+              <td class="hide-sm">Review</td>
+              <td class="num">892/892</td>
+              <td><span class="pill p-wait">In review</span></td>
+            </tr>
+            <tr>
+              <td class="id">run-0040</td>
+              <td>Natura 2000</td>
+              <td class="hide-sm">Publish</td>
+              <td class="num">2140/2140</td>
+              <td><span class="pill p-ok">Complete</span></td>
+            </tr>
+            <tr>
+              <td class="id">run-0039</td>
+              <td>Bayerischer Wald</td>
+              <td class="hide-sm">Validate</td>
+              <td class="num">410/3002</td>
+              <td><span class="pill p-run">Running</span></td>
+            </tr>
+            <tr>
+              <td class="id">run-0038</td>
+              <td>Veluwe GPX</td>
+              <td class="hide-sm">—</td>
+              <td class="num">0/186</td>
+              <td><span class="pill p-bad">Failed</span></td>
+            </tr>
+            <tr>
+              <td class="id">run-0037</td>
+              <td>Community</td>
+              <td class="hide-sm">Review</td>
+              <td class="num">14/14</td>
+              <td><span class="pill p-wait">In review</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Imports per week</h2>
+          <span class="tag">12 wk · 63</span>
+        </div>
+        <div class="block">
+          <div class="bars" role="img" aria-label="Import runs per week, rising from 3 to 9">
+            <i style="height:33%"></i><i style="height:41%"></i><i style="height:29%"></i>
+            <i style="height:54%"></i><i style="height:62%"></i><i style="height:49%"></i>
+            <i style="height:71%"></i><i style="height:66%"></i><i style="height:83%"></i>
+            <i style="height:77%"></i><i style="height:91%"></i><i style="height:100%"></i>
+          </div>
+          <div class="axis"><span>W36</span><span>W40</span><span>W44</span><span>W47</span></div>
+        </div>
+      </section>
+
+    </div>
+
+    <div class="stack">
+
+      <section class="panel">
+        <div class="panel-head"><h2>Service health</h2></div>
+        <div class="block">
+          <div class="bar-line">
+            <div class="row"><span>core · 3 rep</span><span>18 ms</span></div>
+            <div class="track"><i style="width:18%"></i></div>
+          </div>
+          <div class="bar-line">
+            <div class="row"><span>geodata · 4 rep</span><span>34 ms</span></div>
+            <div class="track"><i style="width:34%"></i></div>
+          </div>
+          <div class="bar-line">
+            <div class="row"><span>activity · 2 rep</span><span>21 ms</span></div>
+            <div class="track"><i style="width:21%"></i></div>
+          </div>
+          <div class="bar-line" style="margin-bottom:0">
+            <div class="row"><span>gateway · 3 rep</span><span>4 ms</span></div>
+            <div class="track"><i style="width:5%"></i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Job queue</h2><span class="tag">ops.job</span></div>
+        <div class="block">
+          <div class="bar-line">
+            <div class="row"><span>import.preprocess</span><span>3</span></div>
+            <div class="track"><i class="hot" style="width:75%"></i></div>
+          </div>
+          <div class="bar-line">
+            <div class="row"><span>entity.enrich</span><span>12</span></div>
+            <div class="track"><i style="width:24%"></i></div>
+          </div>
+          <div class="bar-line">
+            <div class="row"><span>award.evaluate</span><span>41</span></div>
+            <div class="track"><i style="width:41%"></i></div>
+          </div>
+          <div class="bar-line" style="margin-bottom:0">
+            <div class="row"><span>notification.send</span><span>6</span></div>
+            <div class="track"><i style="width:6%"></i></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Notices</h2></div>
+        <div class="block">
+          <div class="notice bad">
+            <span class="k">06:58 · Failed</span>
+            run-0038 Veluwe GPX — adapter rejected the archive, missing .dbf.
+          </div>
+          <div class="notice warn">
+            <span class="k">05:20 · Slow</span>
+            geodata-worker p95 batch time 71 s, above the 45 s budget.
+          </div>
+          <div class="notice">
+            <span class="k">Yesterday · Info</span>
+            MFA enforced for all admin accounts.
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

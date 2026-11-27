@@ -18,25 +18,34 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UI = path.join(ROOT, 'docs', 'ui');
-const OUT = path.join(UI, 'renders');
+const OUT = UI;
 const CHECK = process.argv.includes('--check');
 
 // Desktop is the canonical render. Mobile is included for two screens so the
 // responsive behaviour is visible in the repository, not just claimed.
 const SHOTS = [
-  { file: 'admin-01-operations.html',      out: 'admin-01-operations',      w: 1440, h: 1000, full: true },
-  { file: 'admin-02-geodata-review.html',  out: 'admin-02-geodata-review',  w: 1440, h: 1000, full: true },
-  { file: 'admin-03-import-run.html',      out: 'admin-03-import-run',      w: 1440, h: 1000, full: true },
-  { file: 'admin-04-programmes-awards.html', out: 'admin-04-programmes-awards', w: 1440, h: 1000, full: true },
-  { file: 'participant-01-home.html',      out: 'participant-01-home',      w: 1440, h: 1000, full: true },
-  { file: 'participant-02-map.html',       out: 'participant-02-map',       w: 1440, h: 1000, full: true },
-  { file: 'participant-03-activation.html', out: 'participant-03-activation', w: 1440, h: 1000, full: true },
-  { file: 'participant-04-awards.html',    out: 'participant-04-awards',    w: 1440, h: 1000, full: true },
-  { file: 'admin-02-geodata-review.html',  out: 'admin-02-geodata-review-mobile', w: 390, h: 844, full: true },
-  { file: 'participant-02-map.html',       out: 'participant-02-map-mobile',      w: 390, h: 844, full: true },
-  // index.html embeds the renders above as thumbnails, so it must be last —
-  // otherwise it captures whatever thumbnails existed from the previous run.
-  { file: 'index.html',                    out: 'index',                    w: 1200, h: 900,  full: true },
+  // functional baseline
+  { file: 'admin-01-operations.html',      out: 'renders/admin-01-operations',      w: 1440, h: 1000, full: true },
+  { file: 'admin-02-geodata-review.html',  out: 'renders/admin-02-geodata-review',  w: 1440, h: 1000, full: true },
+  { file: 'admin-03-import-run.html',      out: 'renders/admin-03-import-run',      w: 1440, h: 1000, full: true },
+  { file: 'admin-04-programmes-awards.html', out: 'renders/admin-04-programmes-awards', w: 1440, h: 1000, full: true },
+  { file: 'participant-01-home.html',      out: 'renders/participant-01-home',      w: 1440, h: 1000, full: true },
+  { file: 'participant-02-map.html',       out: 'renders/participant-02-map',       w: 1440, h: 1000, full: true },
+  { file: 'participant-03-activation.html', out: 'renders/participant-03-activation', w: 1440, h: 1000, full: true },
+  { file: 'participant-04-awards.html',    out: 'renders/participant-04-awards',    w: 1440, h: 1000, full: true },
+  { file: 'admin-02-geodata-review.html',  out: 'renders/admin-02-geodata-review-mobile', w: 390, h: 844, full: true },
+  { file: 'participant-02-map.html',       out: 'renders/participant-02-map-mobile',      w: 390, h: 844, full: true },
+
+  // four design directions, each admin + participant
+  ...['01-editorial', '02-brutalist', '03-aurora', '04-organic'].flatMap(dir => [
+    { file: `styles/${dir}/admin.html`,       out: `styles/${dir}/renders/admin`,       w: 1440, h: 1000, full: true },
+    { file: `styles/${dir}/participant.html`, out: `styles/${dir}/renders/participant`, w: 1440, h: 1000, full: true },
+  ]),
+  { file: 'styles/04-organic/participant.html', out: 'styles/04-organic/renders/participant-mobile', w: 390, h: 844, full: true },
+
+  // the style gallery embeds the renders above, so it goes last
+  { file: 'index.html',                    out: 'renders/index',                    w: 1200, h: 900,  full: true },
+  { file: 'styles/index.html',             out: 'styles/renders/index',     w: 1280, h: 1000, full: true },
 ];
 
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM || undefined;
@@ -70,7 +79,9 @@ for (const shot of SHOTS) {
   // Fonts and layout settle within a frame; the mockups have no async content.
   await page.waitForTimeout(150);
 
-  const tmp = path.join(OUT, `.${shot.out}.png`);
+  const destDir = path.dirname(dest);
+  fs.mkdirSync(destDir, { recursive: true });
+  const tmp = path.join(destDir, `.${path.basename(shot.out)}.png`);
   await page.screenshot({ path: tmp, fullPage: shot.full });
   const next = fs.readFileSync(tmp);
 
@@ -101,5 +112,5 @@ if (CHECK) {
   }
   console.log(`OK: ${SHOTS.length} mockup render(s) match a fresh render`);
 } else {
-  console.log(`\n${written} render(s) written to docs/ui/renders/`);
+  console.log(`\n${written} render(s) written under docs/ui/`);
 }

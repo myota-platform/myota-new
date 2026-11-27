@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Four directions · MyOTA UI</title>
+<style>
+  :root {
+    --paper: #fbfaf8;
+    --ink: #171614;
+    --ink-2: #55524c;
+    --ink-3: #8b877f;
+    --line: #e5e1d9;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, ui-sans-serif, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 60px 28px 100px; }
+
+  header { border-bottom: 1px solid var(--line); padding-bottom: 34px; margin-bottom: 52px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--ink-3); margin-bottom: 16px;
+  }
+  h1 { font-size: clamp(32px, 4vw, 46px); line-height: 1.08; letter-spacing: -0.03em; margin: 0 0 16px; max-width: 22ch; }
+  .lede { color: var(--ink-2); font-size: 17px; max-width: 62ch; margin: 0; }
+
+  .style {
+    display: grid; grid-template-columns: 230px minmax(0, 1fr);
+    gap: 34px; padding: 40px 0; border-top: 1px solid var(--line);
+    align-items: start;
+  }
+  .style:first-of-type { border-top: 0; padding-top: 0; }
+  .num {
+    font-family: var(--mono); font-size: 12px; color: var(--ink-3);
+    letter-spacing: .1em; margin-bottom: 8px;
+  }
+  .style h2 { font-size: 24px; letter-spacing: -0.022em; margin: 0 0 8px; font-weight: 650; }
+  .style p { color: var(--ink-2); font-size: 14px; margin: 0 0 14px; }
+  .swatches { display: flex; gap: 5px; margin-bottom: 16px; }
+  .swatches i { width: 20px; height: 20px; border-radius: 50%; display: block; }
+  .meta { font-family: var(--mono); font-size: 11px; color: var(--ink-3); line-height: 1.9; }
+  .meta b { color: var(--ink-2); font-weight: 500; }
+
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .shot {
+    display: block; border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; background: #fff;
+    transition: box-shadow .16s, border-color .16s, transform .16s;
+  }
+  .shot:hover { box-shadow: 0 18px 44px -22px rgba(0,0,0,.4); border-color: #cfc9be; transform: translateY(-2px); }
+  .shot img {
+    display: block; width: 100%; height: auto;
+    /* a fixed ratio keeps the caption on both cards in a pair on one line,
+       however tall the underlying render happens to be */
+    aspect-ratio: 1440 / 1000; object-fit: cover; object-position: top center;
+  }
+  .shot .cap {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 13px; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-2);
+  }
+  .shot .cap span { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .08em; }
+
+  footer { border-top: 1px solid var(--line); margin-top: 60px; padding-top: 28px; color: var(--ink-3); font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .style { grid-template-columns: 1fr; gap: 20px; }
+    .pair { grid-template-columns: 1fr; }
+    .wrap { padding: 36px 18px 70px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">MyOTA · design exploration</div>
+    <h1>Four directions for the same two screens.</h1>
+    <p class="lede">
+      Identical content, identical information hierarchy, four deliberately
+      different visual languages. Every one is responsive, themeable and built
+      from a single self-contained stylesheet — no framework, no network request.
+      The point is to choose a voice, not to pick the least boring default.
+    </p>
+  </header>
+
+  <!-- 01 -->
+  <section class="style">
+    <div>
+      <div class="num">01</div>
+      <h2>Editorial</h2>
+      <p>
+        Swiss typographic: a serif display against a grotesque, hairline rules,
+        asymmetric grid, one vermillion accent. Reads like a considered report
+        rather than a dashboard.
+      </p>
+      <div class="swatches">
+        <i style="background:#faf8f5;border:1px solid #e5e1d9"></i>
+        <i style="background:#14120f"></i>
+        <i style="background:#c8401f"></i>
+      </div>
+      <div class="meta">
+        <b>Display</b> serif, italic<br>
+        <b>Accent</b> vermillion<br>
+        <b>Density</b> high, ruled<br>
+        <b>Shape</b> square
+      </div>
+    </div>
+    <div class="pair">
+      <a class="shot" href="01-editorial/admin.html">
+        <img src="01-editorial/renders/admin.png" alt="Editorial admin screen" loading="lazy">
+        <div class="cap"><span>Admin</span> Operations overview</div>
+      </a>
+      <a class="shot" href="01-editorial/participant.html">
+        <img src="01-editorial/renders/participant.png" alt="Editorial participant screen" loading="lazy">
+        <div class="cap"><span>Participant</span> Discover</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- 02 -->
+  <section class="style">
+    <div>
+      <div class="num">02</div>
+      <h2>Neo-brutalist</h2>
+      <p>
+        Thick black rules, hard offset shadows, acid yellow and electric blue.
+        Monospace headings, no rounding, no subtlety. Confident and legible at a
+        glance.
+      </p>
+      <div class="swatches">
+        <i style="background:#f2f0eb;border:1px solid #e5e1d9"></i>
+        <i style="background:#0a0a0a"></i>
+        <i style="background:#e8ff3a"></i>
+        <i style="background:#2b3ff5"></i>
+        <i style="background:#ff5c38"></i>
+      </div>
+      <div class="meta">
+        <b>Display</b> mono, uppercase<br>
+        <b>Accent</b> acid + electric<br>
+        <b>Density</b> medium, boxed<br>
+        <b>Shape</b> zero radius
+      </div>
+    </div>
+    <div class="pair">
+      <a class="shot" href="02-brutalist/admin.html">
+        <img src="02-brutalist/renders/admin.png" alt="Brutalist admin screen" loading="lazy">
+        <div class="cap"><span>Admin</span> Operations overview</div>
+      </a>
+      <a class="shot" href="02-brutalist/participant.html">
+        <img src="02-brutalist/renders/participant.png" alt="Brutalist participant screen" loading="lazy">
+        <div class="cap"><span>Participant</span> Discover</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- 03 -->
+  <section class="style">
+    <div>
+      <div class="num">03</div>
+      <h2>Aurora glass</h2>
+      <p>
+        Deep navy with slow colour fields behind frosted panels. Violet-to-cyan
+        gradients, hairline borders, glow instead of shadow. Data feels lit from
+        within.
+      </p>
+      <div class="swatches">
+        <i style="background:#06080f"></i>
+        <i style="background:#8b5cf6"></i>
+        <i style="background:#22d3ee"></i>
+        <i style="background:#f472b6"></i>
+      </div>
+      <div class="meta">
+        <b>Display</b> grotesque, gradient<br>
+        <b>Accent</b> violet → cyan<br>
+        <b>Density</b> medium, floating<br>
+        <b>Shape</b> 18 px, frosted
+      </div>
+    </div>
+    <div class="pair">
+      <a class="shot" href="03-aurora/admin.html">
+        <img src="03-aurora/renders/admin.png" alt="Aurora admin screen" loading="lazy">
+        <div class="cap"><span>Admin</span> Operations overview</div>
+      </a>
+      <a class="shot" href="03-aurora/participant.html">
+        <img src="03-aurora/renders/participant.png" alt="Aurora participant screen" loading="lazy">
+        <div class="cap"><span>Participant</span> Discover</div>
+      </a>
+    </div>
+  </section>
+
+  <!-- 04 -->
+  <section class="style">
+    <div>
+      <div class="num">04</div>
+      <h2>Warm organic</h2>
+      <p>
+        Sand paper, terracotta and sage, very large radii, shadows instead of
+        borders. Humanist type with generous leading. Soft where the others are
+        sharp.
+      </p>
+      <div class="swatches">
+        <i style="background:#f7f2e9;border:1px solid #e5e1d9"></i>
+        <i style="background:#342a20"></i>
+        <i style="background:#c05f3c"></i>
+        <i style="background:#6f8f6b"></i>
+        <i style="background:#d09b3f"></i>
+      </div>
+      <div class="meta">
+        <b>Display</b> rounded humanist<br>
+        <b>Accent</b> clay + sage<br>
+        <b>Density</b> low, airy<br>
+        <b>Shape</b> 28 px, soft
+      </div>
+    </div>
+    <div class="pair">
+      <a class="shot" href="04-organic/admin.html">
+        <img src="04-organic/renders/admin.png" alt="Organic admin screen" loading="lazy">
+        <div class="cap"><span>Admin</span> Operations overview</div>
+      </a>
+      <a class="shot" href="04-organic/participant.html">
+        <img src="04-organic/renders/participant.png" alt="Organic participant screen" loading="lazy">
+        <div class="cap"><span>Participant</span> Discover</div>
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    Each directory holds its own <code>style.css</code>, two pages and a
+    <code>renders/</code> folder. Regenerate the images with
+    <code>node tools/render_mockups.mjs</code>. The functional baseline these
+    explore is in <a href="../RENDERS.md">../RENDERS.md</a>.
+  </footer>
+
+</div>
+</body>
+</html>
