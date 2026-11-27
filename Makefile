@@ -17,7 +17,7 @@ RUST_CRATE_DIRS   := $(patsubst %/Cargo.toml,%,$(shell find . -name Cargo.toml -
 
 # Checks that take no arguments are discovered, so a new one joins the gate by
 # existing. The two that need an argument or a flag are named below.
-PYTHON_CHECKS := $(filter-out tools/check_design_system.py tools/check_diagrams.py,$(wildcard tools/check_*.py))
+PYTHON_CHECKS := $(filter-out tools/check_design_system.py tools/check_diagrams.py tools/check_db_schema.py tools/check_deploy.py,$(wildcard tools/check_*.py))
 NODE_CHECKS   := tools/check_ui.mjs
 
 # ---------------------------------------------------------------- toolchains ---
@@ -150,8 +150,27 @@ checks-ops:
 	  echo "        CI supplies a postgres service, so CI always runs them."; \
 	fi
 
+# The deployment: three databases, their baselines and the chart that runs them.
+#
+# `check_db_schema` is offline and always runs. `check_deploy` renders the chart with helm,
+# so it reports and passes when helm is absent — the same rule as a missing `mmdc`. CI
+# installs helm, so CI always renders.
+.PHONY: checks-deploy
+checks-deploy:
+	@echo "==> tools/check_db_schema.py --check"
+	@python3 tools/check_db_schema.py --check
+	@if command -v helm >/dev/null 2>&1; then \
+	  echo "==> tools/check_deploy.py --check"; \
+	  python3 tools/check_deploy.py --check; \
+	else \
+	  echo "==> tools/check_deploy.py"; \
+	  echo "  note  helm not found — the chart was NOT rendered. Install helm"; \
+	  echo "        to check the pooler-only rule, the connection budget and the"; \
+	  echo "        migration Job locally; CI always does."; \
+	fi
+
 .PHONY: verify
-verify: check-toolchains fmt lint test checks-contracts checks-static checks-diagrams
+verify: check-toolchains fmt lint test checks-contracts checks-deploy checks-static checks-diagrams
 	@echo ""
 	@echo "verify: ok"
 
@@ -176,6 +195,7 @@ help:
 	@echo "  make test         go test -race and cargo test, per module and crate"
 	@echo "  make checks-static   ADRs, links, event catalogue, storage inventory, design system"
 	@echo "  make checks-contracts  compose the contracts and validate OpenAPI 3.1"
+	@echo "  make checks-deploy   database baselines and the rendered chart"
 	@echo "  make checks-ops     ops integration suite (needs a PostgreSQL)"
 	@echo "  make checks-browser  UI sweep, mockup renders, playground renders in a browser"
 	@echo "  make checks-diagrams diagram heuristics (Mermaid, Structurizr name checks)"

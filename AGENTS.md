@@ -841,6 +841,48 @@ access to it.
 Full specification: [object-storage.md](docs/architecture/object-storage.md).
 Provisioning: [deploy/silo/README.md](deploy/silo/README.md).
 
+## 17. Three databases, one pooler each, migrations in a Job
+
+Each service owns exactly one database and no table appears in two of them (ADR-0001).
+
+| Database | Owner | Image | Volume |
+| --- | --- | --- | --- |
+| `myota_core` | `core` | `postgres:16.4-alpine` | 10 Gi |
+| `myota_geo` | `geodata` | `postgis/postgis:16-3.4` | 20 Gi — **the only one with PostGIS** |
+| `myota_activity` | `activity` | `postgres:16.4-alpine` | 10 Gi |
+
+- **Every service reaches PostgreSQL through its pooler**, `myota-<db>-pgbouncer:6432`.
+  The only direct clients are the pooler itself and the migration Job. A ConfigMap a
+  workload reads must never name a `-postgres` host; `tools/check_deploy.py` renders the
+  chart and fails if one does.
+- **Transaction pooling constrains the application.** No advisory lock held across
+  requests, no prepared statement outside a transaction, no `SET` that outlives a
+  statement. The endpoint ConfigMap carries `DATABASE_POOL_MODE` so the constraint is
+  visible where a driver is configured.
+- **The connection budget is fixed at 200 / 25 / 500** — `max_connections` on PostgreSQL,
+  `DEFAULT_POOL_SIZE` and `MAX_CLIENT_CONN` on PgBouncer. Changing one means changing
+  `tools/check_deploy.py` too, so the change is visible in a diff rather than buried in a
+  template.
+- **A replica never migrates.** The migration Job runs under a session advisory lock, in
+  one transaction, as the **application role** — so the objects the service queries are
+  owned by the role that queries them. A replica verifies the schema version and refuses
+  to start if behind.
+- **Every migration is idempotent.** `IF NOT EXISTS` throughout, so applying the set twice
+  changes nothing. Verified by object count, not by exit code.
+- **Configuration and credentials stay apart.** The Secret holds `superuser-password` and
+  `app-password`; the ConfigMap holds host, port, database and user. There is no
+  `DATABASE_URL` with a password in it.
+- **`tools/check_db_schema.py` holds the DDL to the document in both directions**: every
+  table `data-model.md` names exists, and no baseline invents one it does not describe. It
+  also asserts no table appears in two databases, and that PostGIS works on `myota_geo`
+  and fails on the other two.
+- **Append-only tables carry `created_at` and no `updated_at`**, and must say so in the DDL
+  with an `-- append-only: <why>` comment. A table with `updated_at` omits the trigger
+  silently otherwise.
+
+Full detail: [deploy/myota/README.md](deploy/myota/README.md),
+[data-model.md](docs/architecture/data-model.md).
+
 ## Findings from rebuilding this design
 
 These are the concrete problems found in the previous implementation and the

@@ -133,6 +133,7 @@ otherwise, which looked like an outage rather than a configuration choice.
 | SMTP **host and port** | config | not secret; the account is |
 | Database **host, port, name** | config | connectivity, not a credential |
 | Database **password** | secret | credential |
+| Database **host, port, name, user** | config | connectivity; the pooler endpoint, never the database pod |
 | Full `DATABASE_URL` containing a password | secret | embeds a credential |
 | `core-session-key` (Ed25519 private) | secret | signing key |
 | `s3-credentials` | secret | access key and secret |
@@ -203,9 +204,9 @@ Small and explicit. Every entry has an owner and a rotation path.
 
 | Secret | Keys | Owner | Rotation |
 | --- | --- | --- | --- |
-| `core-db` | `url` | core | On compromise; 90-day scheduled |
-| `geodata-db` | `url` | geodata | On compromise; 90-day scheduled |
-| `activity-db` | `url` | activity | On compromise; 90-day scheduled |
+| `core-db` | `superuser-password`, `app-password` | core | On compromise; 90-day scheduled |
+| `geodata-db` | `superuser-password`, `app-password` | geodata | On compromise; 90-day scheduled |
+| `activity-db` | `superuser-password`, `app-password` | activity | On compromise; 90-day scheduled |
 | `core-session-key` | `ed25519-private`, `kid` | core (mounted only by core) | 180 days, two keys valid during rollover |
 | `s3-credentials` | `access-key`, `secret-key` | core, geodata, activity | 180 days, or on suspicion |
 | `smtp-credentials` | `user`, `password` | core | On provider change |

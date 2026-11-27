@@ -36,7 +36,8 @@ relationship exists.
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `ops.outbox_event` | The event log. Written in the domain transaction. | `seq bigserial`, `id uuid unique`, `type`, `subject`, `partition`, `payload jsonb`, `created_at` |
+| `ops.outbox_event` | The event log. Written in the domain transaction. | `seq bigserial`, `id uuid unique`, `type`, `subject`, `partition`, `payload jsonb`, `created_at`, `published_at` |
+| `ops.outbox_partition` | The relay's lease and published high-water mark, one row per partition. Up to `PARTITIONS` relays publish concurrently, each owning different partitions. | `partition`, `lease_owner`, `lease_until`, `last_seq`, `updated_at` |
 | `ops.event_ack` | Consumers report their position so the producer can trim safely. | `consumer`, `source`, `last_acked_seq`, `reported_at` |
 | `ops.consumer_checkpoint` | This service's read position in a **producer's** log. | `consumer`, `source`, `partition`, `last_seq`, `lease_owner`, `lease_until` |
 | `ops.job` | Work with competing consumers. | `id uuid`, `kind`, `payload jsonb`, `state`, `attempt`, `lease_until`, `available_at`, `scheduled_for` |
@@ -54,6 +55,14 @@ CREATE INDEX ON ops.outbox_event (created_at);
 
 `ops.outbox_event.seq` is monotonic per database but **not contiguous** — retention
 trims rows, so consumers treat it as a cursor and never as a count.
+
+`ops.outbox_partition.last_seq` is why the feed can be read safely. A `bigserial` is
+allocated at INSERT time, not at COMMIT time, so two concurrent transactions can commit
+out of sequence order. The relay publishes in ascending `seq` order under a lease and
+never moves a partition's `last_seq` past a row it has not published, so a consumer that
+stops at the first gap is correct: below the mark a gap is a trimmed row that was already
+acknowledged, above it the row is simply not published yet. See
+[messaging.md](messaging.md) and ADR-0004.
 
 ## `myota_core` — owned by `core`
 

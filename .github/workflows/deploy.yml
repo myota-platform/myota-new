@@ -1,0 +1,102 @@
+# The databases, and the chart that runs them.
+#
+# Triggers on the database DDL, the chart and the two checks that hold them to the
+# architecture. Nothing else: a service change does not run this, and this does not build
+# service images.
+#
+# Two jobs, because they answer different questions:
+#
+#   chart   does the chart render, and does it still route services through the pooler?
+#   schema  do all three baselines apply to a real PostgreSQL — twice — with PostGIS on
+#           geo and without it on the other two?
+#
+# The schema job uses the same postgis image the cluster runs, so "geo has PostGIS and core
+# does not" is checked against the same server build that ships.
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/myota/db/**'
+      - 'deploy/myota/templates/**'
+      - 'deploy/myota/values.yaml'
+      - 'deploy/myota/Chart.yaml'
+      - 'tools/check_db_schema.py'
+      - 'tools/check_deploy.py'
+      - 'docs/architecture/data-model.md'
+      - '.github/workflows/deploy.yml'
+  pull_request:
+    paths:
+      - 'deploy/myota/db/**'
+      - 'deploy/myota/templates/**'
+      - 'deploy/myota/values.yaml'
+      - 'deploy/myota/Chart.yaml'
+      - 'tools/check_db_schema.py'
+      - 'tools/check_deploy.py'
+      - 'docs/architecture/data-model.md'
+      - '.github/workflows/deploy.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chart:
+    name: chart
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: schema files match the data model
+        run: python3 tools/check_db_schema.py --check
+
+      - name: chart renders and keeps its guarantees
+        # Renders rather than reads the templates: a template that looks right and renders
+        # wrong is the failure mode Helm exists to have.
+        run: python3 tools/check_deploy.py --check
+
+  schema:
+    name: schema
+    runs-on: ubuntu-24.04
+    services:
+      # The same image family the geo StatefulSet runs, so the extension version the check
+      # sees is the one the cluster sees.
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: install psql
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-16
+
+      - name: all three baselines apply twice
+        # The "applying migrations twice changes nothing" criterion, as a database property
+        # rather than an assertion about the code. Also proves PostGIS is present on geo —
+        # the checker calls postgis_version() there and requires it to fail elsewhere.
+        env:
+          URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
+        run: python3 tools/check_db_schema.py --apply "$URL"
