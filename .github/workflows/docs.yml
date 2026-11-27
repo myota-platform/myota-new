@@ -71,9 +71,23 @@ jobs:
           cache: npm
 
       - name: install tooling
+        env:
+          # reuse Playwright's Chromium instead of downloading a second one for
+          # mermaid, and give it --no-sandbox: the container has no usable sandbox,
+          # which is what made mmdc fail with "Failed to launch the browser process"
+          PUPPETEER_SKIP_DOWNLOAD: 'true'
         run: |
           npm ci
           npx --yes playwright install --with-deps chromium
+          chrome=$(node -e "console.log(require('playwright').chromium.executablePath())")
+          echo "using $chrome"
+          echo "PUPPETEER_EXECUTABLE_PATH=$chrome" >> "$GITHUB_ENV"
+
+          cat > "$RUNNER_TEMP/puppeteer.json" <<'JSON'
+          {"args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]}
+          JSON
+          echo "MMDC_PUPPETEER_CONFIG=$RUNNER_TEMP/puppeteer.json" >> "$GITHUB_ENV"
+
           # mmdc must be a real binary on PATH: the checker execs it directly
           npm install --global @mermaid-js/mermaid-cli
           mmdc --version
