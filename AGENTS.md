@@ -687,6 +687,8 @@ A finding that is real but unrecorded is a finding that will be rediscovered.
 - If it changed a decision, an ADR exists or was amended — see the process in
   `docs/decisions/README.md`.
 - Testable behaviour arrived with a test first (rule 10).
+- Names and comments follow rule 15: a reviewer should not have to ask what a
+  variable is for, or why a non-obvious line is there.
 - The test environment reflects it: `https://myota-test.ea7klk.es` and
   `https://myota-admin-test.ea7klk.es` still answer 200 on `/healthz`.
 
@@ -699,6 +701,81 @@ Refs #14
 ```
 
 The chunk key first, because `git log --oneline` then reads as the plan.
+
+## 15. Clean code: names, comments, and the idioms of the language
+
+**Names carry the design.** A name that needs a comment to explain it is the wrong
+name. Say what the thing *is for*, not how it is built or where it came from.
+
+```
+// wrong — says nothing about purpose
+data, handle, process, tmp, item2, svc, doStuff, result
+
+// right — the reader knows what this is without opening the function
+pendingImportRuns, callsignEvidenceToReview, verifyCallsign,
+retireEntity, outboxBacklogAge, entityId
+```
+
+- **Functions say what they do**, in the imperative: `claimNextJob`, not
+  `jobHandler`. If a function needs "and" in its name, it does two things.
+- **Booleans read as assertions**: `isPublished`, `hasConfirmedSecondFactor`,
+  `canGrantScope` — never `flag` or `status2`.
+- **Comments explain *why*.** The code already says what it does. Write the reason
+  for the choice, the constraint that forced it, or the invariant being relied on —
+  never a restatement of the next line.
+
+  ```
+  // wrong
+  // increment attempts
+  attempts++
+
+  // right
+  // Bounded at 8 to match the dead-letter threshold in ADR-0004; the alert fires
+  // on the same number, so changing one without the other silences the alert.
+  attempts++
+  ```
+- **Comment the surprising, not the obvious.** A non-obvious workaround always
+  gets a comment naming the constraint and, where possible, a link to the issue or
+  ADR that explains it. Six months from now the "obvious" fix is what breaks it.
+
+### Go
+
+[The Go Proverbs](https://go-proverbs.github.io/) are the style guide. The ones
+that actually bite in this codebase:
+
+| Proverb | What it means here |
+| --- | --- |
+| *Clear is better than clever.* | If a reviewer has to trace it, rewrite it. |
+| *A little copying is better than a little dependency.* | Do not add a module to save fifteen lines. |
+| *The bigger the interface, the weaker the abstraction.* | One or two methods. Accept interfaces, return structs. |
+| *Errors are values. Don't just check errors, handle them gracefully.* | Wrap with context and `%w`; no bare `return err`; no discarded errors. |
+| *Make the zero value useful.* | A struct that works before it is populated needs no constructor. |
+| *Don't panic.* | `panic` only for programmer error at start-up, never for input. |
+| *Gofmt's style is no one's favorite, yet gofmt is everyone's favorite.* | Non-negotiable — CI fails on unformatted code. |
+
+### Rust
+
+- **[The Rust Style Guide](https://doc.rust-lang.org/style-guide/)** — enforced by
+  `cargo fmt --check` in CI. Non-negotiable.
+- **[The Rust API Guidelines](https://rust-lang.github.io/api-guidelines/)** on
+  naming: types are `UpperCamelCase`, functions and variables `snake_case`,
+  conversions follow `as_`/`to_`/`into_` by cost.
+- **Express invariants in the type system before writing a comment about them.** A
+  newtype and a constructor that validates is worth more than a comment asking the
+  caller to be careful.
+- **`clippy -D warnings` in CI** — a lint is an argument someone already had and
+  wrote down. Do not `#[allow]` without a comment saying why.
+- **Document `# Errors`** on any public function returning `Result`, and
+  `#[must_use]` on anything whose ignored return value would be a bug.
+- **No `unwrap()` outside tests and start-up**, where a failure should be loud and
+  immediate.
+
+### What CI already enforces
+
+`gofmt`, `go vet`, `cargo fmt --check`, `cargo clippy -- -D warnings` — in the
+per-service workflows. The naming and commenting rules above are not machine-checkable,
+which is exactly why they are written down: they are review findings, not lint
+findings.
 
 ---
 
