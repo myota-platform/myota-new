@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "An award was issued",
+  "description": "Published when a certificate is issued. `core` consumes it and sends the notification; `activity` never sends mail, which is what keeps one ledger and one retry policy.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/activity"
+        },
+        "type": {
+          "const": "activity.award.issued.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "issuanceId",
+            "awardId",
+            "awardCode",
+            "accountId",
+            "issuedAt"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "issuanceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "awardId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "awardCode": {
+              "type": "string"
+            },
+            "awardName": {
+              "type": "string"
+            },
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "issuedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/activity",
+      "type": "activity.award.issued.v1",
+      "subject": "award:6d2f8b47-3a1c-4e09-b5d8-9c4e2f7a1b63",
+      "time": "2026-10-02T12:00:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "issuanceId": "6d2f8b47-3a1c-4e09-b5d8-9c4e2f7a1b63",
+        "awardId": "7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35",
+        "awardCode": "explorer-25",
+        "awardName": "Explorer 25",
+        "accountId": "44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+        "issuedAt": "2026-10-02T12:00:00Z"
+      }
+    }
+  ]
+}

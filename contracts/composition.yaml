@@ -1,0 +1,60 @@
+# The composed document's header: what the API is, and where it is served.
+#
+# `tools/compose_contracts.py` copies `info` and `servers` from here into
+# `public.openapi.yaml`. They live in a file rather than in the script because
+# they are prose about the product, and prose in Python is prose nobody reviews.
+#
+# The three service documents carry their own `info`: each describes the slice it
+# owns and is served only at `/internal/openapi.json`.
+
+info:
+  title: Myota API
+  version: 1.0.0
+  summary: Programmes, places, activations, awards — one API, two audiences.
+  description: |
+    The composed contract for every Myota service. It is generated from
+    `contracts/core.openapi.yaml`, `contracts/geodata.openapi.yaml` and
+    `contracts/activity.openapi.yaml`, so it cannot describe a route that no
+    service implements without the build failing.
+
+    **Two audiences.** `/v1/auth/**`, `/v1/me/**`, `/v1/activations/**`,
+    `/v1/qsos/**`, `/v1/awards/**`, `/v1/proposals/**` and `/v1/statistics/me`
+    are participant routes. `/v1/admin/**` is administrator routes, and requires
+    a session issued by `POST /v1/admin/auth/login`, which is MFA-gated. The
+    audience is a claim in the token, checked at the gateway before the request is
+    proxied — it is not a client-side convention and not a separate host.
+
+    **Errors** are `application/problem+json` (RFC 9457), always with a `type`, a
+    `title`, a `status` and a `requestId` that matches `X-Request-ID`.
+
+    **Collections** return `{ items, nextCursor }` and are cursor-paginated.
+    `nextCursor` is `null` on the last page.
+
+    **Mutations** accept `Idempotency-Key`. A replay with the same key and body
+    returns the stored response and creates nothing.
+
+    **Edits to spatial entities** carry the `revision` they were read at.
+    A stale revision is `409 about:blank#revision-conflict`, never a silent
+    overwrite.
+
+    Event schemas — the payloads services exchange — are published alongside this
+    document under `contracts/events/`; they are not HTTP operations and so do not
+    appear here.
+  contact:
+    name: Myota platform
+    url: https://github.com/myota-platform/myota-new
+  license:
+    name: MIT
+    identifier: MIT
+
+servers:
+  - url: https://myota-test.ea7klk.es
+    description: >-
+      Test environment, participant host. The same gateway serves both hosts;
+      the host decides which application the browser loaded, not which API.
+  - url: https://myota-admin-test.ea7klk.es
+    description: Test environment, administrator host.
+
+externalDocs:
+  url: https://github.com/myota-platform/myota-new/blob/main/docs/architecture/README.md
+  description: Architecture, decisions and the contract rules.

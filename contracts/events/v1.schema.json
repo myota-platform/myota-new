@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:myota:contracts:events:v1",
+  "title": "Myota event envelope (CloudEvents 1.0 subset)",
+  "description": "The shape of `ops.outbox_event.payload`. A subset of CloudEvents 1.0: the attributes the system actually sets, with the ones it does not use left out rather than declared optional-but-never-present. `data` is constrained by the per-type file, not here — the envelope is one document for every event type, and a per-type `data` schema belongs in the per-type file.",
+  "type": "object",
+  "required": [
+    "specversion",
+    "id",
+    "source",
+    "type",
+    "subject",
+    "time",
+    "datacontenttype",
+    "data"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "specversion": {
+      "const": "1.0",
+      "description": "CloudEvents version. Const because there is one version in use."
+    },
+    "id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "The event id. On the consuming side this becomes the job id, which is what makes a duplicate delivery a no-op rather than a double count."
+    },
+    "source": {
+      "type": "string",
+      "pattern": "^/[a-z]+$",
+      "description": "The producing service, as a path: `/core`, `/geodata`, `/activity`.",
+      "examples": [
+        "/geodata"
+      ]
+    },
+    "type": {
+      "type": "string",
+      "pattern": "^[a-z]+(\\.[a-z0-9_]+)+(\\.v[0-9]+)$",
+      "description": "`<service>.<aggregate>.<past-tense fact>.v<major>`.",
+      "examples": [
+        "geodata.entity.published.v1"
+      ]
+    },
+    "subject": {
+      "type": "string",
+      "pattern": "^[a-z_]+:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+      "description": "`<aggregate>:<uuid>`. The partition is computed from this, so every event about one aggregate is ordered relative to the others.",
+      "examples": [
+        "entity:8f3c1e00-0000-4000-8000-000000000001"
+      ]
+    },
+    "time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the fact became true, not when it was published."
+    },
+    "datacontenttype": {
+      "const": "application/json"
+    },
+    "data": {
+      "type": "object",
+      "description": "The payload. Constrained by the per-type schema."
+    }
+  }
+}

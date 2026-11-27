@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "An import finished",
+  "description": "Published when a run reaches a terminal state. `core` turns it into an administrator notification — `geodata` does not send mail.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/geodata"
+        },
+        "type": {
+          "const": "geodata.import.completed.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "runId",
+            "sourceId",
+            "programmeId",
+            "status",
+            "counts"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "runId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "sourceId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "programmeId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "published",
+                "failed",
+                "cancelled"
+              ]
+            },
+            "counts": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "valid": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "invalid": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "merged": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "new": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/geodata",
+      "type": "geodata.import.completed.v1",
+      "subject": "import:7a3e9c25-4b1d-4f80-9c6a-2e8b5d1f3a74",
+      "time": "2026-11-27T14:20:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "runId": "7a3e9c25-4b1d-4f80-9c6a-2e8b5d1f3a74",
+        "sourceId": "1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52",
+        "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+        "status": "published",
+        "counts": {
+          "total": 4120,
+          "valid": 4098,
+          "invalid": 22,
+          "merged": 341,
+          "new": 3757
+        }
+      }
+    }
+  ]
+}

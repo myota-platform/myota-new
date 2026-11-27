@@ -1,0 +1,2913 @@
+# The geodata service contract: the spatial catalogue and the import pipeline.
+#
+# Owned database: `myota_geo`. The only database with PostGIS. `programme_id` and
+# `actor_id` are opaque uuids with no foreign key — `core` owns those rows, and
+# referential integrity across the boundary is a property of the event stream.
+#
+# Uploads never pass through this API. The API issues a presigned URL and the
+# bytes go straight to object storage; a 1 GiB shapefile is a real case and it is
+# not a request any replica should buffer.
+
+openapi: 3.1.0
+
+info:
+  title: Myota geodata service
+  version: 1.0.0
+  summary: Entities, spatial review, provenance and the import pipeline.
+  description: |
+    The spatial catalogue. An `entity` is a place a programme recognises — a
+    park, a summit, a region — with geometry, a lifecycle and a provenance trail
+    back to the exact bytes an import read.
+
+    Imports are staged, reviewed and promoted, never written straight to the
+    catalogue. A run moves through `upload → normalise → validate → conflate`,
+    pauses at `review` for a human decision, and only then publishes. The paused
+    state is a `status`, not a sixth stage: "awaiting an administrator" is not
+    something the pipeline does.
+
+    Edits to a published entity are direct and carried on the `revision` the
+    client read. A stale revision is a `409`, never a silent overwrite, because
+    two reviewers editing one park is a normal day.
+
+servers:
+  - url: http://geodata-api.{namespace}.svc.cluster.local:8080
+    description: >-
+      In-cluster address. Reached through the gateway, or by `activity` for
+      geometry it does not store.
+    variables:
+      namespace:
+        default: myota-test
+        enum: [myota, myota-test]
+
+tags:
+  - name: entities
+    description: >-
+      The catalogue. Public reads are anonymous; writes need `geodata.edit`.
+  - name: proposals
+    description: >-
+      Participant-submitted corrections and new places. A proposal is a request
+      for review, not an edit — participants cannot write the catalogue.
+  - name: imports
+    description: >-
+      Resumable uploads, import runs, candidates, conflation and promotion.
+      Administrator only.
+  - name: sources
+    description: >-
+      Data providers, their snapshots and their schedules. Administrator only.
+  - name: tiles
+    description: Vector tiles for the public map. Anonymous.
+  - name: geodata-internal
+    description: Not published. Contract composition and the event feed.
+
+paths:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Entities — the catalogue. Reads are anonymous where the entity is published;
+  # every write needs an administrator session.
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/entities:
+    get:
+      operationId: geodata.entities.list
+      summary: List entities
+      description: |
+        Anonymous for published entities; an administrator may filter by every
+        status. Filters combine, and the result is cursor-paginated in catalogue
+        order so a map viewport request is cheap.
+
+        `bbox` is `minLon,minLat,maxLon,maxLat` in WGS 84 — the same order as a
+        GeoJSON bounding box, so a client does not have to remember a second
+        convention.
+      tags: [entities]
+      security: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: programme
+          in: query
+          required: false
+          description: Programme slug.
+          schema:
+            type: string
+            examples: ['pota']
+        - name: category
+          in: query
+          required: false
+          description: Category code, as declared by the programme in `core`.
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          description: >-
+            Only `published` is visible without an administrator session; any
+            other value is refused rather than silently downgraded.
+          schema:
+            type: string
+            enum: [draft, in_review, published, retired]
+            default: published
+        - name: bbox
+          in: query
+          required: false
+          description: Bounding box filter, `minLon,minLat,maxLon,maxLat`.
+          schema:
+            type: string
+            pattern: '^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$'
+          example: '-8.9,41.1,-8.5,41.4'
+        - name: q
+          in: query
+          required: false
+          description: Free text over name and slug.
+          schema:
+            type: string
+            maxLength: 128
+      responses:
+        '200':
+          description: One page of entities.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityPage'
+              example:
+                items:
+                  - id: 8f3c1e00-0000-4000-8000-000000000001
+                    programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                    entityTypeCode: park
+                    name: Parque Nacional da Peneda-Gerês
+                    slug: parque-nacional-da-peneda-geres
+                    status: published
+                    centroid:
+                      type: Point
+                      coordinates: [-8.2167, 41.7333]
+                    revision: 9
+                    updatedAt: '2026-11-20T14:31:00Z'
+                nextCursor: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+
+    post:
+      operationId: geodata.entities.create
+      summary: Create an entity directly
+      description: >-
+        For a place an administrator adds by hand, not for bulk loads — bulk work
+        goes through the import pipeline so it arrives with candidates, evidence
+        and a review. Created as `draft`; publication is a separate act.
+      tags: [entities]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityCreate'
+            example:
+              programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+              entityTypeCode: park
+              name: Parque Natural de Somiedo
+              geometry:
+                type: Polygon
+                coordinates: [[[-6.25, 43.0], [-6.05, 43.0], [-6.05, 43.15], [-6.25, 43.15], [-6.25, 43.0]]]
+              categories: [park]
+      responses:
+        '201':
+          description: The draft entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDetail'
+              example:
+                id: 2b6f8d14-9c3a-4e07-b5d1-8a4c2f6e9b31
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                entityTypeCode: park
+                name: Parque Natural de Somiedo
+                slug: parque-natural-de-somiedo
+                status: draft
+                centroid:
+                  type: Point
+                  coordinates: [-6.15, 43.075]
+                geometry:
+                  type: Polygon
+                  coordinates: [[[-6.25, 43.0], [-6.05, 43.0], [-6.05, 43.15], [-6.25, 43.15], [-6.25, 43.0]]]
+                elevationMetres: null
+                revision: 1
+                categories:
+                  - code: park
+                    primary: true
+                publishedAt: null
+                updatedAt: '2026-11-27T13:00:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/entities/{entityId}:
+    get:
+      operationId: geodata.entities.read
+      summary: Read one entity
+      description: >-
+        Includes the full geometry. List responses carry only the centroid, so a
+        map request for 200 parks is not 200 polygons, and a detail request is
+        where the shape is actually needed.
+      tags: [entities]
+      security: []
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDetail'
+              example:
+                id: 8f3c1e00-0000-4000-8000-000000000001
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                entityTypeCode: park
+                name: Parque Nacional da Peneda-Gerês
+                slug: parque-nacional-da-peneda-geres
+                status: published
+                centroid:
+                  type: Point
+                  coordinates: [-8.2167, 41.7333]
+                geometry:
+                  type: Polygon
+                  coordinates: [[[-8.45, 41.6], [-8.0, 41.6], [-8.0, 41.9], [-8.45, 41.9], [-8.45, 41.6]]]
+                elevationMetres: null
+                revision: 9
+                categories:
+                  - code: park
+                    primary: true
+                publishedAt: '2026-11-20T14:31:00Z'
+                updatedAt: '2026-11-20T14:31:00Z'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+    patch:
+      operationId: geodata.entities.update
+      summary: Edit an entity
+      description: |
+        Carries the `revision` the client read. The server compares it, applies
+        the change and returns the new revision; a mismatch is
+        `409 about:blank#revision-conflict` with both numbers in the detail, so a
+        reviewer knows to re-read rather than to retry blindly.
+
+        Editing does not use a staging table. A staging table was one of three
+        overlapping mechanisms in the legacy system, and a single entity with a
+        revision needs none of them.
+      tags: [entities]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityUpdate'
+            example:
+              revision: 9
+              name: Parque Nacional Peneda-Gerês
+              categories: [park, biosphere_reserve]
+      responses:
+        '200':
+          description: The updated entity, with its new revision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntityDetail'
+              example:
+                id: 8f3c1e00-0000-4000-8000-000000000001
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                entityTypeCode: park
+                name: Parque Nacional Peneda-Gerês
+                slug: parque-nacional-da-peneda-geres
+                status: published
+                centroid:
+                  type: Point
+                  coordinates: [-8.2167, 41.7333]
+                geometry:
+                  type: Polygon
+                  coordinates: [[[-8.45, 41.6], [-8.0, 41.6], [-8.0, 41.9], [-8.45, 41.9], [-8.45, 41.6]]]
+                elevationMetres: null
+                revision: 10
+                categories:
+                  - code: park
+                    primary: true
+                  - code: biosphere_reserve
+                    primary: false
+                publishedAt: '2026-11-20T14:31:00Z'
+                updatedAt: '2026-11-27T13:05:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/entities/{entityId}/history:
+    get:
+      operationId: geodata.entities.readHistory
+      summary: Read an entity's audit trail
+      description: >-
+        Every change with actor, action, before and after. Actor ids are `core`
+        account ids held as opaque values — no foreign key, because the account
+        may be closed while the history must survive it.
+      tags: [entities]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of audit events, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventPage'
+              example:
+                items:
+                  - id: 3a7c9f21-6b4d-4e08-9c1a-5d2e7b0f4a83
+                    action: entity.published
+                    actorId: 0f7d2b19-4c6e-4a83-b5d2-9e1c7a3f6b48
+                    occurredAt: '2026-11-20T14:31:00Z'
+                    before:
+                      status: in_review
+                    after:
+                      status: published
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/entities/{entityId}/provenance:
+    get:
+      operationId: geodata.entities.readProvenance
+      summary: Read where an entity's data came from
+      description: >-
+        One row per source that contributed: the snapshot (the exact bytes an
+        import read), the source's own feature id, and a confidence. This is what
+        makes an attribution claim answerable a year later.
+      tags: [entities]
+      security: []
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of provenance rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProvenancePage'
+              example:
+                items:
+                  - sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                    sourceName: Protected Planet
+                    snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                    sourceFeatureId: WDPA-555
+                    confidence: 0.98
+                    retrievedAt: '2026-11-18T03:00:00Z'
+                nextCursor: null
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/entities/{entityId}/publish:
+    post:
+      operationId: geodata.entities.publish
+      summary: Publish an entity
+      description: >-
+        Makes the entity visible to participants and publishes
+        `geodata.entity.published.v1`, which is how `activity` learns that the
+        place can be activated.
+      tags: [entities]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: Publishing a published entity is a no-op that republishes no event.
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The published entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntitySummary'
+              example:
+                id: 2b6f8d14-9c3a-4e07-b5d1-8a4c2f6e9b31
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                entityTypeCode: park
+                name: Parque Natural de Somiedo
+                slug: parque-natural-de-somiedo
+                status: published
+                centroid:
+                  type: Point
+                  coordinates: [-6.15, 43.075]
+                revision: 2
+                updatedAt: '2026-11-27T13:10:00Z'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/entities/{entityId}/retire:
+    post:
+      operationId: geodata.entities.retire
+      summary: Retire an entity
+      description: >-
+        Hides the entity from the public catalogue and publishes
+        `geodata.entity.retired.v1`. Activations that used it keep it: `activity`
+        captured the name and elevation at activation start, so retiring a place
+        does not rewrite anyone's log.
+      tags: [entities]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: Retiring a retired entity is a no-op that republishes no event.
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Rejection'
+            example:
+              reason: Merged into the adjacent entity after a boundary correction.
+      responses:
+        '200':
+          description: The retired entity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntitySummary'
+              example:
+                id: 8f3c1e00-0000-4000-8000-000000000001
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                entityTypeCode: park
+                name: Parque Nacional da Peneda-Gerês
+                slug: parque-nacional-da-peneda-geres
+                status: retired
+                centroid:
+                  type: Point
+                  coordinates: [-8.2167, 41.7333]
+                revision: 11
+                updatedAt: '2026-11-27T13:15:00Z'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/entities/{entityId}/attachments:
+    post:
+      operationId: geodata.entities.createAttachment
+      summary: Attach an image to an entity
+      description: >-
+        Returns a presigned `PUT` URL. The client uploads the bytes to object
+        storage, then calls this endpoint again with the completed attachment to
+        confirm. The second step exists because a presigned URL proves intent,
+        not that the object arrived.
+      tags: [entities]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachmentCreate'
+            example:
+              kind: photo
+              mediaType: image/jpeg
+              sizeBytes: 184320
+              checksumSha256: 6b3a1c9e8f2d4b7a0c5e9d1f3a8b6c2e4d7f0a9b1c3e5d8f2a4b6c0e7d9f1a35
+      responses:
+        '201':
+          description: The attachment record and where to put the bytes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Attachment'
+              example:
+                id: 9c4e7a12-3b8d-4f60-a1c5-7e2b9d4f6a08
+                kind: photo
+                mediaType: image/jpeg
+                sizeBytes: 184320
+                checksumSha256: 6b3a1c9e8f2d4b7a0c5e9d1f3a8b6c2e4d7f0a9b1c3e5d8f2a4b6c0e7d9f1a35
+                uploadUrl: https://objects.example.org/myota-geo/entities/8f3c1e00/photo.jpg?X-Amz-Signature=…
+                uploadExpiresAt: '2026-11-27T13:20:00Z'
+                confirmedAt: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '413':
+          description: The declared size exceeds the attachment ceiling.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '../shared/components.yaml#/components/schemas/Problem'
+              example:
+                type: about:blank#upload-too-large
+                title: Attachment too large
+                status: 413
+                detail: 12 MiB declared; the attachment ceiling is 8 MiB.
+                requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+
+  /v1/entities/{entityId}/attachments/{attachmentId}:
+    delete:
+      operationId: geodata.entities.deleteAttachment
+      summary: Remove an attachment
+      tags: [entities]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: entityId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: attachmentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Removed.
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Proposals — participant submissions
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/proposals:
+    get:
+      operationId: geodata.proposals.listMine
+      summary: List the participant's proposals
+      description: >-
+        A participant sees only their own proposals. The administrator view of
+        the same rows is `/v1/admin/proposals`; one resource, two audiences, one
+        table.
+      tags: [proposals]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, approved, rejected, withdrawn]
+      responses:
+        '200':
+          description: One page of proposals, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalPage'
+              example:
+                items:
+                  - id: 5e2a8c41-7f3b-4d09-a6e2-1c8b5d3f9a07
+                    kind: correction
+                    entityId: 8f3c1e00-0000-4000-8000-000000000001
+                    entityName: Parque Nacional Peneda-Gerês
+                    status: open
+                    createdAt: '2026-11-25T16:40:00Z'
+                    decidedAt: null
+                    decisionNote: null
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+    post:
+      operationId: geodata.proposals.create
+      summary: Propose a new place or a correction
+      description: >-
+        Participants cannot write the catalogue. A proposal is a request for
+        review that carries the evidence, and an administrator decides it. This
+        is the only write path a participant has into `geodata`.
+      tags: [proposals]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalCreate'
+            example:
+              kind: correction
+              entityId: 8f3c1e00-0000-4000-8000-000000000001
+              programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+              note: The northern boundary ends at the river, not the track.
+              geometry:
+                type: Polygon
+                coordinates: [[[-8.45, 41.6], [-8.0, 41.6], [-8.0, 41.88], [-8.45, 41.88], [-8.45, 41.6]]]
+      responses:
+        '201':
+          description: The proposal, awaiting review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+              example:
+                id: 5e2a8c41-7f3b-4d09-a6e2-1c8b5d3f9a07
+                kind: correction
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional Peneda-Gerês
+                status: open
+                createdAt: '2026-11-27T13:25:00Z'
+                decidedAt: null
+                decisionNote: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/proposals/{proposalId}:
+    get:
+      operationId: geodata.proposals.read
+      summary: Read one of the participant's proposals
+      tags: [proposals]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The proposal with its decision, if there is one.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDetail'
+              example:
+                id: 5e2a8c41-7f3b-4d09-a6e2-1c8b5d3f9a07
+                kind: correction
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional Peneda-Gerês
+                status: open
+                note: The northern boundary ends at the river, not the track.
+                createdAt: '2026-11-27T13:25:00Z'
+                decidedAt: null
+                decisionNote: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/proposals/{proposalId}/withdraw:
+    post:
+      operationId: geodata.proposals.withdraw
+      summary: Withdraw a proposal
+      description: Only while it is `open`. A decided proposal is history.
+      tags: [proposals]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: Withdrawing a withdrawn proposal is a no-op.
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The withdrawn proposal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+              example:
+                id: 5e2a8c41-7f3b-4d09-a6e2-1c8b5d3f9a07
+                kind: correction
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional Peneda-Gerês
+                status: withdrawn
+                createdAt: '2026-11-27T13:25:00Z'
+                decidedAt: '2026-11-27T13:30:00Z'
+                decisionNote: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/admin/proposals:
+    get:
+      operationId: geodata.adminProposals.list
+      summary: List proposals awaiting review
+      description: >-
+        Scope `geodata.review`. The legacy system's conflation endpoints required
+        only a valid token; this one requires the scope, and the scope is checked
+        in `core` and cached per session.
+      tags: [proposals]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [open, approved, rejected, withdrawn]
+            default: open
+        - name: programmeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: One page of proposals, oldest first so nothing is forgotten.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalPage'
+              example:
+                items:
+                  - id: 5e2a8c41-7f3b-4d09-a6e2-1c8b5d3f9a07
+                    kind: correction
+                    entityId: 8f3c1e00-0000-4000-8000-000000000001
+                    entityName: Parque Nacional Peneda-Gerês
+                    status: open
+                    submittedBy: 44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93
+                    createdAt: '2026-11-25T16:40:00Z'
+                    decidedAt: null
+                    decisionNote: null
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+
+  /v1/admin/proposals/{proposalId}/approve:
+    post:
+      operationId: geodata.adminProposals.approve
+      summary: Approve a proposal and apply it
+      description: >-
+        Applies the proposed change to the entity in one transaction with the
+        decision, so an approved proposal and its effect cannot disagree.
+      tags: [proposals]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: A decided proposal cannot be decided again; a repeat returns the decision.
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Decision'
+            example:
+              note: Confirmed against the 2024 boundary survey.
+      responses:
+        '200':
+          description: The approved proposal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+              example:
+                id: 5e2a8c41-7f3b-4d09-a6e2-1c8b5d3f9a07
+                kind: correction
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional Peneda-Gerês
+                status: approved
+                createdAt: '2026-11-25T16:40:00Z'
+                decidedAt: '2026-11-27T13:35:00Z'
+                decisionNote: Confirmed against the 2024 boundary survey.
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/admin/proposals/{proposalId}/reject:
+    post:
+      operationId: geodata.adminProposals.reject
+      summary: Reject a proposal
+      tags: [proposals]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: A decided proposal cannot be decided again.
+      parameters:
+        - name: proposalId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Decision'
+            example:
+              note: The submitted boundary matches the current published shape.
+      responses:
+        '200':
+          description: The rejected proposal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Proposal'
+              example:
+                id: 5e2a8c41-7f3b-4d09-a6e2-1c8b5d3f9a07
+                kind: correction
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional Peneda-Gerês
+                status: rejected
+                createdAt: '2026-11-25T16:40:00Z'
+                decidedAt: '2026-11-27T13:35:00Z'
+                decisionNote: The submitted boundary matches the current published shape.
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Imports — upload
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/imports/uploads:
+    post:
+      operationId: geodata.imports.createUpload
+      summary: Open a resumable upload session
+      description: |
+        A 1 GiB shapefile over a poor connection is a real case, so uploads are
+        multipart and resumable. The session records the declared size and
+        checksum up front: a client that cannot state them is not uploading a
+        file it knows anything about, and a mismatch at completion is caught
+        before an import ever reads the bytes.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadSessionCreate'
+            example:
+              sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+              filename: protected-planet-es.geojson
+              sizeBytes: 1048576
+              checksumSha256: 9f2c6b1e4a8d3c7f0b5e9a2d6c4f8b1e3a7c0d5f9b2e6a4c8d1f7b3e0a9c6d52
+              format: geojson
+      responses:
+        '201':
+          description: The session, with the first part's upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+              example:
+                id: 4d7b2e91-8c6a-4f35-b0d9-2e5a8c1f7b64
+                objectKey: imports/4d7b2e91/upload
+                sizeBytes: 1048576
+                state: open
+                partSizeBytes: 8388608
+                expiresAt: '2026-11-28T13:40:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '413':
+          description: The declared size exceeds the import ceiling.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '../shared/components.yaml#/components/schemas/Problem'
+              example:
+                type: about:blank#upload-too-large
+                title: Upload exceeds the ceiling
+                status: 413
+                detail: 2 GiB declared; the ceiling is 1 GiB.
+                requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+
+  /v1/imports/uploads/{sessionId}/parts:
+    post:
+      operationId: geodata.imports.signPart
+      summary: Sign one part of an upload
+      description: >-
+        Returns a presigned URL for a single part. Called per part, so a
+        connection that drops at part 7 resumes at part 7.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: Signing a URL twice issues a second valid URL; nothing is created.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartRequest'
+            example:
+              partNumber: 7
+      responses:
+        '201':
+          description: A presigned URL for the part.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedPart'
+              example:
+                partNumber: 7
+                uploadUrl: https://objects.example.org/myota-geo/imports/4d7b2e91/upload?partNumber=7&X-Amz-Signature=…
+                expiresAt: '2026-11-27T14:10:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/imports/uploads/{sessionId}/complete:
+    post:
+      operationId: geodata.imports.completeUpload
+      summary: Complete an upload session
+      description: >-
+        Assembles the parts, verifies the checksum against the one declared at
+        the start, and returns the snapshot to use in `POST /v1/imports`. A
+        checksum mismatch is `409`: the bytes that arrived are not the bytes the
+        client meant to send, and an import must not be the thing that discovers
+        that.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: A completed session cannot be completed again; a repeat returns the same snapshot.
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadCompletion'
+            example:
+              parts:
+                - partNumber: 1
+                  etag: '"d41d8cd98f00b204e9800998ecf8427e"'
+      responses:
+        '200':
+          description: The completed session and the snapshot it produced.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSessionCompleted'
+              example:
+                id: 4d7b2e91-8c6a-4f35-b0d9-2e5a8c1f7b64
+                objectKey: imports/4d7b2e91/upload
+                sizeBytes: 1048576
+                state: completed
+                snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                completedAt: '2026-11-27T13:50:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Imports — runs
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/imports:
+    get:
+      operationId: geodata.imports.list
+      summary: List import runs
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [uploaded, running, review, published, failed, cancelled]
+        - name: sourceId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: One page of runs, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRunPage'
+              example:
+                items:
+                  - id: 7a3e9c25-4b1d-4f80-9c6a-2e8b5d1f3a74
+                    sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                    programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                    snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                    stage: conflate
+                    status: review
+                    counts:
+                      total: 4120
+                      valid: 4098
+                      invalid: 22
+                      merged: 341
+                      new: 3757
+                    startedAt: '2026-11-27T13:55:00Z'
+                    finishedAt: null
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+    post:
+      operationId: geodata.imports.create
+      summary: Start an import run from a snapshot
+      description: >-
+        Creates the run and queues `import.preprocess` as a job in `ops.job`. The
+        job is the queue: there is no separate broker, and a worker claims it with
+        `FOR UPDATE SKIP LOCKED` exactly as a broker's durable consumer would.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportRunCreate'
+            example:
+              sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+              programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+              snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+      responses:
+        '201':
+          description: The created run, in `uploaded`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRun'
+              example:
+                id: 7a3e9c25-4b1d-4f80-9c6a-2e8b5d1f3a74
+                sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                stage: upload
+                status: uploaded
+                counts:
+                  total: 0
+                  valid: 0
+                  invalid: 0
+                  merged: 0
+                  new: 0
+                startedAt: null
+                finishedAt: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/imports/{runId}:
+    get:
+      operationId: geodata.imports.read
+      summary: Read an import run
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The run with its counts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRun'
+              example:
+                id: 7a3e9c25-4b1d-4f80-9c6a-2e8b5d1f3a74
+                sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                stage: conflate
+                status: review
+                counts:
+                  total: 4120
+                  valid: 4098
+                  invalid: 22
+                  merged: 341
+                  new: 3757
+                startedAt: '2026-11-27T13:55:00Z'
+                finishedAt: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/imports/{runId}/cancel:
+    post:
+      operationId: geodata.imports.cancel
+      summary: Cancel an import run
+      description: >-
+        Stops the pipeline and discards the run's candidates. A run already in
+        `review` is cancelled the same way; nothing was published, so nothing
+        needs undoing.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: Cancelling a cancelled run is a no-op.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The cancelled run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRun'
+              example:
+                id: 7a3e9c25-4b1d-4f80-9c6a-2e8b5d1f3a74
+                sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                stage: conflate
+                status: cancelled
+                counts:
+                  total: 4120
+                  valid: 4098
+                  invalid: 22
+                  merged: 341
+                  new: 3757
+                startedAt: '2026-11-27T13:55:00Z'
+                finishedAt: '2026-11-27T14:05:00Z'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/imports/{runId}/candidates:
+    get:
+      operationId: geodata.imports.listCandidates
+      summary: List a run's staged candidates
+      description: >-
+        The review screen. Each candidate is one feature from the source, in the
+        state the validator left it, with the reason when it is invalid. Filtering
+        by state is what makes a 4 000-feature run reviewable.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, valid, invalid, duplicate, promoted, rejected]
+      responses:
+        '200':
+          description: One page of candidates.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidatePage'
+              example:
+                items:
+                  - id: 2c9f5a73-6d1e-4b08-9f4a-3e7c2b5d1a68
+                    sourceFeatureId: WDPA-555
+                    state: valid
+                    rejectReason: null
+                    name: Parque Nacional da Peneda-Gerês
+                    centroid:
+                      type: Point
+                      coordinates: [-8.2167, 41.7333]
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/imports/{runId}/errors:
+    get:
+      operationId: geodata.imports.listErrors
+      summary: List a run's import errors
+      description: >-
+        Errors are per candidate and carry a code, so a systematic problem —
+        every feature missing a name, say — is visible as a pattern rather than
+        as 4 000 rows to read.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: severity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [error, warning]
+      responses:
+        '200':
+          description: One page of errors.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportErrorPage'
+              example:
+                items:
+                  - id: 8b4d1f62-9a3c-4e75-b0d8-5c2e7f1a3b96
+                    candidateId: 2c9f5a73-6d1e-4b08-9f4a-3e7c2b5d1a68
+                    severity: warning
+                    code: geometry.self_intersection
+                    message: Ring 1 self-intersects at (-8.31, 41.72); repaired with
+                      a zero-width buffer.
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/imports/{runId}/conflations:
+    get:
+      operationId: geodata.imports.listConflations
+      summary: List conflation candidates
+      description: >-
+        Each row is a proposed match between an imported feature and an existing
+        entity, with a score and the reasons for it. `unresolved` rows are the
+        ones a reviewer must decide before the run can publish.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: resolution
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [new, merge, skip, unresolved]
+      responses:
+        '200':
+          description: One page of conflation rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConflationPage'
+              example:
+                items:
+                  - id: 4e7a2c91-5b3d-4f68-a0c1-9e2b6d4f8a37
+                    candidateId: 2c9f5a73-6d1e-4b08-9f4a-3e7c2b5d1a68
+                    entityId: 8f3c1e00-0000-4000-8000-000000000001
+                    score: 0.93
+                    resolution: unresolved
+                    reason:
+                      nameSimilarity: 0.97
+                      centroidDistanceMetres: 214
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/imports/{runId}/conflations/{candidateId}/resolve:
+    post:
+      operationId: geodata.imports.resolveConflation
+      summary: Decide a conflation
+      description: >-
+        Records `merge`, `new` or `skip` for one candidate. Scope
+        `geodata.review` is required per request, not merely a valid token — the
+        legacy system got this wrong on exactly this endpoint.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: The decision is stored once per candidate; a repeat overwrites the same row.
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: candidateId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConflationResolution'
+            example:
+              resolution: merge
+              entityId: 8f3c1e00-0000-4000-8000-000000000001
+      responses:
+        '200':
+          description: The resolved row.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Conflation'
+              example:
+                id: 4e7a2c91-5b3d-4f68-a0c1-9e2b6d4f8a37
+                candidateId: 2c9f5a73-6d1e-4b08-9f4a-3e7c2b5d1a68
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                score: 0.93
+                resolution: merge
+                reason:
+                  nameSimilarity: 0.97
+                  centroidDistanceMetres: 214
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/imports/{runId}/publish:
+    post:
+      operationId: geodata.imports.publish
+      summary: Promote a reviewed run into the catalogue
+      description: |
+        Promotes the run's resolved candidates in batches of at most 300, so one
+        transaction stays short enough to reason about. Every promoted entity
+        writes its `entity_provenance` row in the same transaction as the entity,
+        which is what makes attribution answerable later.
+
+        Refused while any candidate is still `unresolved`: publishing a run with
+        an undecided merge would double the catalogue.
+      tags: [imports]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: runId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishRequest'
+            example:
+              maxCandidates: 300
+      responses:
+        '202':
+          description: Promotion queued; the run moves to `publishing`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportRun'
+              example:
+                id: 7a3e9c25-4b1d-4f80-9c6a-2e8b5d1f3a74
+                sourceId: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                snapshotId: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                stage: publish
+                status: running
+                counts:
+                  total: 4120
+                  valid: 4098
+                  invalid: 22
+                  merged: 341
+                  new: 3757
+                startedAt: '2026-11-27T13:55:00Z'
+                finishedAt: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Sources and schedules
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/admin/sources:
+    get:
+      operationId: geodata.sources.list
+      summary: List data sources
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of sources.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourcePage'
+              example:
+                items:
+                  - id: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                    name: Protected Planet
+                    adapter: GOVERNMENT_GIS
+                    defaultFormat: geojson
+                    licence: CC-BY-4.0
+                    attribution: IUCN and UNEP-WCMC
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+    post:
+      operationId: geodata.sources.create
+      summary: Create a data source
+      description: >-
+        The licence and attribution are required fields, not notes: an entity
+        derived from this source inherits them, and a catalogue that cannot state
+        where it came from cannot be published.
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceCreate'
+            example:
+              name: Protected Planet
+              adapter: GOVERNMENT_GIS
+              defaultFormat: geojson
+              licence: CC-BY-4.0
+              attribution: IUCN and UNEP-WCMC
+              homepage: https://www.protectedplanet.net
+      responses:
+        '201':
+          description: The source.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+              example:
+                id: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                name: Protected Planet
+                adapter: GOVERNMENT_GIS
+                defaultFormat: geojson
+                licence: CC-BY-4.0
+                attribution: IUCN and UNEP-WCMC
+                homepage: https://www.protectedplanet.net
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/admin/sources/{sourceId}:
+    patch:
+      operationId: geodata.sources.update
+      summary: Update a data source
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceUpdate'
+            example:
+              licence: CC-BY-4.0
+              attribution: IUCN and UNEP-WCMC, 2026 release
+      responses:
+        '200':
+          description: The updated source.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+              example:
+                id: 1c5e8a30-7d2b-4f96-a0e4-9b3c6d1f8a52
+                name: Protected Planet
+                adapter: GOVERNMENT_GIS
+                defaultFormat: geojson
+                licence: CC-BY-4.0
+                attribution: IUCN and UNEP-WCMC, 2026 release
+                homepage: https://www.protectedplanet.net
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/admin/sources/{sourceId}/snapshots:
+    get:
+      operationId: geodata.sources.listSnapshots
+      summary: List a source's snapshots
+      description: >-
+        One row per fetch: the exact bytes an import read, with a feature count
+        and a checksum. Provenance points here, so "which version of the source
+        produced this geometry" has an answer.
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of snapshots, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotPage'
+              example:
+                items:
+                  - id: 6d1b3f87-2a9c-4e05-b7d8-1f4a9c2e6b03
+                    checksum: 9f2c6b1e4a8d3c7f0b5e9a2d6c4f8b1e3a7c0d5f9b2e6a4c8d1f7b3e0a9c6d52
+                    featureCount: 4120
+                    retrievedAt: '2026-11-18T03:00:00Z'
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/admin/sources/{sourceId}/schedules:
+    get:
+      operationId: geodata.sources.listSchedules
+      summary: List a source's refresh schedules
+      description: >-
+        A schedule is a row with a cron expression and a unique
+        `(kind, scheduled_for)` slot, not a cron loop inside a container. Two
+        replicas therefore cannot both fetch the same source at 03:00.
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The source's schedules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchedulePage'
+              example:
+                items:
+                  - id: 3b8e1d54-7c2a-4f96-8a0d-5e1b9c3f7a28
+                    cron: '0 3 * * *'
+                    enabled: true
+                    lastRunAt: '2026-11-18T03:00:00Z'
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+    post:
+      operationId: geodata.sources.createSchedule
+      summary: Schedule a periodic refresh
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleCreate'
+            example:
+              cron: '0 3 * * *'
+              programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+      responses:
+        '201':
+          description: The schedule.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              example:
+                id: 3b8e1d54-7c2a-4f96-8a0d-5e1b9c3f7a28
+                cron: '0 3 * * *'
+                enabled: true
+                lastRunAt: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/admin/sources/{sourceId}/schedules/{scheduleId}:
+    patch:
+      operationId: geodata.sources.updateSchedule
+      summary: Enable, disable or retime a schedule
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleUpdate'
+            example:
+              enabled: false
+      responses:
+        '200':
+          description: The updated schedule.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Schedule'
+              example:
+                id: 3b8e1d54-7c2a-4f96-8a0d-5e1b9c3f7a28
+                cron: '0 3 * * *'
+                enabled: false
+                lastRunAt: '2026-11-18T03:00:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+    delete:
+      operationId: geodata.sources.deleteSchedule
+      summary: Remove a schedule
+      tags: [sources]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: scheduleId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Removed.
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Tiles
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/tiles/{z}/{x}/{y}.mvt:
+    get:
+      operationId: geodata.tiles.read
+      summary: Fetch one vector tile
+      description: |
+        Anonymous. Mapbox Vector Tile, generated from the published catalogue
+        with a `ST_AsMVT` query, so the map does not paginate a million polygons
+        through a JSON endpoint.
+
+        Tiles are cacheable and carry a long `Cache-Control`: the geometry for a
+        published entity changes rarely, and a tile is regenerated only when the
+        catalogue does.
+      tags: [tiles]
+      security: []
+      parameters:
+        - name: z
+          in: path
+          required: true
+          description: Zoom level.
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 22
+        - name: x
+          in: path
+          required: true
+          description: Tile column.
+          schema:
+            type: integer
+            minimum: 0
+        - name: y
+          in: path
+          required: true
+          description: Tile row.
+          schema:
+            type: integer
+            minimum: 0
+        - name: programme
+          in: query
+          required: false
+          description: Restrict the tile to one programme.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The tile bytes.
+          headers:
+            Cache-Control:
+              description: Cacheable for a day; a catalogue change invalidates by
+                the ETag rather than by a purge.
+              schema:
+                type: string
+            ETag:
+              description: Content hash of the tile.
+              schema:
+                type: string
+          content:
+            application/vnd.mapbox-vector-tile:
+              schema:
+                type: string
+                format: binary
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Internal — never published
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /internal/openapi.json:
+    get:
+      operationId: geodata.internal.openapi
+      summary: This service's contract
+      tags: [geodata-internal]
+      x-internal: true
+      security: []
+      responses:
+        '200':
+          description: The service document, as JSON.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: An OpenAPI 3.1 document.
+                additionalProperties: true
+              example:
+                openapi: 3.1.0
+                info:
+                  title: Myota geodata service
+                  version: 1.0.0
+        '503':
+          $ref: '../shared/components.yaml#/components/responses/ProblemServiceUnavailable'
+
+  /internal/events:
+    get:
+      operationId: geodata.internal.events
+      summary: Pull committed events
+      description: >-
+        A read endpoint over `ops.outbox_event` in `myota_geo`. `core` and
+        `activity` consume `entity.published`, `entity.retired` and
+        `import.completed` from here.
+      tags: [geodata-internal]
+      x-internal: true
+      security: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/EventCursor'
+        - $ref: '../shared/components.yaml#/components/parameters/EventLimit'
+        - $ref: '../shared/components.yaml#/components/parameters/EventTypes'
+      responses:
+        '200':
+          description: One batch of events past the cursor.
+          content:
+            application/json:
+              schema:
+                $ref: '../shared/components.yaml#/components/schemas/EventFeed'
+              example:
+                events:
+                  - seq: 4412
+                    id: 7b2e9d14-3a6c-4f85-8e07-2d1c5a9b4f36
+                    type: geodata.entity.published.v1
+                    subject: entity:8f3c1e00-0000-4000-8000-000000000001
+                    partition: 8
+                    time: '2026-11-20T14:31:00Z'
+                    data:
+                      entityId: 8f3c1e00-0000-4000-8000-000000000001
+                      programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                      entityTypeCode: park
+                      name: Parque Nacional da Peneda-Gerês
+                nextSeq: 4412
+                more: false
+        '503':
+          $ref: '../shared/components.yaml#/components/responses/ProblemServiceUnavailable'
+
+  /internal/events/ack:
+    post:
+      operationId: geodata.internal.ackEvents
+      summary: Report a consumer's position
+      tags: [geodata-internal]
+      x-internal: true
+      security: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: The recorded position is monotonic; a lower seq is ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/EventAck'
+            example:
+              consumer: activity
+              source: geodata
+              seq: 4412
+      responses:
+        '204':
+          description: Recorded.
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+
+components:
+  schemas:
+    GeoJsonGeometry:
+      type: object
+      description: >-
+        A GeoJSON geometry object. Validated against the programme's
+        `geometryPolicy` for the category before it is stored, so an import
+        cannot put a polygon where a summit point belongs.
+      required: [type, coordinates]
+      properties:
+        type:
+          type: string
+          enum: [Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon]
+        coordinates:
+          description: GeoJSON coordinates. Depth depends on `type`, which is why
+            this is not narrowed further here.
+          oneOf:
+            - type: array
+              items: {type: number}
+            - type: array
+              items: {type: array}
+            - type: array
+              items: {type: array, items: {type: array}}
+            - type: array
+              items: {type: array, items: {type: array, items: {type: array}}}
+
+    EntitySummary:
+      type: object
+      description: >-
+        An entity in a list. Deliberately without geometry: a map viewport of 200
+        entities should not be 200 polygons. `centroid` is enough to place a
+        marker, and the detail endpoint is where the shape lives.
+      required: [id, programmeId, entityTypeCode, name, slug, status, revision]
+      properties:
+        id:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+          description: Opaque reference to `core.programme`; no foreign key
+            crosses the database boundary.
+        entityTypeCode:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        status:
+          type: string
+          enum: [draft, in_review, published, retired]
+        centroid:
+          $ref: '#/components/schemas/GeoJsonGeometry'
+        revision:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency token. Every edit carries it.
+        updatedAt:
+          type: string
+          format: date-time
+
+    EntityDetail:
+      allOf:
+        - $ref: '#/components/schemas/EntitySummary'
+        - type: object
+          properties:
+            geometry:
+              $ref: '#/components/schemas/GeoJsonGeometry'
+            elevationMetres:
+              type: [number, 'null']
+            categories:
+              type: array
+              items:
+                $ref: '#/components/schemas/EntityCategory'
+            publishedAt:
+              type: [string, 'null']
+              format: date-time
+            attachments:
+              type: array
+              items:
+                $ref: '#/components/schemas/Attachment'
+
+    EntityCategory:
+      type: object
+      required: [code, primary]
+      properties:
+        code:
+          type: string
+        primary:
+          type: boolean
+
+    EntityPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/EntitySummary'
+
+    EntityCreate:
+      type: object
+      required: [programmeId, entityTypeCode, name, geometry]
+      properties:
+        programmeId:
+          type: string
+          format: uuid
+        entityTypeCode:
+          type: string
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        geometry:
+          $ref: '#/components/schemas/GeoJsonGeometry'
+        elevationMetres:
+          type: [number, 'null']
+        categories:
+          type: array
+          items:
+            type: string
+
+    EntityUpdate:
+      type: object
+      description: >-
+        A partial edit. `revision` is required and is not optional-by-omission:
+        an edit without a revision is an edit without a concurrency check, which
+        is the behaviour this design removed.
+      required: [revision]
+      properties:
+        revision:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        geometry:
+          $ref: '#/components/schemas/GeoJsonGeometry'
+        elevationMetres:
+          type: [number, 'null']
+        categories:
+          type: array
+          items:
+            type: string
+
+    Attachment:
+      type: object
+      required: [id, kind, mediaType, sizeBytes]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [photo, map, document]
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 1
+        checksumSha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        objectKey:
+          type: string
+        uploadUrl:
+          type: string
+          format: uri
+          description: Presigned `PUT` target. Absent once confirmed.
+        uploadExpiresAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type: [string, 'null']
+          format: date-time
+
+    AttachmentCreate:
+      type: object
+      required: [kind, mediaType, sizeBytes, checksumSha256]
+      properties:
+        kind:
+          type: string
+          enum: [photo, map, document]
+        mediaType:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 8388608
+          description: 8 MiB. Attachments are images and small documents, not
+            datasets — those go through the import pipeline.
+        checksumSha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+
+    AuditEvent:
+      type: object
+      required: [id, action, occurredAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          examples: ['entity.published']
+        actorId:
+          type: [string, 'null']
+          format: uuid
+        occurredAt:
+          type: string
+          format: date-time
+        before:
+          type: object
+          additionalProperties: true
+        after:
+          type: object
+          additionalProperties: true
+
+    AuditEventPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AuditEvent'
+
+    Provenance:
+      type: object
+      required: [sourceId, sourceName, snapshotId, confidence]
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        sourceName:
+          type: string
+        snapshotId:
+          type: string
+          format: uuid
+        sourceFeatureId:
+          type: string
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        retrievedAt:
+          type: string
+          format: date-time
+
+    ProvenancePage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Provenance'
+
+    Proposal:
+      type: object
+      required: [id, kind, status, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum: [new_entity, correction]
+        entityId:
+          type: [string, 'null']
+          format: uuid
+        entityName:
+          type: [string, 'null']
+        programmeId:
+          type: [string, 'null']
+          format: uuid
+        status:
+          type: string
+          enum: [open, approved, rejected, withdrawn]
+        submittedBy:
+          type: [string, 'null']
+          format: uuid
+          description: The `core` account id. Present only in the administrator view.
+        createdAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: [string, 'null']
+          format: date-time
+        decisionNote:
+          type: [string, 'null']
+
+    ProposalDetail:
+      allOf:
+        - $ref: '#/components/schemas/Proposal'
+        - type: object
+          properties:
+            note:
+              type: [string, 'null']
+            geometry:
+              $ref: '#/components/schemas/GeoJsonGeometry'
+            name:
+              type: [string, 'null']
+
+    ProposalCreate:
+      type: object
+      required: [kind, note]
+      oneOf:
+        - required: [entityId]
+          properties:
+            kind: {const: correction}
+        - required: [programmeId, name, geometry]
+          properties:
+            kind: {const: new_entity}
+      properties:
+        kind:
+          type: string
+          enum: [new_entity, correction]
+        entityId:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        geometry:
+          $ref: '#/components/schemas/GeoJsonGeometry'
+        note:
+          type: string
+          minLength: 10
+          maxLength: 2000
+
+    ProposalPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Proposal'
+
+    UploadSession:
+      type: object
+      required: [id, objectKey, sizeBytes, state, expiresAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        objectKey:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 1
+        state:
+          type: string
+          enum: [open, completed, aborted, expired]
+        partSizeBytes:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+
+    UploadSessionCompleted:
+      allOf:
+        - $ref: '#/components/schemas/UploadSession'
+        - type: object
+          properties:
+            snapshotId:
+              type: string
+              format: uuid
+            completedAt:
+              type: string
+              format: date-time
+
+    UploadSessionCreate:
+      type: object
+      required: [sourceId, filename, sizeBytes, checksumSha256, format]
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        filename:
+          type: string
+          maxLength: 255
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 1073741824
+          description: 1 GiB, matching `MaxImportUploadBytes` in `libs/limits`.
+        checksumSha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        format:
+          type: string
+          enum: [geojson, wfs_geojson, arcgis, kml, gpx, shapefile_zip, osm_pbf, csv_wkt]
+
+    PartRequest:
+      type: object
+      required: [partNumber]
+      properties:
+        partNumber:
+          type: integer
+          minimum: 1
+          maximum: 10000
+
+    SignedPart:
+      type: object
+      required: [partNumber, uploadUrl, expiresAt]
+      properties:
+        partNumber:
+          type: integer
+        uploadUrl:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+
+    UploadCompletion:
+      type: object
+      required: [parts]
+      properties:
+        parts:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [partNumber, etag]
+            properties:
+              partNumber:
+                type: integer
+                minimum: 1
+              etag:
+                type: string
+
+    ImportRun:
+      type: object
+      required: [id, sourceId, programmeId, stage, status, counts]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sourceId:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        snapshotId:
+          type: [string, 'null']
+          format: uuid
+        stage:
+          type: string
+          enum: [upload, normalise, validate, conflate, publish]
+        status:
+          type: string
+          enum: [uploaded, running, review, published, failed, cancelled]
+          description: >-
+            `review` is a status, not a stage. "Awaiting an administrator" is not
+            something the pipeline does, and modelling it as a stage made the
+            legacy state machine 11 states wide.
+        counts:
+          $ref: '#/components/schemas/ImportCounts'
+        startedAt:
+          type: [string, 'null']
+          format: date-time
+        finishedAt:
+          type: [string, 'null']
+          format: date-time
+
+    ImportCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        valid:
+          type: integer
+          minimum: 0
+        invalid:
+          type: integer
+          minimum: 0
+        merged:
+          type: integer
+          minimum: 0
+        new:
+          type: integer
+          minimum: 0
+
+    ImportRunCreate:
+      type: object
+      required: [sourceId, programmeId, snapshotId]
+      properties:
+        sourceId:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        snapshotId:
+          type: string
+          format: uuid
+
+    ImportRunPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ImportRun'
+
+    Candidate:
+      type: object
+      required: [id, state]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sourceFeatureId:
+          type: string
+        state:
+          type: string
+          enum: [pending, valid, invalid, duplicate, promoted, rejected]
+        rejectReason:
+          type: [string, 'null']
+        name:
+          type: [string, 'null']
+        centroid:
+          $ref: '#/components/schemas/GeoJsonGeometry'
+
+    CandidatePage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Candidate'
+
+    ImportError:
+      type: object
+      required: [id, severity, code, message]
+      properties:
+        id:
+          type: string
+          format: uuid
+        candidateId:
+          type: [string, 'null']
+          format: uuid
+        severity:
+          type: string
+          enum: [error, warning]
+        code:
+          type: string
+          examples: ['geometry.self_intersection']
+        message:
+          type: string
+
+    ImportErrorPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/ImportError'
+
+    Conflation:
+      type: object
+      required: [id, candidateId, score, resolution]
+      properties:
+        id:
+          type: string
+          format: uuid
+        candidateId:
+          type: string
+          format: uuid
+        entityId:
+          type: [string, 'null']
+          format: uuid
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        resolution:
+          type: string
+          enum: [new, merge, skip, unresolved]
+        reason:
+          type: object
+          additionalProperties: true
+
+    ConflationPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Conflation'
+
+    ConflationResolution:
+      type: object
+      required: [resolution]
+      properties:
+        resolution:
+          type: string
+          enum: [new, merge, skip]
+        entityId:
+          type: string
+          format: uuid
+          description: Required when `resolution` is `merge`.
+
+    PublishRequest:
+      type: object
+      properties:
+        maxCandidates:
+          type: integer
+          minimum: 1
+          maximum: 300
+          default: 300
+          description: Matches `MaxPromotionBatchCandidates` in `libs/limits`.
+
+    Source:
+      type: object
+      required: [id, name, adapter, defaultFormat, licence, attribution]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        adapter:
+          type: string
+          enum: [PARKSERVE_US, OSM, GOVERNMENT_GIS, MANUAL]
+        defaultFormat:
+          type: string
+          enum: [geojson, wfs_geojson, arcgis, kml, gpx, shapefile_zip, osm_pbf, csv_wkt]
+        licence:
+          type: string
+        attribution:
+          type: string
+        homepage:
+          type: [string, 'null']
+          format: uri
+
+    SourceCreate:
+      type: object
+      required: [name, adapter, defaultFormat, licence, attribution]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        adapter:
+          type: string
+          enum: [PARKSERVE_US, OSM, GOVERNMENT_GIS, MANUAL]
+        defaultFormat:
+          type: string
+          enum: [geojson, wfs_geojson, arcgis, kml, gpx, shapefile_zip, osm_pbf, csv_wkt]
+        licence:
+          type: string
+          maxLength: 200
+        attribution:
+          type: string
+          maxLength: 500
+        homepage:
+          type: string
+          format: uri
+
+    SourceUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 200
+        licence:
+          type: string
+          maxLength: 200
+        attribution:
+          type: string
+          maxLength: 500
+        homepage:
+          type: string
+          format: uri
+
+    SourcePage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Source'
+
+    Snapshot:
+      type: object
+      required: [id, checksum, retrievedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        checksum:
+          type: string
+        featureCount:
+          type: integer
+          minimum: 0
+        retrievedAt:
+          type: string
+          format: date-time
+
+    SnapshotPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Snapshot'
+
+    Schedule:
+      type: object
+      required: [id, cron, enabled]
+      properties:
+        id:
+          type: string
+          format: uuid
+        cron:
+          type: string
+          description: Five-field cron, interpreted in UTC.
+        enabled:
+          type: boolean
+        lastRunAt:
+          type: [string, 'null']
+          format: date-time
+
+    ScheduleCreate:
+      type: object
+      required: [cron]
+      properties:
+        cron:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        programmeId:
+          type: string
+          format: uuid
+
+    ScheduleUpdate:
+      type: object
+      properties:
+        cron:
+          type: string
+        enabled:
+          type: boolean
+
+    SchedulePage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Schedule'

@@ -1,0 +1,572 @@
+# Shared contract components.
+#
+# The three service documents reference this file rather than copying it:
+#
+#   $ref: '../shared/components.yaml#/components/schemas/Problem'
+#
+# `tools/compose_contracts.py` hoists everything here into the composed document
+# and rewrites the pointers to `#/components/...`. One definition, not four.
+# Copying `Problem` into each service document is the drift this repository
+# exists to prevent, and a copied schema cannot be caught by an `operationId`
+# check — it has no id to collide on.
+#
+# This file is not itself an OpenAPI document. It is a fragment of one, and
+# `compose_contracts.py` refuses anything here that OpenAPI 3.1 would reject.
+
+components:
+  securitySchemes:
+    # Audience lives in the token, not in the scheme: the gateway checks `aud`
+    # against the route class before proxying. Two schemes exist anyway so the
+    # playground can label them "Participant" and "Administrator" instead of
+    # asking an operator to remember which token they pasted.
+    participantBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Participant access token, `aud=participant`, 15 minute lifetime. Obtain it
+        from `POST /v1/auth/login`. The gateway rejects it on `/v1/admin/**`.
+    adminBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >-
+        Administrator access token, `aud=admin`, 10 minute lifetime. Obtain it from
+        `POST /v1/admin/auth/login`, which requires a confirmed second factor.
+        The gateway rejects it outside `/v1/admin/**`.
+    participantSession:
+      type: apiKey
+      in: cookie
+      name: __Host-myota_sid
+      description: >-
+        Participant refresh session cookie. `__Host-` forces Secure, forbids
+        Domain, and pins the path to `/`, so the two audiences cannot overwrite
+        each other in one browser.
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: __Host-myota_admin_sid
+      description: Administrator refresh session cookie. Separate name, separate
+        lifetime (30 min idle, 8 h absolute), separate audience.
+
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: >-
+        Opaque position returned as `nextCursor` by the previous page. Do not
+        parse or construct one: the encoding is a service implementation detail
+        and may change without a version bump. `null` in a response means the
+        collection is exhausted.
+      schema:
+        type: string
+        maxLength: 512
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: >-
+        Page size. Values above the maximum are clamped rather than rejected —
+        an oversized page is a caller mistake, not a reason to fail a read. The
+        maximum matches `lsMaxPageItems` in `libs/limits`.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: >-
+        Caller-chosen key, unique per logical operation. A replay with the same
+        key and the same body returns the stored response and creates nothing;
+        the same key with a different body is `422 idempotency-key-reused`.
+        Records expire after 24 hours.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: '^[A-Za-z0-9_.:-]+$'
+    EventCursor:
+      name: after
+      in: query
+      required: false
+      description: >-
+        Return events with `seq` greater than this value. `seq` is monotonic but
+        not contiguous — retention trims rows — so it is a cursor, never a count.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+        default: 0
+    EventLimit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum events to return. The feed is pulled, so the consumer
+        chooses its own batch size.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+        default: 100
+    EventTypes:
+      name: types
+      in: query
+      required: false
+      description: >-
+        Comma-separated event types to include, e.g.
+        `account.created,account.closed`. Absent means every type. An
+        unsubscribed type is never turned into a job, so filtering here saves
+        transfer, not correctness.
+      schema:
+        type: string
+        maxLength: 1024
+
+  headers:
+    RequestId:
+      description: >-
+        Echo of `X-Request-ID`. The gateway generates one if the caller did not
+        supply it, and every `Problem` response repeats it so a report can be
+        traced to a log line.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    # Named responses, one per status the API actually returns. Each carries an
+    # example because a `problem+json` document without one is a document nobody
+    # can act on.
+    ProblemBadRequest:
+      description: The request is malformed or fails field validation.
+      headers:
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          example:
+            type: about:blank#validation-failed
+            title: Request validation failed
+            status: 400
+            detail: One or more fields are invalid.
+            requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+            errors:
+              - pointer: /callsign
+                code: pattern
+                message: A callsign is 3 to 10 characters, A-Z 0-9 and /.
+    ProblemUnauthorized:
+      description: >-
+        No credential, an expired one, or a token whose `aud` does not match the
+        route class. Never a redirect: a redirect would disclose which audience
+        the route expects.
+      headers:
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          example:
+            type: about:blank#wrong-audience
+            title: Wrong audience for this route
+            status: 401
+            detail: This session is a participant session; the route requires an
+              administrator session.
+            requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+    ProblemForbidden:
+      description: >-
+        Authenticated, correct audience, insufficient scope — or an administrator
+        operation that needs re-authentication within the last five minutes.
+      headers:
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          example:
+            type: about:blank#forbidden
+            title: Missing scope
+            status: 403
+            detail: 'geodata.review is required, and this account does not hold it
+              for programme:7d2c…'
+            requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+    ProblemNotFound:
+      description: No such resource, or one the caller is not allowed to see.
+      headers:
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          example:
+            type: about:blank#not-found
+            title: Not found
+            status: 404
+            detail: No activation with that id.
+            requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+    ProblemConflict:
+      description: >-
+        The resource is not in a state that permits the change, or the caller's
+        `revision` is stale.
+      headers:
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          examples:
+            state:
+              summary: Wrong state for the transition
+              value:
+                type: about:blank#conflict
+                title: Activation is already closed
+                status: 409
+                detail: An activation can only be closed once.
+                requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+            stale:
+              summary: Optimistic concurrency check failed
+              value:
+                type: about:blank#revision-conflict
+                title: Entity was modified by someone else
+                status: 409
+                detail: Sent revision 7, current revision 9. Re-read and reapply.
+                requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+    ProblemUnprocessable:
+      description: >-
+        The request is well formed but cannot be applied — most often an
+        `Idempotency-Key` replayed with a different body.
+      headers:
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          example:
+            type: about:blank#idempotency-key-reused
+            title: Idempotency-Key reused with a different body
+            status: 422
+            detail: The key 4f2a… was first used with a different payload. Use a
+              fresh key for a different operation.
+            requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+    ProblemTooManyRequests:
+      description: >-
+        Rate limited. Traefik enforces the edge limit; `core` enforces the
+        per-account login limit, which must be global and authoritative and so
+        lives in the database rather than in a replica's memory.
+      headers:
+        Retry-After:
+          description: Seconds to wait before retrying.
+          schema:
+            type: integer
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          example:
+            type: about:blank#rate-limited
+            title: Too many requests
+            status: 429
+            detail: 5 failed administrator logins in 15 minutes. Try again later.
+            requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+    ProblemServiceUnavailable:
+      description: An upstream service is unreachable or timed out.
+      headers:
+        X-Request-ID:
+          $ref: '../shared/components.yaml#/components/headers/RequestId'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '../shared/components.yaml#/components/schemas/Problem'
+          example:
+            type: about:blank#upstream-unavailable
+            title: Upstream unavailable
+            status: 503
+            detail: core-api did not answer within 10 seconds.
+            requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+
+  schemas:
+    Problem:
+      type: object
+      description: >-
+        RFC 9457 problem detail. Every error response in this API is
+        `application/problem+json` with this shape — there is no second error
+        envelope, and no endpoint returns a bare string on failure.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: >-
+            A URI identifying the problem class. This API uses fragment
+            identifiers relative to `about:blank`, so `type` is comparable
+            without a network fetch.
+          enum:
+            - about:blank
+            - about:blank#validation-failed
+            - about:blank#wrong-audience
+            - about:blank#unauthorized
+            - about:blank#forbidden
+            - about:blank#reauth-required
+            - about:blank#mfa-required
+            - about:blank#not-found
+            - about:blank#conflict
+            - about:blank#revision-conflict
+            - about:blank#idempotency-key-reused
+            - about:blank#registration-disabled
+            - about:blank#upload-too-large
+            - about:blank#rate-limited
+            - about:blank#upstream-unavailable
+        title:
+          type: string
+          description: Short, human-readable summary of the problem class. Stable
+            per `type`; do not show two titles for one type.
+        status:
+          type: integer
+          minimum: 100
+          maximum: 599
+          description: The HTTP status code, repeated so a log line is complete.
+        detail:
+          type: string
+          description: Human-readable explanation for this occurrence. May name
+            the field, the conflicting revision, or the scope that was missing.
+        instance:
+          type: string
+          format: uri-reference
+          description: The specific occurrence, when it is addressable.
+        requestId:
+          type: string
+          format: uuid
+          description: Matches `X-Request-ID`, so a user report can be traced to
+            one request in the logs.
+        errors:
+          type: array
+          description: Field-level failures. Present when `type` is
+            `about:blank#validation-failed`; absent otherwise.
+          items:
+            $ref: '../shared/components.yaml#/components/schemas/FieldError'
+
+    FieldError:
+      type: object
+      required: [pointer, code]
+      properties:
+        pointer:
+          type: string
+          description: >-
+            JSON Pointer into the request body — `/callsign`, or
+            `/programmeIds/2`. A pointer, not a dotted path, so a client can
+            apply it without re-parsing the document.
+          examples: ['/callsign']
+        code:
+          type: string
+          description: Machine-readable failure code, stable across releases.
+          examples: ['pattern']
+        message:
+          type: string
+          description: Human-readable text for the field.
+
+    CursorPage:
+      type: object
+      description: >-
+        The shape every collection returns. No endpoint returns a bare array:
+        a bare array cannot grow a `total`, an `etag`, or a second cursor
+        without breaking every client. Concrete pages extend this with `allOf`
+        and narrow `items` to their element type.
+      required: [items, nextCursor]
+      properties:
+        items:
+          type: array
+          description: The page's elements, newest or most relevant first
+            according to the endpoint. Ordering is documented per operation.
+          items: {}
+        nextCursor:
+          type: [string, 'null']
+          description: Pass as `cursor` to fetch the next page. `null` means
+            there is no next page — it is not an empty-string sentinel.
+
+    Rejection:
+      type: object
+      description: >-
+        A free-text reason attached to a decision. Required wherever a refusal is
+        recorded, because "no" without a reason is not something a participant can
+        act on.
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 2000
+
+    Decision:
+      type: object
+      description: >-
+        An administrator's note on a decision. Optional on approval, where the
+        decision speaks for itself.
+      properties:
+        note:
+          type: string
+          maxLength: 2000
+
+    RejectionDecision:
+      type: object
+      description: >-
+        A decision that must carry a reason. A separate schema rather than a
+        conditional on `Decision`, because "note is required when rejecting" is
+        not expressible in OpenAPI without splitting the type — and a rule stated
+        in prose is a rule nobody's client enforces.
+      required: [note]
+      properties:
+        note:
+          type: string
+          minLength: 10
+          maxLength: 2000
+
+    AccountRef:
+      type: object
+      description: >-
+        An account as another service sees it. Not the account record: `core`
+        owns the record, and this carries only what a foreign aggregate needs to
+        render a row without a second call.
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          description: Captured at reference time. May lag a rename; `core` owns
+            the truth.
+        primaryCallsign:
+          type: [string, 'null']
+
+    ProgrammeRef:
+      type: object
+      description: A programme as another service sees it. `programme_id` is an
+        opaque uuid with no foreign key across databases.
+      required: [id, slug]
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+          examples: ['pota']
+        name:
+          type: string
+        entityTypeCodes:
+          type: array
+          description: >-
+            Categories this programme accepts. Validity of a category on an
+            entity is decided by `core`; `geodata` stores the code as opaque
+            text and asks here rather than duplicating the table.
+          items:
+            type: string
+
+    EntityRef:
+      type: object
+      description: >-
+        A spatial entity as another service sees it. `activity` captures `name`
+        and `elevationMetres` at activation start so a later rename in `geodata`
+        does not rewrite history.
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        elevationMetres:
+          type: [number, 'null']
+
+    EventEnvelope:
+      type: object
+      description: >-
+        One row of `ops.outbox_event`, as the internal feed returns it. CloudEvents
+        1.0 attribute names, because the envelope is the same shape whether it is
+        read from Postgres or validated against `contracts/events/`.
+      required: [seq, id, type, subject, partition, time, data]
+      properties:
+        seq:
+          type: integer
+          format: int64
+          description: Monotonic per producer database, not contiguous.
+        id:
+          type: string
+          format: uuid
+          description: >-
+            The event id, and the job id on the consumer side. That equality is
+            what makes a duplicate delivery a no-op: the consumer inserts the job
+            with `ON CONFLICT (id) DO NOTHING`.
+        type:
+          type: string
+          description: CloudEvents `type`, e.g. `geodata.entity.published.v1`.
+          examples: ['geodata.entity.published.v1']
+        subject:
+          type: string
+          description: >-
+            The aggregate, `<aggregate>:<id>`. The partition is computed from
+            this, so every event about one aggregate is ordered.
+          examples: ['entity:8f3c1e00-0000-4000-8000-000000000001']
+        partition:
+          type: integer
+          minimum: 0
+          description: '`fnv1a64(subject) % PARTITIONS`, with `PARTITIONS = 32`.'
+        time:
+          type: string
+          format: date-time
+        data:
+          type: object
+          description: >-
+            The event payload, whose schema is `contracts/events/<type>.json`.
+            Deliberately unconstrained here: the feed is one endpoint for every
+            type, and the per-type file is what constrains it.
+
+    EventFeed:
+      type: object
+      description: One pull batch from `GET /internal/events`.
+      required: [events, nextSeq, more]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '../shared/components.yaml#/components/schemas/EventEnvelope'
+        nextSeq:
+          type: integer
+          format: int64
+          description: Pass back as `after`. Advances even when `events` is empty,
+            so a consumer that filters by type does not re-read the same window.
+        more:
+          type: boolean
+          description: True when the producer has more rows past `nextSeq`. The
+            puller loops until false, then releases its partition lease.
+
+    EventAck:
+      type: object
+      description: >-
+        A consumer reporting its position so the producer can trim. Without this
+        the producer would have to guess, and guessing wrong silently drops
+        events for the consumer that needed them.
+      required: [consumer, source, seq]
+      properties:
+        consumer:
+          type: string
+          description: The consuming service's name, e.g. `activity`.
+          examples: ['activity']
+        source:
+          type: string
+          description: The producing service's name, e.g. `core`.
+          examples: ['core']
+        seq:
+          type: integer
+          format: int64
+          description: Highest `seq` this consumer has durably applied.

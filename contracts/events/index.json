@@ -1,0 +1,16 @@
+{
+  "$comment": "Every event type in docs/architecture/messaging.md, one file each. tools/check_events.py fails when this list, the files, and the type constants disagree.",
+  "events": {
+    "activity.activation.closed.v1": "activity.activation.closed.v1.json",
+    "activity.award.issued.v1": "activity.award.issued.v1.json",
+    "core.account.closed.v1": "core.account.closed.v1.json",
+    "core.account.created.v1": "core.account.created.v1.json",
+    "core.notification.requested.v1": "core.notification.requested.v1.json",
+    "core.programme.archived.v1": "core.programme.archived.v1.json",
+    "core.programme.published.v1": "core.programme.published.v1.json",
+    "core.role.changed.v1": "core.role.changed.v1.json",
+    "geodata.entity.published.v1": "geodata.entity.published.v1.json",
+    "geodata.entity.retired.v1": "geodata.entity.retired.v1.json",
+    "geodata.import.completed.v1": "geodata.import.completed.v1.json"
+  }
+}

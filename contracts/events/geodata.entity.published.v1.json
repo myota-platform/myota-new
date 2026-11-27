@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A place became part of the catalogue",
+  "description": "Published when an entity is published. `activity` uses it to know which places may be activated, and caches the name and elevation from the payload — so it does not need to call `geodata` when an activation starts.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/geodata"
+        },
+        "type": {
+          "const": "geodata.entity.published.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "entityId",
+            "programmeId",
+            "entityTypeCode",
+            "name",
+            "centroid"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "entityId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "programmeId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "entityTypeCode": {
+              "type": "string"
+            },
+            "name": {
+              "type": "string"
+            },
+            "centroid": {
+              "type": "object",
+              "required": [
+                "lon",
+                "lat"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "lon": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180
+                },
+                "lat": {
+                  "type": "number",
+                  "minimum": -90,
+                  "maximum": 90
+                }
+              }
+            },
+            "elevationMetres": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/geodata",
+      "type": "geodata.entity.published.v1",
+      "subject": "entity:8f3c1e00-0000-4000-8000-000000000001",
+      "time": "2026-11-20T14:31:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "entityId": "8f3c1e00-0000-4000-8000-000000000001",
+        "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+        "entityTypeCode": "park",
+        "name": "Parque Nacional da Peneda-Gerês",
+        "centroid": {
+          "lon": -8.2167,
+          "lat": 41.7333
+        },
+        "elevationMetres": 1200
+      }
+    }
+  ]
+}

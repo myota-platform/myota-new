@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "A programme was archived",
+  "description": "Published when a programme stops accepting submissions. Existing activations and awards keep working; only new work is refused.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/core"
+        },
+        "type": {
+          "const": "core.programme.archived.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "programmeId",
+            "slug",
+            "archivedAt"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "programmeId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "slug": {
+              "type": "string"
+            },
+            "archivedAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/core",
+      "type": "core.programme.archived.v1",
+      "subject": "programme:7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+      "time": "2026-12-31T23:59:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+        "slug": "sota",
+        "archivedAt": "2026-12-31T23:59:00Z"
+      }
+    }
+  ]
+}

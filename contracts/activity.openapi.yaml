@@ -1,0 +1,2227 @@
+# The activity service contract: activations, logs, awards, statistics.
+#
+# Owned database: `myota_activity`. No spatial columns — an activation stores
+# `entity_id` and the name and elevation it captured at start, and asks `geodata`
+# for geometry when a map needs it. That capture is deliberate: a later rename in
+# `geodata` must not rewrite someone's log.
+#
+# `account_id` and `programme_id` are opaque uuids with no foreign key. Referential
+# integrity across the boundary is a property of the event stream.
+
+openapi: 3.1.0
+
+info:
+  title: Myota activity service
+  version: 1.0.0
+  summary: Activations, QSOs, log imports, awards and statistics.
+  description: |
+    What a participant actually does: start an activation at a place, log the
+    contacts, close it, and claim the awards the log qualifies them for.
+
+    An activation is the unit of work and the unit of history. It captures the
+    place's name and elevation when it starts, so the record survives the place
+    being renamed or retired. QSOs belong to an activation and are appended; a
+    correction to a logged contact is a request with a decision, not an edit that
+    erases what was originally claimed.
+
+    Statistics are materialised snapshots, not aggregates computed per request.
+    A leaderboard over 10⁷ QSOs is a table read, and the snapshot says when it was
+    built so a stale number is visibly stale.
+
+servers:
+  - url: http://activity-api.{namespace}.svc.cluster.local:8080
+    description: >-
+      In-cluster address. Reached through the gateway.
+    variables:
+      namespace:
+        default: myota-test
+        enum: [myota, myota-test]
+
+tags:
+  - name: activations
+    description: >-
+      An activation at a place: start, read, close, cancel. Participant routes,
+      scoped to the caller's own activations.
+  - name: qsos
+    description: >-
+      Contacts logged against an activation, and the correction requests that
+      change them.
+  - name: log-imports
+    description: >-
+      ADIF and CSV uploads that create QSOs in bulk, with a per-row outcome so a
+      rejected line is visible rather than silently dropped.
+  - name: awards
+    description: >-
+      Award definitions, progress, requests and issuance. Definitions are
+      administrator-owned; requests are the participant's.
+  - name: statistics
+    description: >-
+      Materialised snapshots and leaderboards, per account, programme or entity.
+  - name: activity-internal
+    description: Not published. Contract composition and the event feed.
+
+paths:
+  # ───────────────────────────────────────────────────────────────────────────
+  # Activations
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/activations:
+    get:
+      operationId: activity.activations.list
+      summary: List the participant's activations
+      description: >-
+        Own activations only. An administrator reading someone else's log goes
+        through the account-scoped route rather than through a widened version of
+        this one, so a participant request cannot be turned into an
+        administrator-shaped query by a parameter.
+      tags: [activations]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, closed, cancelled]
+        - name: programmeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: One page of activations, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivationPage'
+              example:
+                items:
+                  - id: 1b2d4e60-8f3a-4c72-9d05-7e1a4c8b2f63
+                    callsign: EA7KLK
+                    entityId: 8f3c1e00-0000-4000-8000-000000000001
+                    entityName: Parque Nacional da Peneda-Gerês
+                    programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                    startedAt: '2026-11-24T08:00:00Z'
+                    endedAt: '2026-11-24T16:30:00Z'
+                    status: closed
+                    qsoCount: 214
+                    points: 428
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+    post:
+      operationId: activity.activations.start
+      summary: Start an activation
+      description: |
+        Captures the place's name and elevation as they are now, so a later
+        rename in `geodata` cannot rewrite this activation's history.
+
+        Only one activation may be `active` per callsign at a time — two open
+        activations from one operator is a double-counting bug, not a feature.
+        The entity must be `published`; a retired place cannot start an
+        activation. That check asks `geodata` once and caches for the request.
+      tags: [activations]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivationCreate'
+            example:
+              callsign: EA7KLK
+              entityId: 8f3c1e00-0000-4000-8000-000000000001
+              programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+              startedAt: '2026-11-27T08:00:00Z'
+      responses:
+        '201':
+          description: The activation, now open.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activation'
+              example:
+                id: 1b2d4e60-8f3a-4c72-9d05-7e1a4c8b2f63
+                callsign: EA7KLK
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional da Peneda-Gerês
+                entityElevationMetres: 1200
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                startedAt: '2026-11-27T08:00:00Z'
+                endedAt: null
+                status: active
+                qsoCount: 0
+                points: 0
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/activations/{activationId}:
+    get:
+      operationId: activity.activations.read
+      summary: Read one activation
+      tags: [activations]
+      security:
+        - participantBearer: []
+        - participantSession: []
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The activation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activation'
+              example:
+                id: 1b2d4e60-8f3a-4c72-9d05-7e1a4c8b2f63
+                callsign: EA7KLK
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional da Peneda-Gerês
+                entityElevationMetres: 1200
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                startedAt: '2026-11-24T08:00:00Z'
+                endedAt: '2026-11-24T16:30:00Z'
+                status: closed
+                qsoCount: 214
+                points: 428
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/activations/{activationId}/close:
+    post:
+      operationId: activity.activations.close
+      summary: Close an activation
+      description: >-
+        Ends the activation, freezes its counts and publishes
+        `activity.activation.closed.v1`. An award evaluation is queued as a job,
+        not run inline: the response should not wait on a rule engine.
+      tags: [activations]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: An activation can only be closed once; a repeat is refused with 409.
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivationClose'
+            example:
+              endedAt: '2026-11-24T16:30:00Z'
+      responses:
+        '200':
+          description: The closed activation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activation'
+              example:
+                id: 1b2d4e60-8f3a-4c72-9d05-7e1a4c8b2f63
+                callsign: EA7KLK
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional da Peneda-Gerês
+                entityElevationMetres: 1200
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                startedAt: '2026-11-24T08:00:00Z'
+                endedAt: '2026-11-24T16:30:00Z'
+                status: closed
+                qsoCount: 214
+                points: 428
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/activations/{activationId}/cancel:
+    post:
+      operationId: activity.activations.cancel
+      summary: Cancel an activation
+      description: >-
+        For an activation that should not count — started by mistake, or at the
+        wrong place. Distinct from closing: a cancelled activation is excluded
+        from statistics and from award evaluation, and the distinction is kept
+        because "I made a mistake" and "I finished" are different facts.
+      tags: [activations]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: Cancelling a cancelled activation is a no-op.
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Rejection'
+            example:
+              reason: Started at the wrong park; re-logging from the correct one.
+      responses:
+        '200':
+          description: The cancelled activation.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Activation'
+              example:
+                id: 1b2d4e60-8f3a-4c72-9d05-7e1a4c8b2f63
+                callsign: EA7KLK
+                entityId: 8f3c1e00-0000-4000-8000-000000000001
+                entityName: Parque Nacional da Peneda-Gerês
+                entityElevationMetres: 1200
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                startedAt: '2026-11-24T08:00:00Z'
+                endedAt: '2026-11-24T08:20:00Z'
+                status: cancelled
+                qsoCount: 3
+                points: 0
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # QSOs
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/activations/{activationId}/qsos:
+    get:
+      operationId: activity.qsos.list
+      summary: List an activation's contacts
+      tags: [qsos]
+      security:
+        - participantBearer: []
+        - participantSession: []
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: band
+          in: query
+          required: false
+          schema:
+            type: string
+            examples: ['20m']
+        - name: mode
+          in: query
+          required: false
+          schema:
+            type: string
+            examples: ['SSB']
+      responses:
+        '200':
+          description: One page of contacts, in logged order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QsoPage'
+              example:
+                items:
+                  - id: 9d4c1a72-6e3b-4f08-a5c1-2b7e9d4f6a83
+                    workedCallsign: EA1ABC
+                    band: 20m
+                    mode: SSB
+                    rstSent: '59'
+                    rstReceived: '59'
+                    workedAt: '2026-11-24T09:12:00Z'
+                    points: 2
+                    source: live
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+    post:
+      operationId: activity.qsos.log
+      summary: Log a contact
+      description: >-
+        Appends one contact to an active activation. Logging against a closed or
+        cancelled activation is refused: the counts are frozen at close, and a
+        late write would make the total disagree with itself.
+      tags: [qsos]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QsoCreate'
+            example:
+              workedCallsign: EA1ABC
+              band: 20m
+              mode: SSB
+              rstSent: '59'
+              rstReceived: '59'
+              workedAt: '2026-11-24T09:12:00Z'
+      responses:
+        '201':
+          description: The logged contact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Qso'
+              example:
+                id: 9d4c1a72-6e3b-4f08-a5c1-2b7e9d4f6a83
+                workedCallsign: EA1ABC
+                band: 20m
+                mode: SSB
+                rstSent: '59'
+                rstReceived: '59'
+                workedAt: '2026-11-24T09:12:00Z'
+                points: 2
+                source: live
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/qsos/{qsoId}:
+    patch:
+      operationId: activity.qsos.correct
+      summary: Correct a logged contact
+      description: >-
+        A direct correction while the activation is open — the operator is still
+        there and knows what they typed. Once the activation is closed, changes
+        go through `/v1/qsos/{qsoId}/corrections`, which records a request and a
+        decision.
+      tags: [qsos]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: qsoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QsoUpdate'
+            example:
+              band: 40m
+              rstReceived: '57'
+      responses:
+        '200':
+          description: The corrected contact.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Qso'
+              example:
+                id: 9d4c1a72-6e3b-4f08-a5c1-2b7e9d4f6a83
+                workedCallsign: EA1ABC
+                band: 40m
+                mode: SSB
+                rstSent: '59'
+                rstReceived: '57'
+                workedAt: '2026-11-24T09:12:00Z'
+                points: 1
+                source: live
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+    delete:
+      operationId: activity.qsos.delete
+      summary: Delete a contact logged in error
+      description: >-
+        Only while the activation is open. Deleting is for a typo — a contact that
+        never happened. A contact that happened but was logged wrongly is a
+        correction.
+      tags: [qsos]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: qsoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/qsos/{qsoId}/corrections:
+    post:
+      operationId: activity.qsos.requestCorrection
+      summary: Request a correction to a closed contact
+      description: >-
+        Records what should change and why. The original value stays until an
+        administrator decides, so the record shows both what was claimed and what
+        was changed.
+      tags: [qsos]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: qsoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CorrectionCreate'
+            example:
+              changes:
+                rstReceived: '57'
+                band: 40m
+              reason: The 20 m contact was actually on 40 m; logged too quickly.
+      responses:
+        '201':
+          description: The correction request, awaiting review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QsoCorrection'
+              example:
+                id: 2f8a5c31-7d4e-4b96-8c0a-3e1b7d5f9a24
+                qsoId: 9d4c1a72-6e3b-4f08-a5c1-2b7e9d4f6a83
+                status: requested
+                changes:
+                  rstReceived: '57'
+                  band: 40m
+                requestedAt: '2026-11-27T14:00:00Z'
+                decidedAt: null
+                decisionNote: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/admin/qso-corrections:
+    get:
+      operationId: activity.adminQsoCorrections.list
+      summary: List QSO correction requests
+      description: >-
+        Scope `activity.review`. Oldest first: a correction queue that nobody
+        reads is a queue that never drains.
+      tags: [qsos]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [requested, approved, rejected]
+            default: requested
+      responses:
+        '200':
+          description: One page of correction requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QsoCorrectionPage'
+              example:
+                items:
+                  - id: 2f8a5c31-7d4e-4b96-8c0a-3e1b7d5f9a24
+                    qsoId: 9d4c1a72-6e3b-4f08-a5c1-2b7e9d4f6a83
+                    status: requested
+                    changes:
+                      rstReceived: '57'
+                    requestedAt: '2026-11-27T14:00:00Z'
+                    decidedAt: null
+                    decisionNote: null
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+
+  /v1/admin/qso-corrections/{correctionId}/approve:
+    post:
+      operationId: activity.adminQsoCorrections.approve
+      summary: Approve a correction and apply it
+      description: >-
+        Applies the change in the same transaction as the decision, then
+        re-evaluates the affected award progress as a queued job.
+      tags: [qsos]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: A decided correction cannot be decided again.
+      parameters:
+        - name: correctionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Decision'
+            example:
+              note: The logger's ADIF file confirms 40 m.
+      responses:
+        '200':
+          description: The approved correction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QsoCorrection'
+              example:
+                id: 2f8a5c31-7d4e-4b96-8c0a-3e1b7d5f9a24
+                qsoId: 9d4c1a72-6e3b-4f08-a5c1-2b7e9d4f6a83
+                status: approved
+                changes:
+                  rstReceived: '57'
+                  band: 40m
+                requestedAt: '2026-11-27T14:00:00Z'
+                decidedAt: '2026-11-27T14:10:00Z'
+                decisionNote: The logger's ADIF file confirms 40 m.
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/admin/qso-corrections/{correctionId}/reject:
+    post:
+      operationId: activity.adminQsoCorrections.reject
+      summary: Reject a correction request
+      tags: [qsos]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: A decided correction cannot be decided again.
+      parameters:
+        - name: correctionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Decision'
+            example:
+              note: The uploaded log shows 20 m for this contact.
+      responses:
+        '200':
+          description: The rejected correction.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QsoCorrection'
+              example:
+                id: 2f8a5c31-7d4e-4b96-8c0a-3e1b7d5f9a24
+                qsoId: 9d4c1a72-6e3b-4f08-a5c1-2b7e9d4f6a83
+                status: rejected
+                changes:
+                  rstReceived: '57'
+                requestedAt: '2026-11-27T14:00:00Z'
+                decidedAt: '2026-11-27T14:12:00Z'
+                decisionNote: The uploaded log shows 20 m for this contact.
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Log imports
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/activations/{activationId}/log-imports:
+    get:
+      operationId: activity.logImports.list
+      summary: List an activation's log imports
+      tags: [log-imports]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of imports, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogImportPage'
+              example:
+                items:
+                  - id: 5c1e8a37-2f4b-4d90-8a6c-7b3e1d5f9a02
+                    format: adif
+                    status: completed
+                    accepted: 198
+                    rejected: 2
+                    createdAt: '2026-11-24T17:00:00Z'
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+    post:
+      operationId: activity.logImports.create
+      summary: Import an ADIF or CSV log
+      description: |
+        The file is uploaded to object storage first — bytes never pass through
+        this API — and this call supplies the object key. Rows are parsed into
+        QSOs, and each row's outcome is recorded so a rejected line is visible
+        with its line number and reason instead of disappearing.
+
+        A partially accepted import is a normal outcome: 198 of 200 lines
+        accepted is a successful import with two problems to fix.
+      tags: [log-imports]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: activationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogImportCreate'
+            example:
+              format: adif
+              objectKey: imports/1b2d4e60/ea7klk-2026-11-24.adi
+              sizeBytes: 48120
+              checksumSha256: 3e9a1c7f2d5b8e04a6c9d1f3b7e0a2c4d8f6b1e9a3c5d7f0b2e4a6c8d1f3b5e07
+      responses:
+        '201':
+          description: The import, queued for parsing.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogImport'
+              example:
+                id: 5c1e8a37-2f4b-4d90-8a6c-7b3e1d5f9a02
+                format: adif
+                status: queued
+                accepted: 0
+                rejected: 0
+                createdAt: '2026-11-27T14:20:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '413':
+          description: The declared size exceeds the log-import ceiling.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '../shared/components.yaml#/components/schemas/Problem'
+              example:
+                type: about:blank#upload-too-large
+                title: Log file too large
+                status: 413
+                detail: 64 MiB declared; the log ceiling is 32 MiB.
+                requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/log-imports/{importId}:
+    get:
+      operationId: activity.logImports.read
+      summary: Read one log import
+      tags: [log-imports]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The import with its counts.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogImport'
+              example:
+                id: 5c1e8a37-2f4b-4d90-8a6c-7b3e1d5f9a02
+                format: adif
+                status: completed
+                accepted: 198
+                rejected: 2
+                createdAt: '2026-11-24T17:00:00Z'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/log-imports/{importId}/rows:
+    get:
+      operationId: activity.logImports.listRows
+      summary: List the per-row outcome of an import
+      description: >-
+        One row per line in the file, with the outcome and, when rejected, the
+        reason. This is what makes "198 accepted, 2 rejected" actionable.
+      tags: [log-imports]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: importId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: outcome
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [accepted, rejected]
+      responses:
+        '200':
+          description: One page of rows.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogImportRowPage'
+              example:
+                items:
+                  - lineNumber: 17
+                    outcome: rejected
+                    message: Worked callsign 'EA1ABC??' is not a valid callsign.
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Awards
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/awards:
+    get:
+      operationId: activity.awards.listDefinitions
+      summary: List award definitions
+      description: >-
+        Anonymous. A participant needs to know what they can claim, and the rules
+        are public.
+      tags: [awards]
+      security: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: programmeId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [active, archived]
+            default: active
+      responses:
+        '200':
+          description: One page of award definitions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardDefinitionPage'
+              example:
+                items:
+                  - id: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                    programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                    code: explorer-25
+                    name: Explorer 25
+                    status: active
+                    version: 2
+                nextCursor: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+
+  /v1/awards/{awardId}:
+    get:
+      operationId: activity.awards.readDefinition
+      summary: Read one award definition
+      description: Includes the condition tree, so a participant can see why they
+        do or do not qualify rather than being told only the outcome.
+      tags: [awards]
+      security: []
+      parameters:
+        - name: awardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The definition with its rules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardDefinition'
+              example:
+                id: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                code: explorer-25
+                name: Explorer 25
+                status: active
+                version: 2
+                rules:
+                  type: at_least
+                  count: 25
+                  of:
+                    type: distinct_entities
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/awards/{awardId}/progress:
+    get:
+      operationId: activity.awards.readProgress
+      summary: Read the signed-in account's progress toward an award
+      description: >-
+        A materialised evaluation, with the time it was built. Re-evaluated when
+        an activation closes or a correction is approved, never on read — a rule
+        engine running inside a GET is how a page load becomes a transaction.
+      tags: [awards]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: awardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The progress snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardProgress'
+              example:
+                awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                accountId: 44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93
+                satisfied: false
+                progress:
+                  current: 17
+                  required: 25
+                  unit: distinct_entities
+                evaluatedAt: '2026-11-27T06:00:00Z'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/awards/{awardId}/requests:
+    post:
+      operationId: activity.awards.request
+      summary: Request an award
+      description: >-
+        Only for an award whose progress is satisfied. Requesting an award that is
+        not yet earned is refused rather than queued — a queue of impossible
+        requests is a support burden nobody asked for.
+      tags: [awards]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: awardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AwardRequestCreate'
+            example:
+              note: Completed across the 2026 season.
+      responses:
+        '201':
+          description: The request, awaiting a decision.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardRequest'
+              example:
+                id: 4a9c2e61-8b3d-4f75-9a0c-1e5d7b2f9a83
+                awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                status: requested
+                submittedAt: '2026-11-27T14:30:00Z'
+                decidedAt: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/awards/mine:
+    get:
+      operationId: activity.awards.listMine
+      summary: List the awards the account holds
+      description: >-
+        Under `/v1/awards/` rather than `/v1/me/` so that every route prefix has
+        exactly one owning service. `/v1/me/**` belongs to `core`; a participant's
+        awards are `activity`'s rows, and folding them under `/v1/me` would make
+        the gateway's prefix table ambiguous at the one place it must not be.
+      tags: [awards]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of issuances, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardIssuancePage'
+              example:
+                items:
+                  - id: 6d2f8b47-3a1c-4e09-b5d8-9c4e2f7a1b63
+                    awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                    awardName: Explorer 25
+                    issuedAt: '2026-10-02T12:00:00Z'
+                    certificateUrl: https://objects.example.org/myota-activity/certificates/6d2f8b47.pdf?X-Amz-Signature=…
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+
+  /v1/awards/mine/{issuanceId}:
+    get:
+      operationId: activity.awards.readIssuance
+      summary: Read one issued award
+      description: Returns a short-lived presigned URL for the certificate rather
+        than the bytes, so the endpoint stays cacheable and the certificate is
+        fetched once.
+      tags: [awards]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      parameters:
+        - name: issuanceId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The issued award.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardIssuance'
+              example:
+                id: 6d2f8b47-3a1c-4e09-b5d8-9c4e2f7a1b63
+                awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                awardName: Explorer 25
+                issuedAt: '2026-10-02T12:00:00Z'
+                certificateUrl: https://objects.example.org/myota-activity/certificates/6d2f8b47.pdf?X-Amz-Signature=…
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/admin/awards:
+    post:
+      operationId: activity.adminAwards.create
+      summary: Create an award definition
+      description: >-
+        The rules are a condition tree stored as JSONB and evaluated by the
+        worker. Creating a definition does not evaluate anyone's progress; the
+        `award.evaluate` job does, queued when the definition becomes active.
+      tags: [awards]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AwardDefinitionCreate'
+            example:
+              programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+              code: explorer-50
+              name: Explorer 50
+              rules:
+                type: at_least
+                count: 50
+                of:
+                  type: distinct_entities
+      responses:
+        '201':
+          description: The definition, in draft.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardDefinition'
+              example:
+                id: 8a1d4f62-5b9c-4e37-9d08-2c6e1b7a4f95
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                code: explorer-50
+                name: Explorer 50
+                status: draft
+                version: 1
+                rules:
+                  type: at_least
+                  count: 50
+                  of:
+                    type: distinct_entities
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/admin/awards/{awardId}:
+    patch:
+      operationId: activity.adminAwards.update
+      summary: Update an award definition
+      description: >-
+        A published definition is versioned: changing the rules of an award that
+        has already been issued would reinterpret a certificate someone holds. An
+        edit to an active award creates version `n+1`; the old version stays for
+        the issuances that used it.
+      tags: [awards]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: awardId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AwardDefinitionUpdate'
+            example:
+              status: active
+              rules:
+                type: at_least
+                count: 50
+                of:
+                  type: distinct_entities
+      responses:
+        '200':
+          description: The updated definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardDefinition'
+              example:
+                id: 8a1d4f62-5b9c-4e37-9d08-2c6e1b7a4f95
+                programmeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                code: explorer-50
+                name: Explorer 50
+                status: active
+                version: 2
+                rules:
+                  type: at_least
+                  count: 50
+                  of:
+                    type: distinct_entities
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  /v1/admin/award-requests:
+    get:
+      operationId: activity.adminAwards.listRequests
+      summary: List award requests
+      description: >-
+        Scope `awards.manage`. Oldest first, because the queue is the work.
+      tags: [awards]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [requested, approved, rejected, issued]
+            default: requested
+        - name: awardId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: One page of award requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardRequestPage'
+              example:
+                items:
+                  - id: 4a9c2e61-8b3d-4f75-9a0c-1e5d7b2f9a83
+                    awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                    accountId: 44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93
+                    status: requested
+                    submittedAt: '2026-11-27T14:30:00Z'
+                    decidedAt: null
+                nextCursor: null
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+
+  /v1/admin/award-requests/{requestId}/approve:
+    post:
+      operationId: activity.adminAwards.approveRequest
+      summary: Approve an award request
+      tags: [awards]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: A decided request cannot be decided again.
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Decision'
+            example:
+              note: Verified against the activation log.
+      responses:
+        '200':
+          description: The approved request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardRequest'
+              example:
+                id: 4a9c2e61-8b3d-4f75-9a0c-1e5d7b2f9a83
+                awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                status: approved
+                submittedAt: '2026-11-27T14:30:00Z'
+                decidedAt: '2026-11-27T14:40:00Z'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/admin/award-requests/{requestId}/reject:
+    post:
+      operationId: activity.adminAwards.rejectRequest
+      summary: Reject an award request
+      tags: [awards]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: A decided request cannot be decided again.
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/Decision'
+            example:
+              note: Three of the claimed entities were retired before the activations.
+      responses:
+        '200':
+          description: The rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardRequest'
+              example:
+                id: 4a9c2e61-8b3d-4f75-9a0c-1e5d7b2f9a83
+                awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                status: rejected
+                submittedAt: '2026-11-27T14:30:00Z'
+                decidedAt: '2026-11-27T14:42:00Z'
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+
+  /v1/admin/award-requests/{requestId}/issue:
+    post:
+      operationId: activity.adminAwards.issue
+      summary: Issue an approved award
+      description: >-
+        Generates the certificate into object storage and records the issuance.
+        Publishes `activity.award.issued.v1`, which is how `core` learns to send
+        the notification — `activity` does not send mail.
+      tags: [awards]
+      security:
+        - adminBearer: []
+        - adminSession: []
+      parameters:
+        - name: requestId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: The issuance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AwardIssuance'
+              example:
+                id: 6d2f8b47-3a1c-4e09-b5d8-9c4e2f7a1b63
+                awardId: 7e3b9a14-5c8d-4f02-8b61-2a9e4d7f0c35
+                awardName: Explorer 25
+                issuedAt: '2026-11-27T14:45:00Z'
+                certificateUrl: https://objects.example.org/myota-activity/certificates/6d2f8b47.pdf?X-Amz-Signature=…
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+        '403':
+          $ref: '../shared/components.yaml#/components/responses/ProblemForbidden'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+        '409':
+          $ref: '../shared/components.yaml#/components/responses/ProblemConflict'
+        '422':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnprocessable'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Statistics
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /v1/statistics/me:
+    get:
+      operationId: activity.statistics.readMine
+      summary: Read the account's own statistics
+      description: >-
+        The latest materialised snapshot for this account, with `builtAt` so a
+        stale number is visibly stale rather than quietly wrong.
+      tags: [statistics]
+      security:
+        - participantBearer: []
+        - participantSession: []
+      responses:
+        '200':
+          description: The snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticSnapshot'
+              example:
+                scope: account
+                scopeId: 44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93
+                period: all_time
+                builtAt: '2026-11-27T06:00:00Z'
+                payload:
+                  activations: 42
+                  qsos: 3187
+                  entities: 17
+                  points: 6374
+        '401':
+          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+
+  /v1/statistics/{scope}/{scopeId}:
+    get:
+      operationId: activity.statistics.read
+      summary: Read a statistic snapshot
+      description: >-
+        `scope` narrows what `scopeId` means: an account, a programme, or an
+        entity. One endpoint with three meanings rather than three endpoints with
+        three shapes — the payload is a bag either way, and the client picks the
+        fields it knows.
+      tags: [statistics]
+      security: []
+      parameters:
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [account, programme, entity]
+        - name: scopeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: period
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all_time, year, month]
+            default: all_time
+      responses:
+        '200':
+          description: The snapshot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticSnapshot'
+              example:
+                scope: programme
+                scopeId: 7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42
+                period: all_time
+                builtAt: '2026-11-27T06:00:00Z'
+                payload:
+                  activations: 18422
+                  qsos: 1842260
+                  entities: 8123
+                  accounts: 3901
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  /v1/statistics/{scope}/{scopeId}/leaderboard:
+    get:
+      operationId: activity.statistics.readLeaderboard
+      summary: Read a leaderboard
+      description: >-
+        Reads the materialised `leaderboard_entry` rows for the newest snapshot.
+        A leaderboard over 10⁷ QSOs computed per request is not a leaderboard, it
+        is an outage.
+      tags: [statistics]
+      security: []
+      parameters:
+        - name: scope
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [programme, entity]
+        - name: scopeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '../shared/components.yaml#/components/parameters/Cursor'
+        - $ref: '../shared/components.yaml#/components/parameters/Limit'
+      responses:
+        '200':
+          description: One page of ranked entries, best first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardPage'
+              example:
+                items:
+                  - rank: 1
+                    accountId: 44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93
+                    displayName: Ana Ruiz
+                    value: 428
+                nextCursor: null
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+        '404':
+          $ref: '../shared/components.yaml#/components/responses/ProblemNotFound'
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # Internal — never published
+  # ───────────────────────────────────────────────────────────────────────────
+
+  /internal/openapi.json:
+    get:
+      operationId: activity.internal.openapi
+      summary: This service's contract
+      tags: [activity-internal]
+      x-internal: true
+      security: []
+      responses:
+        '200':
+          description: The service document, as JSON.
+          content:
+            application/json:
+              schema:
+                type: object
+                description: An OpenAPI 3.1 document.
+                additionalProperties: true
+              example:
+                openapi: 3.1.0
+                info:
+                  title: Myota activity service
+                  version: 1.0.0
+        '503':
+          $ref: '../shared/components.yaml#/components/responses/ProblemServiceUnavailable'
+
+  /internal/events:
+    get:
+      operationId: activity.internal.events
+      summary: Pull committed events
+      description: >-
+        A read endpoint over `ops.outbox_event` in `myota_activity`. `core`
+        consumes `award.issued` from here to send the notification, and
+        `activation.closed` optionally to update a digest.
+      tags: [activity-internal]
+      x-internal: true
+      security: []
+      parameters:
+        - $ref: '../shared/components.yaml#/components/parameters/EventCursor'
+        - $ref: '../shared/components.yaml#/components/parameters/EventLimit'
+        - $ref: '../shared/components.yaml#/components/parameters/EventTypes'
+      responses:
+        '200':
+          description: One batch of events past the cursor.
+          content:
+            application/json:
+              schema:
+                $ref: '../shared/components.yaml#/components/schemas/EventFeed'
+              example:
+                events:
+                  - seq: 20914
+                    id: 5c8e1b42-7a3d-4f96-b0c1-2e9d4a7f5b38
+                    type: activity.award.issued.v1
+                    subject: award:6d2f8b47-3a1c-4e09-b5d8-9c4e2f7a1b63
+                    partition: 15
+                    time: '2026-10-02T12:00:00Z'
+                    data:
+                      issuanceId: 6d2f8b47-3a1c-4e09-b5d8-9c4e2f7a1b63
+                      accountId: 44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93
+                      awardCode: explorer-25
+                nextSeq: 20914
+                more: false
+        '503':
+          $ref: '../shared/components.yaml#/components/responses/ProblemServiceUnavailable'
+
+  /internal/events/ack:
+    post:
+      operationId: activity.internal.ackEvents
+      summary: Report a consumer's position
+      tags: [activity-internal]
+      x-internal: true
+      security: []
+      x-idempotency: not-applicable
+      x-idempotency-reason: The recorded position is monotonic; a lower seq is ignored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '../shared/components.yaml#/components/schemas/EventAck'
+            example:
+              consumer: core
+              source: activity
+              seq: 20914
+      responses:
+        '204':
+          description: Recorded.
+        '400':
+          $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
+
+components:
+  schemas:
+    Activation:
+      type: object
+      required: [id, callsign, entityId, entityName, programmeId, startedAt, status, qsoCount, points]
+      properties:
+        id:
+          type: string
+          format: uuid
+        callsign:
+          type: string
+        entityId:
+          type: string
+          format: uuid
+          description: Opaque reference to `geo.entity`; no foreign key crosses
+            the boundary.
+        entityName:
+          type: string
+          description: >-
+            Captured when the activation started. A later rename in `geodata` does
+            not rewrite this — a log records what was true when it was written.
+        entityElevationMetres:
+          type: [number, 'null']
+        programmeId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: [string, 'null']
+          format: date-time
+        status:
+          type: string
+          enum: [active, closed, cancelled]
+        qsoCount:
+          type: integer
+          minimum: 0
+        points:
+          type: integer
+          minimum: 0
+
+    ActivationCreate:
+      type: object
+      required: [callsign, entityId, programmeId]
+      properties:
+        callsign:
+          type: string
+          description: >-
+            A verified callsign belonging to the caller. An unverified one is
+            refused: the whole point of verification is that an activation is
+            attributable.
+        entityId:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+          description: Defaults to now. May not be in the future.
+
+    ActivationClose:
+      type: object
+      properties:
+        endedAt:
+          type: string
+          format: date-time
+          description: Defaults to now. May not be before the start.
+
+    ActivationPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Activation'
+
+    Qso:
+      type: object
+      required: [id, workedCallsign, band, mode, workedAt, points, source]
+      properties:
+        id:
+          type: string
+          format: uuid
+        workedCallsign:
+          type: string
+        band:
+          type: string
+          examples: ['20m']
+        mode:
+          type: string
+          examples: ['SSB', 'CW', 'FT8']
+        rstSent:
+          type: [string, 'null']
+        rstReceived:
+          type: [string, 'null']
+        workedAt:
+          type: string
+          format: date-time
+        points:
+          type: integer
+          minimum: 0
+        source:
+          type: string
+          enum: [live, adif, csv]
+
+    QsoCreate:
+      type: object
+      required: [workedCallsign, band, mode, workedAt]
+      properties:
+        workedCallsign:
+          type: string
+          minLength: 3
+          maxLength: 20
+        band:
+          type: string
+          maxLength: 12
+        mode:
+          type: string
+          maxLength: 20
+        rstSent:
+          type: string
+          maxLength: 8
+        rstReceived:
+          type: string
+          maxLength: 8
+        workedAt:
+          type: string
+          format: date-time
+
+    QsoUpdate:
+      type: object
+      description: A partial correction while the activation is open.
+      properties:
+        workedCallsign:
+          type: string
+          minLength: 3
+          maxLength: 20
+        band:
+          type: string
+          maxLength: 12
+        mode:
+          type: string
+          maxLength: 20
+        rstSent:
+          type: string
+          maxLength: 8
+        rstReceived:
+          type: string
+          maxLength: 8
+        workedAt:
+          type: string
+          format: date-time
+
+    QsoPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/Qso'
+
+    QsoCorrection:
+      type: object
+      required: [id, qsoId, status, changes, requestedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        qsoId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [requested, approved, rejected]
+        changes:
+          type: object
+          additionalProperties: true
+        requestedBy:
+          type: [string, 'null']
+          format: uuid
+        requestedAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: [string, 'null']
+          format: date-time
+        decisionNote:
+          type: [string, 'null']
+
+    QsoCorrectionPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/QsoCorrection'
+
+    CorrectionCreate:
+      type: object
+      required: [changes, reason]
+      properties:
+        changes:
+          type: object
+          additionalProperties: true
+          description: Field name to new value. Validated against `QsoUpdate`.
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 2000
+
+    LogImport:
+      type: object
+      required: [id, format, status, accepted, rejected]
+      properties:
+        id:
+          type: string
+          format: uuid
+        format:
+          type: string
+          enum: [adif, csv]
+        status:
+          type: string
+          enum: [queued, running, completed, failed]
+        accepted:
+          type: integer
+          minimum: 0
+        rejected:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+
+    LogImportCreate:
+      type: object
+      required: [format, objectKey, sizeBytes, checksumSha256]
+      properties:
+        format:
+          type: string
+          enum: [adif, csv]
+        objectKey:
+          type: string
+        sizeBytes:
+          type: integer
+          minimum: 1
+          maximum: 33554432
+          description: 32 MiB. A log is text; anything larger is a dataset.
+        checksumSha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+
+    LogImportPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/LogImport'
+
+    LogImportRow:
+      type: object
+      required: [lineNumber, outcome]
+      properties:
+        lineNumber:
+          type: integer
+          minimum: 1
+        outcome:
+          type: string
+          enum: [accepted, rejected]
+        message:
+          type: [string, 'null']
+
+    LogImportRowPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/LogImportRow'
+
+    AwardDefinition:
+      type: object
+      required: [id, programmeId, code, name, status, version, rules]
+      properties:
+        id:
+          type: string
+          format: uuid
+        programmeId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+        name:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, archived]
+        version:
+          type: integer
+          minimum: 1
+        rules:
+          type: object
+          additionalProperties: true
+          description: >-
+            A condition tree, evaluated by the `award.evaluate` job. Left as a
+            free-form object here because each node type carries different
+            fields; the shape is documented in `docs/architecture/`.
+
+    AwardDefinitionCreate:
+      type: object
+      required: [programmeId, code, name, rules]
+      properties:
+        programmeId:
+          type: string
+          format: uuid
+        code:
+          type: string
+          pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        rules:
+          type: object
+          additionalProperties: true
+
+    AwardDefinitionUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+        status:
+          type: string
+          enum: [draft, active, archived]
+        rules:
+          type: object
+          additionalProperties: true
+
+    AwardDefinitionPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AwardDefinition'
+
+    AwardProgress:
+      type: object
+      required: [awardId, accountId, satisfied, progress, evaluatedAt]
+      properties:
+        awardId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        satisfied:
+          type: boolean
+        progress:
+          type: object
+          additionalProperties: true
+        evaluatedAt:
+          type: string
+          format: date-time
+
+    AwardRequest:
+      type: object
+      required: [id, awardId, status, submittedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        awardId:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+          description: Present in the administrator view only.
+        status:
+          type: string
+          enum: [requested, approved, rejected, issued]
+        submittedAt:
+          type: string
+          format: date-time
+        decidedAt:
+          type: [string, 'null']
+          format: date-time
+
+    AwardRequestCreate:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 2000
+
+    AwardRequestPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AwardRequest'
+
+    AwardIssuance:
+      type: object
+      required: [id, awardId, awardName, issuedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        awardId:
+          type: string
+          format: uuid
+        awardName:
+          type: string
+        issuedAt:
+          type: string
+          format: date-time
+        certificateUrl:
+          type: string
+          format: uri
+          description: >-
+            A short-lived presigned URL. The certificate lives in object storage,
+            not in this API and not in the database.
+
+    AwardIssuancePage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/AwardIssuance'
+
+    StatisticSnapshot:
+      type: object
+      required: [scope, scopeId, period, builtAt, payload]
+      properties:
+        scope:
+          type: string
+          enum: [account, programme, entity]
+        scopeId:
+          type: string
+          format: uuid
+        period:
+          type: string
+          enum: [all_time, year, month]
+        builtAt:
+          type: string
+          format: date-time
+          description: >-
+            When the snapshot was materialised. Shown to the user, so a stale
+            number is visibly stale rather than quietly wrong.
+        payload:
+          type: object
+          additionalProperties: true
+
+    LeaderboardEntry:
+      type: object
+      required: [rank, accountId, value]
+      properties:
+        rank:
+          type: integer
+          minimum: 1
+        accountId:
+          type: string
+          format: uuid
+        displayName:
+          type: [string, 'null']
+          description: Captured in the snapshot, so a rename does not reshuffle a
+            historical leaderboard.
+        value:
+          type: number
+
+    LeaderboardPage:
+      allOf:
+        - $ref: '../shared/components.yaml#/components/schemas/CursorPage'
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/LeaderboardEntry'

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "An account was closed",
+  "description": "Published when an account is closed, by the account holder or by an administrator. `activity` and `geodata` mark their references detached and keep the rows: a closed account's activation history is still history.",
+  "allOf": [
+    {
+      "$ref": "v1.schema.json"
+    },
+    {
+      "properties": {
+        "source": {
+          "const": "/core"
+        },
+        "type": {
+          "const": "core.account.closed.v1"
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "accountId",
+            "closedAt"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "accountId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "closedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "reason": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "specversion": "1.0",
+      "id": "018f3c1e-0000-4000-8000-000000000001",
+      "source": "/core",
+      "type": "core.account.closed.v1",
+      "subject": "account:44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+      "time": "2026-11-27T15:00:00Z",
+      "datacontenttype": "application/json",
+      "data": {
+        "accountId": "44a1b7c2-0d3e-4f51-9a86-2c7d1e5f0a93",
+        "closedAt": "2026-11-27T15:00:00Z",
+        "reason": "Requested by the account holder."
+      }
+    }
+  ]
+}
