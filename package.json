@@ -1,0 +1,13 @@
+{
+  "name": "myota-new",
+  "private": true,
+  "description": "Repository tooling. Service and app dependencies live in their own directories.",
+  "scripts": {
+    "check:ui": "node tools/check_ui.mjs",
+    "render:mockups": "node tools/render_mockups.mjs",
+    "check:mockups": "node tools/render_mockups.mjs --check"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.1"
+  }
+}

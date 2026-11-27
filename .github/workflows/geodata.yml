@@ -1,0 +1,39 @@
+# geodata (Rust). The only service with PostGIS, and the only CPU-bound one.
+name: geodata
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/geodata/**'
+      - 'contracts/**'
+      - 'libs/ops/rust/**'
+      - 'libs/limits/rust/**'
+      - 'deploy/myota/db/geo/**'
+      - '.github/workflows/geodata.yml'
+      - '.github/workflows/_service-rust.yml'
+  pull_request:
+    paths:
+      - 'apps/geodata/**'
+      - 'contracts/**'
+      - 'libs/ops/rust/**'
+      - 'libs/limits/rust/**'
+      - 'deploy/myota/db/geo/**'
+      - '.github/workflows/geodata.yml'
+      - '.github/workflows/_service-rust.yml'
+
+concurrency:
+  group: geodata-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  service:
+    uses: ./.github/workflows/_service-rust.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      key: A7
+      image: myota-new-geodata
+      path: apps/geodata
+      publish: ${{ github.ref == 'refs/heads/main' }}

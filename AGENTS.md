@@ -141,22 +141,60 @@ tools/           repo scripts: check_diagrams.py, contract composition
 ```
 
 - Shared code goes in `libs/` and is consumed by workspace reference.
-- `libs/ops` holds the outbox, idempotency, consumer, and dead-letter
-  implementation — **once**, parameterised by database URL and owner name. Do not
-  reimplement these in a service.
+- `libs/ops` holds the outbox, idempotency, job-claim and dead-letter
+  implementation, parameterised by database URL and owner name. Do not reimplement
+  these in a service.
+  **Polyglot means it exists twice** — `libs/ops/go` and `libs/ops/rust` — because
+  a Go service cannot link a Rust crate. That is duplication polyglot reintroduced,
+  and it is paid for with a shared conformance suite in `libs/ops/conformance/`
+  that both implementations must pass. Add a fixture there before fixing one side
+  only; the suite is what makes the second change non-optional.
 - A library must not reach into a service's database or bypass the contract.
 - `libs/limits` holds numeric limits (upload size, batch size, page size) that are
   imported by both the contract generator and the validators, so the contract
   cannot disagree with enforcement.
 
+### CI is per-component, and sparse
+
+A monorepo with one pipeline is a monorepo where a typo in a README rebuilds six
+images. Each component has its own workflow with its own `paths` filter:
+
+| Workflow | Paths it owns |
+| --- | --- |
+| `gateway.yml` | `apps/gateway/**`, `contracts/**`, `libs/ops/go/**`, `libs/limits/go/**` |
+| `core.yml` | `apps/core/**`, `contracts/**`, `libs/ops/rust/**`, `libs/limits/rust/**`, `deploy/myota/db/core/**` |
+| `geodata.yml` | `apps/geodata/**`, `contracts/**`, `libs/ops/rust/**`, `libs/limits/rust/**`, `deploy/myota/db/geo/**` |
+| `activity.yml` | `apps/activity/**`, `contracts/**`, `libs/ops/go/**`, `libs/limits/go/**`, `deploy/myota/db/activity/**` |
+| `admin-web.yml` | `web/admin/**`, `libs/ui-tokens/**` |
+| `participant-web.yml` | `web/participant/**`, `libs/ui-tokens/**` |
+| `docs.yml` | `docs/**`, `tools/**`, `contracts/**`, `AGENTS.md`, `README.md` |
+| `smoke-test.yml` | `deploy/fleet/myota-test/**`, manual |
+
+- **A new component gets a new caller workflow**, not an entry in a matrix. A
+  matrix gives every component the union of all paths, which is precisely the
+  behaviour being avoided.
+- **Shared build logic goes in a reusable workflow** (`_service-go.yml`,
+  `_service-rust.yml`, `_web.yml`) called with `uses:`. The caller stays ~30 lines
+  and holds only its trigger paths.
+- **A component lists only its real dependencies.** `libs/ops/go` feeds the Go
+  services; `libs/ops/rust` feeds the Rust ones. A shared-library change rebuilding
+  everything means a path filter is too broad.
+- **`deploy/**` is in no component's paths.** That is why the digest-bump commit CI
+  makes cannot retrigger CI.
+- **Pin actions to a major tag, and keep the major current.** Every action here is
+  at its latest major; `docs.yml` is the place to notice when one falls behind.
+- **CI holds no cluster credential.** Delivery is a commit that Fleet reconciles;
+  `smoke-test.yml` verifies the result over public HTTPS. See
+  [ci-secrets.md](docs/architecture/ci-secrets.md).
+
 ## 6. Technology
 
-**One language per service, chosen for the shape of its work.** The full
-comparison is [ADR-0002](docs/decisions/0002-language-per-service.md), which is
-**proposed** — nothing is implemented against it yet, and a stack decision is the
-one thing that should be settled before any code exists.
+**Polyglot, per service, chosen for the shape of its work.** Accepted in
+[ADR-0002](docs/decisions/0002-language-per-service.md) — this is the decision, not
+a recommendation awaiting one.
 
-Recommended, and the current working assumption:
+**Go everywhere is the escape hatch**, and reverting to it is a new ADR, not a
+quiet drift.
 
 | Service | Language | Framework | Why |
 | --- | --- | --- | --- |
@@ -167,10 +205,9 @@ Recommended, and the current working assumption:
 | `admin-web` | TypeScript | Vue 3 + Vite | dense tables and forms |
 | `participant-web` | TypeScript | Svelte 5 + Vite | smallest runtime on a phone |
 
-**The default if a single stack must be chosen is Go everywhere** (Chi for the
-gateway, Echo for the domain services, `sqlc` for queries). That option exists
-because three toolchains is a real cost, and it is the recommendation if
-polyglot is not wanted.
+If polyglot proves more expensive than it is worth, Go everywhere is the fallback
+(Chi for the gateway, Echo for the domain services, `sqlc` for queries). Choosing
+it means superseding ADR-0002.
 
 - **A service may leave the default language only for a measured reason** — a
   latency budget it cannot meet, a memory ceiling it cannot stay under, or a

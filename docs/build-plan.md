@@ -33,12 +33,15 @@ Chunk keys are stable and appear in commit messages: `F` foundation, `A` admin,
 `Order` in the project is the intended sequence. Numbers are spaced by ten so a
 finding can be inserted without renumbering.
 
-### 0 · Findings to settle first
+### 0 · Findings — resolved
 
-| Key | Chunk | Blocks |
+| Key | Chunk | Outcome |
 | --- | --- | --- |
-| X1 | Ratify ADR-0002 — Go everywhere, or polyglot | A1, A7, P5 |
-| X2 | CI runner for the chosen language | A1 |
+| X1 | Ratify ADR-0002 | **Polyglot accepted.** Recorded in ADR-0002, which exposed that `libs/ops` now exists twice; mitigated by a conformance suite. #22 closed. |
+| X2 | CI runner for the chosen language | **Resolved.** Per-component workflows for Go, Rust and both front ends. #23 closed. |
+
+With both settled, the foundation chunks are unblocked and the order below is the
+order of work.
 
 ### 1 · Foundation — shared by both MVPs
 
@@ -56,6 +59,9 @@ Nothing here is demoable on its own; each unblocks the two MVP tracks.
 
 F6 before the MVPs is deliberate: the environment exists before the first
 feature, so "deploy it to test" is never a separate project at the end.
+
+CI itself is already in place — the workflows exist and are sparse by component,
+so F7 is about making the publish half work rather than writing it from scratch.
 
 ### 2 · MVP Admin
 
@@ -95,6 +101,17 @@ progress.
 **Participant MVP is done when:** a new person registers at
 `https://myota-test.ea7klk.es`, verifies by email, finds a published place,
 activates it, logs a QSO, closes it, and sees award progress move.
+
+## CI and CD
+
+Per-component workflows, each with its own path filter, so a change to one service
+never builds another. Shared bodies live in `_service-go.yml`, `_service-rust.yml`
+and `_web.yml`.
+
+CD is a commit: the image workflow pins a new digest in
+`deploy/fleet/myota-test/values.yaml`, and Fleet reconciles it.
+`smoke-test.yml` then probes both public hostnames — it needs no cluster
+credential, because the check is HTTP against a public site.
 
 ## Environments
 

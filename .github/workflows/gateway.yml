@@ -1,0 +1,38 @@
+# Gateway (Go). Triggers only on its own sources, the contracts it embeds, and the
+# Go libraries it links. A change to core or geodata does not run this.
+name: gateway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/gateway/**'
+      - 'contracts/**'
+      - 'libs/ops/go/**'
+      - 'libs/limits/go/**'
+      - '.github/workflows/gateway.yml'
+      - '.github/workflows/_service-go.yml'
+  pull_request:
+    paths:
+      - 'apps/gateway/**'
+      - 'contracts/**'
+      - 'libs/ops/go/**'
+      - 'libs/limits/go/**'
+      - '.github/workflows/gateway.yml'
+      - '.github/workflows/_service-go.yml'
+
+concurrency:
+  group: gateway-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  service:
+    uses: ./.github/workflows/_service-go.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      key: F3
+      image: myota-new-gateway
+      path: apps/gateway
+      publish: ${{ github.ref == 'refs/heads/main' }}

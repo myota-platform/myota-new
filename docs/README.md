@@ -61,7 +61,7 @@ python3 tools/check_diagrams.py --full     # CI with Java: DSL must compile too
 | ADR | Decision |
 | --- | --- |
 | [0001](decisions/0001-service-boundaries-follow-databases.md) | Service boundaries follow the databases. Identity and Programmes merge into `core`. |
-| [0002](decisions/0002-language-per-service.md) | Language and framework per service, with Go-everywhere as the default. |
+| [0002](decisions/0002-language-per-service.md) | Polyglot per service; Go everywhere as the escape hatch. |
 | [0003](decisions/0003-no-sealed-secrets.md) | No Sealed Secrets; SOPS with age instead. |
 | [0004](decisions/0004-drop-message-broker.md) | Remove the message broker; the outbox is the event log. |
 | [0005](decisions/0005-horizontal-scaling.md) | Every workload is horizontally scalable. |

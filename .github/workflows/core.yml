@@ -1,0 +1,40 @@
+# core (Rust). Identity, roles, programmes, email flows — the highest-risk service,
+# so it is the only one whose migrations are a trigger of their own.
+name: core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/core/**'
+      - 'contracts/**'
+      - 'libs/ops/rust/**'
+      - 'libs/limits/rust/**'
+      - 'deploy/myota/db/core/**'
+      - '.github/workflows/core.yml'
+      - '.github/workflows/_service-rust.yml'
+  pull_request:
+    paths:
+      - 'apps/core/**'
+      - 'contracts/**'
+      - 'libs/ops/rust/**'
+      - 'libs/limits/rust/**'
+      - 'deploy/myota/db/core/**'
+      - '.github/workflows/core.yml'
+      - '.github/workflows/_service-rust.yml'
+
+concurrency:
+  group: core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  service:
+    uses: ./.github/workflows/_service-rust.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      key: A1
+      image: myota-new-core
+      path: apps/core
+      publish: ${{ github.ref == 'refs/heads/main' }}

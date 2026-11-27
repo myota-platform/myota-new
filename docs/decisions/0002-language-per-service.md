@@ -1,7 +1,7 @@
 # ADR-0002 — Language and framework per service
 
-**Status:** proposed · 2026-11-27
-**Provenance:** the brief asked for *suggestions* of languages and frameworks, not a selection, so this records a recommendation and stays **proposed**. Nothing is implemented against it yet.
+**Status:** accepted · 2026-11-27
+**Provenance:** directed — "Record decision on ADR-0002 as Polyglot as proposed", closing [issue #22](https://github.com/myota-platform/myota-new/issues/22). The earlier `proposed` status reflected that the brief had asked only for suggestions; the selection has now been made explicitly.
 **Supersedes:** the single-runtime assumption of the previous implementation
 
 ## Context
@@ -20,10 +20,13 @@ choice may differ per service.
 
 ## Decision
 
-**Default: Go everywhere.** If a single language must be chosen, the answer is
-Go 1.24 with Chi for the gateway and Echo for the domain services.
+**Polyglot, as proposed.** Each service uses the language that fits the shape of
+its work, rather than the whole system sharing one runtime for organisational
+convenience.
 
-**Accepted option: polyglot where a service has a specific reason.**
+**Go everywhere remains the escape hatch** if the three-toolchain cost proves
+greater than the fit is worth — Go 1.24 with Chi for the gateway and Echo for the
+domain services. Reverting to it is a new ADR, not a quiet decision.
 
 | Service | Language | Framework | Reason |
 | --- | --- | --- | --- |
@@ -72,7 +75,33 @@ where an operator feels latency, waiting on a run.
 - Whole platform fits in existing cluster headroom.
 - Geodata is slower than Rust but comfortably adequate for batch imports.
 
-**Cost, if the polyglot option is taken**
+**Cost — and one of them is architectural, not just operational**
+
+Polyglot means `libs/ops` cannot be one library. A Go service cannot link a Rust
+crate. The outbox, idempotency, job-claim and dead-letter implementation — the
+single thing this design was most proud of removing duplication from — now exists
+**twice**, once per language.
+
+That is a real contradiction of a goal, and it is not fixable by clever packaging:
+
+| | Go implementation | Rust implementation |
+| --- | --- | --- |
+| Used by | `gateway`, `activity` | `core`, `geodata` |
+| Language | Go | Rust |
+| Shares code with the other | no | no |
+
+**The mitigation is behavioural, not structural: one conformance suite that both
+must pass.** `libs/ops/conformance/` holds the fixtures and the expected outcomes —
+the same event published exactly once per partition, the same duplicate producing
+no second effect, the same expired lease becoming reclaimable. Each implementation
+runs the suite in its own test harness. The *code* is duplicated; the *contract*
+is not, and the contract is what the rest of the system depends on.
+
+What that does not give you: a bug fixed in one implementation is not fixed in the
+other. The suite catches divergence in behaviour, not in implementation detail, and
+someone still has to make the second change.
+
+Operationally, polyglot also means:
 
 - Three toolchains, three CI pipelines, three dependency-audit paths, three
   on-call skill sets. This is real cost and it works against the consolidation
@@ -97,14 +126,31 @@ reason.
 
 ## Verification
 
-This ADR is **proposed**, so there is nothing to verify yet. What ratification
-requires:
-
-| Question | Answer needed before implement |
+| Claim | Check |
 | --- | --- |
-| Is polyglot wanted, or Go everywhere? | one sentence from the owner of the project |
-| If polyglot: is a JRE-free CI acceptable with three toolchains? | yes/no, and who carries the on-call cost |
-| If Go everywhere: does `sqlc` give enough compile-time safety on the credential path? | a spike, or an explicit acceptance of the difference |
+| Every service builds and tests in CI | the per-service workflows (`gateway.yml`, `core.yml`, `geodata.yml`, `activity.yml`) |
+| No service silently changes language | a `Cargo.toml` in a Go service directory, or `go.mod` in a Rust one, fails the workflow's scaffold check |
+| `libs/ops` has exactly two implementations | `libs/ops/go` and `libs/ops/rust`, and nothing else |
+| Both implement the same behaviour | `libs/ops/conformance/` run by each language's test suite — see below |
 
-Until those are answered, rule 6 in `AGENTS.md` records this as the working
-assumption and implementation should not assume either answer is final.
+### The conformance suite
+
+`libs/ops/conformance/` is language-neutral: a directory of fixtures and expected
+outcomes, plus a small runner contract each implementation's tests must satisfy.
+
+```
+libs/ops/conformance/
+  README.md                 the contract, and how to run it from each language
+  cases/
+    outbox-publish-once.json        an event is published once per partition
+    outbox-duplicate-no-effect.json a repeated event id produces no second effect
+    job-claim-disjoint.json         N concurrent claims yield disjoint rows
+    job-lease-expiry.json           an expired lease becomes reclaimable
+    job-attempts-dead.json          8 failures then dead, not infinite retry
+    idempotency-replay.json         the same Idempotency-Key returns the stored response
+```
+
+A case is `{setup, act, expect}` against the `ops` contract, not against SQL. Both
+implementations must pass every case. When a new case is added, both fail until
+both are fixed — which is the point: the divergence is made visible rather than
+discovered in production.

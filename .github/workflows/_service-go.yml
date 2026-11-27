@@ -1,0 +1,153 @@
+# Reusable workflow: verify and publish one Go service.
+#
+# Called by gateway.yml and activity.yml, each with its own path filter, so a
+# change to one service never builds the other. The shared body lives here once.
+#
+# No stored secret is used. GITHUB_TOKEN with packages:write publishes to GHCR;
+# the cluster credential does not exist because CD is a commit, not a push.
+
+name: _service-go
+
+on:
+  workflow_call:
+    inputs:
+      key:
+        description: Chunk/service key used in commit messages, e.g. core
+        type: string
+        required: true
+      image:
+        description: Image name without registry or tag
+        type: string
+        required: true
+      path:
+        description: Directory containing go.mod
+        type: string
+        required: true
+      publish:
+        description: Build and push an image on main
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.24'
+          cache-dependency-path: ${{ inputs.path }}/go.sum
+
+      # A clear failure beats a cryptic one: the service has not been scaffolded
+      # yet, which is chunk F1's job.
+      - name: check the service exists
+        run: |
+          if [ ! -f "${{ inputs.path }}/go.mod" ]; then
+            echo "::error file=${{ inputs.path }}/go.mod::no go.mod — scaffold this service (chunk F1)"
+            exit 1
+          fi
+
+      - name: gofmt
+        working-directory: ${{ inputs.path }}
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt needed:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: vet
+        working-directory: ${{ inputs.path }}
+        run: go vet ./...
+
+      - name: test
+        working-directory: ${{ inputs.path }}
+        run: go test -race -count=1 ./...
+
+  image:
+    name: image
+    needs: verify
+    if: inputs.publish && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # commit the digest bump
+      packages: write   # push to GHCR
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: build and push
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ inputs.path }}/Dockerfile
+          push: true
+          # a moving tag for humans, a digest for the cluster
+          tags: ${{ env.REGISTRY_PATH }}:main
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ inputs.key }}
+          cache-to: type=gha,scope=${{ inputs.key }},mode=max
+
+      - name: make the package public
+        # Idempotent: the org default may already be public. A failure here is not
+        # fatal, because a private package is caught by the smoke test's pull.
+        continue-on-error: true
+        run: |
+          gh api --method PATCH \
+            "/orgs/${{ github.repository_owner }}/packages/container/${{ inputs.image }}" \
+            -f visibility=public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: pin the digest in the test values
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          IMAGE: ${{ inputs.image }}
+          KEY: ${{ inputs.key }}
+        run: |
+          file="deploy/fleet/myota-test/values.yaml"
+          if [ ! -f "$file" ]; then
+            echo "::error file=$file::$file does not exist — the deploy skeleton is chunk F6, ordered before F7"
+            exit 1
+          fi
+          # replace the image line for this service only, keeping everything else
+          python3 - "$file" "$IMAGE" "$REGISTRY_PATH" "$DIGEST" <<'PY'
+          import re, sys
+          path, image, ref, digest = sys.argv[1:5]
+          text = open(path).read()
+          pattern = re.compile(rf"(^\s*{re.escape(image)}:\s*).*$", re.M)
+          if not pattern.search(text):
+              sys.exit(f"no '{image}:' entry in {path}")
+          # the full registry path, not the bare name: ghcr.io/<owner>/<image>
+          text = pattern.sub(lambda m: f"{m.group(1)}{ref}@{digest}", text)
+          open(path, "w").write(text)
+          PY
+
+      - name: commit the digest bump
+        run: |
+          if git diff --quiet; then
+            echo "digest already current; nothing to commit"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/fleet/myota-test/values.yaml
+          # no [skip ci] needed: deploy/ is in no component's path filter
+          git commit -m "${{ inputs.key }} · pin ${{ inputs.image }} to ${{ steps.build.outputs.digest }}"
+          git push

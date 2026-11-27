@@ -69,9 +69,16 @@ existed in all three databases, with a separate relay, a separate consumer
 harness, and a separate recovery sweep per service. Twelve applications each
 carried their own copy of the retry loop.
 
-Now: one `libs/ops` implementing the pattern once, parameterised by database URL
-and owner name. The tables remain per-database (they must — they are written in
-the same transaction as the domain change), but the code is written once.
+Now: `libs/ops`, parameterised by database URL and owner name. The tables remain
+per-database (they must — they are written in the same transaction as the domain
+change).
+
+**Twelve copies became two, not one.** Polyglot (ADR-0002) means a Go service
+cannot link a Rust crate, so the implementation exists once per language — used by
+`gateway`/`activity` and by `core`/`geodata` respectively. The behaviour is held
+together by a shared conformance suite in `libs/ops/conformance/` rather than by
+shared code. Stated here rather than glossed: this is a duplication the
+consolidation did not remove, and ADR-0002 records why it was accepted.
 
 ### Notifications existed in two databases
 

@@ -1,0 +1,98 @@
+# CD: verify the test deployment is actually serving.
+#
+# Delivery itself is a commit — CI pins a new image digest in
+# `deploy/fleet/myota-test/values.yaml` and Fleet reconciles it. This workflow is
+# the *verification* half: did the thing that was supposed to become live, become
+# live?
+#
+# It holds no cluster credential and needs none. Both hostnames are public HTTPS,
+# so a smoke test costs nothing in authority. That is the point of the GitOps
+# boundary in ADR-0005: CI can prove the deployment works without being able to
+# break it.
+#
+# Triggers:
+#   - a push that changes the test deployment (a digest bump, a chart change)
+#   - manually, when you want to check without changing anything
+#   - on a schedule would go red while nothing is deployed, so it is deliberately
+#     absent until the test environment is permanent (after F6)
+
+name: smoke-test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/fleet/myota-test/**'
+      - 'deploy/myota/**'
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: Fail if a hostname is not serving (uncheck to report only)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smoke-test
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: probe
+    runs-on: ubuntu-24.04
+    steps:
+      - name: participant app
+        id: participant
+        run: |
+          url="https://myota-test.ea7klk.es/healthz"
+          echo "probing $url"
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' --max-time 15 --retry 3 --retry-delay 5 "$url" || echo 000)
+          echo "status=$code"
+          cat /tmp/body 2>/dev/null || true
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: admin app
+        id: admin
+        run: |
+          url="https://myota-admin-test.ea7klk.es/healthz"
+          echo "probing $url"
+          code=$(curl -sS -o /tmp/body -w '%{http_code}' --max-time 15 --retry 3 --retry-delay 5 "$url" || echo 000)
+          echo "status=$code"
+          cat /tmp/body 2>/dev/null || true
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: TLS certificates
+        run: |
+          for host in myota-test.ea7klk.es myota-admin-test.ea7klk.es; do
+            echo "--- $host"
+            # fails the step if the chain does not verify against the system store
+            echo | openssl s_client -servername "$host" -connect "$host:443" \
+              -verify_return_error 2>/dev/null \
+              | openssl x509 -noout -subject -issuer -dates
+          done
+
+      - name: verdict
+        env:
+          PARTICIPANT: ${{ steps.participant.outputs.code }}
+          ADMIN: ${{ steps.admin.outputs.code }}
+          # a manual run may be used to observe a half-built environment
+          STRICT: ${{ github.event_name == 'push' || inputs.strict }}
+        run: |
+          fail=0
+          for pair in "participant:$PARTICIPANT" "admin:$ADMIN"; do
+            name="${pair%%:*}"; code="${pair##*:}"
+            if [ "$code" = "200" ]; then
+              echo "$name: 200"
+            else
+              echo "::error::$name returned $code, expected 200"
+              fail=1
+            fi
+          done
+          if [ "$fail" = "1" ]; then
+            if [ "$STRICT" = "true" ]; then
+              exit 1
+            fi
+            echo "::warning::deployment is not serving; run was non-strict, reporting only"
+          fi

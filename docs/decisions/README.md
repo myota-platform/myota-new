@@ -59,7 +59,7 @@ no alternatives is a press release; one with no costs is advocacy.
 | ADR | Decision | Status |
 | --- | --- | --- |
 | [0001](0001-service-boundaries-follow-databases.md) | Service boundaries follow the databases; Identity and Programmes merge into `core` | accepted |
-| [0002](0002-language-per-service.md) | Language and framework per service, with Go-everywhere as the default | **proposed** |
+| [0002](0002-language-per-service.md) | Polyglot per service; Go everywhere as the escape hatch | accepted |
 | [0003](0003-no-sealed-secrets.md) | No Sealed Secrets; SOPS with age instead | accepted |
 | [0004](0004-drop-message-broker.md) | Remove the message broker; the outbox is the event log | accepted |
 | [0005](0005-horizontal-scaling.md) | Every workload is horizontally scalable | accepted |
@@ -68,9 +68,7 @@ no alternatives is a press release; one with no costs is advocacy.
 
 ## Open items
 
-- **ADR-0002 is proposed, not accepted.** The brief asked for suggestions of
-  languages and frameworks rather than a selection, so nothing is built against
-  it. Ratify it, amend it, or replace it before implementation starts.
+None. Every record is accepted, and each is reflected in `AGENTS.md`.
 
 ## How they connect to `AGENTS.md`
 
@@ -80,7 +78,7 @@ the rule should link back. The mapping:
 | ADR | AGENTS.md rule |
 | --- | --- |
 | 0001 | §2 Microservices |
-| 0002 | §6 Technology — *proposed, pending ratification* |
+| 0002 | §6 Technology |
 | 0003 | §8 Deployment → configuration and secrets |
 | 0004 | §3 Communication between services via pubsub |
 | 0005 | §12 Horizontal scaling is a correctness property |

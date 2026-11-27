@@ -1,0 +1,39 @@
+# Activity (Go). Its own sources, the Go libraries, and its migrations only.
+name: activity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/activity/**'
+      - 'contracts/**'
+      - 'libs/ops/go/**'
+      - 'libs/limits/go/**'
+      - 'deploy/myota/db/activity/**'
+      - '.github/workflows/activity.yml'
+      - '.github/workflows/_service-go.yml'
+  pull_request:
+    paths:
+      - 'apps/activity/**'
+      - 'contracts/**'
+      - 'libs/ops/go/**'
+      - 'libs/limits/go/**'
+      - 'deploy/myota/db/activity/**'
+      - '.github/workflows/activity.yml'
+      - '.github/workflows/_service-go.yml'
+
+concurrency:
+  group: activity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  service:
+    uses: ./.github/workflows/_service-go.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      key: P5
+      image: myota-new-activity
+      path: apps/activity
+      publish: ${{ github.ref == 'refs/heads/main' }}

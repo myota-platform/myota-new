@@ -88,8 +88,10 @@ system shipped twelve separate applications (`activity`, `activity-notifications
 `activity-worker`, `email-worker`, `geodata`, `geodata-importer`,
 `geodata-worker`, `identity`, `identity-maintenance`, `outbox-worker`,
 `programmes`, `gateway`) with the outbox relay, idempotency, and dead-letter
-logic copied into each. Here that plumbing exists once, in `libs/ops`, and is
-parameterised by the service's own database.
+logic copied into each. Here that plumbing exists once *per language* — in
+`libs/ops/go` and `libs/ops/rust` — parameterised by the service's own database.
+Two copies rather than twelve, with a shared conformance suite holding the
+behaviour together; see [ADR-0002](../decisions/0002-language-per-service.md).
 
 ## The three databases are the service boundaries
 

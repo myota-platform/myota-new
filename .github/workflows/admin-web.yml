@@ -1,0 +1,33 @@
+# Admin console (Vue). Triggers on its own sources and the shared design tokens.
+name: admin-web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/admin/**'
+      - 'libs/ui-tokens/**'
+      - '.github/workflows/admin-web.yml'
+      - '.github/workflows/_web.yml'
+  pull_request:
+    paths:
+      - 'web/admin/**'
+      - 'libs/ui-tokens/**'
+      - '.github/workflows/admin-web.yml'
+      - '.github/workflows/_web.yml'
+
+concurrency:
+  group: admin-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    uses: ./.github/workflows/_web.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      key: A3
+      image: myota-new-admin-web
+      path: web/admin
+      publish: ${{ github.ref == 'refs/heads/main' }}

@@ -1,0 +1,33 @@
+# Participant app (Svelte). Triggers on its own sources and the shared design tokens.
+name: participant-web
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'web/participant/**'
+      - 'libs/ui-tokens/**'
+      - '.github/workflows/participant-web.yml'
+      - '.github/workflows/_web.yml'
+  pull_request:
+    paths:
+      - 'web/participant/**'
+      - 'libs/ui-tokens/**'
+      - '.github/workflows/participant-web.yml'
+      - '.github/workflows/_web.yml'
+
+concurrency:
+  group: participant-web-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    uses: ./.github/workflows/_web.yml
+    permissions:
+      contents: write
+      packages: write
+    with:
+      key: P2
+      image: myota-new-participant-web
+      path: web/participant
+      publish: ${{ github.ref == 'refs/heads/main' }}

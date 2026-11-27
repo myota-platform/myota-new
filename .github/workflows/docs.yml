@@ -1,0 +1,94 @@
+# Repository-level checks: ADRs, diagrams, UI sweep, links, mockup renders.
+#
+# Triggers only on documentation, tooling and contracts — never on service or app
+# source, which have their own workflows. A change to `apps/core` does not run this.
+#
+# This job does the *full* diagram check, which compiles the Structurizr DSL. That
+# matters: ADR-0006 records a case where a heuristic-only check passed an invalid
+# model, so heuristics are not a substitute for the parser.
+
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'tools/**'
+      - 'contracts/**'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'tools/**'
+      - 'contracts/**'
+      - 'AGENTS.md'
+      - 'README.md'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/docs.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  STRUCTURIZR_VERSION: v2025.11.09
+
+jobs:
+  checks:
+    name: checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: install a JRE and the Structurizr CLI
+        # workspace.dsl is compiled, not merely inspected (ADR-0006).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq openjdk-17-jre-headless
+          mkdir -p /tmp/scli
+          gh release download "$STRUCTURIZR_VERSION" --repo structurizr/cli \
+            --pattern structurizr-cli.zip --dir /tmp/scli --clobber
+          ( cd /tmp/scli && unzip -oq structurizr-cli.zip )
+          echo "STRUCTURIZR_CLI=/tmp/scli/structurizr.sh" >> "$GITHUB_ENV"
+          /tmp/scli/structurizr.sh version
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: install tooling
+        run: |
+          npm ci
+          npx --yes playwright install --with-deps chromium
+          # mmdc must be a real binary on PATH: the checker execs it directly
+          npm install --global @mermaid-js/mermaid-cli
+          mmdc --version
+
+      - name: decision records
+        run: python3 tools/check_adrs.py
+
+      - name: links and anchors
+        run: python3 tools/check_links.py
+
+      - name: diagrams and the C4 model
+        run: python3 tools/check_diagrams.py --full
+
+      - name: UI sweep
+        run: node tools/check_ui.mjs
+
+      - name: mockup renders are current
+        run: node tools/render_mockups.mjs --check
