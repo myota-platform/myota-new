@@ -126,11 +126,11 @@ tools/           repo scripts and code generation
   converges to what is committed; nobody applies manifests by hand to ship.
 - Images are `ghcr.io/myota-platform/myota-new-<service>` and are referenced by
   immutable digest in values, never by a floating tag.
-- Six processes: `gateway`, `core-api`, `core-worker`, `core-relay`,
-  `geodata-api`, `geodata-worker`, `geodata-relay`, `activity-api`,
-  `activity-worker`, `activity-relay`, `admin-web`, `participant-web` — scaled
-  per `docs/architecture/README.md`. The relay runs as exactly one leader per
-  database, elected by a Postgres advisory lock.
+- Six deployable units — `gateway`, `core`, `geodata`, `activity`, `admin-web`,
+  `participant-web` — running as twelve workloads: each domain service is
+  `-api`, `-worker`, and `-relay` from one image, plus the gateway and the two
+  front ends. Scaling is in `docs/architecture/README.md`. The relay runs as
+  exactly one leader per database, elected by a Postgres advisory lock.
 
 ### Secrets — Sealed Secrets is prohibited
 
@@ -194,9 +194,11 @@ These are the concrete problems found in the previous implementation and the
 rules that prevent them recurring. The full ledger is
 [docs/architecture/consolidation.md](docs/architecture/consolidation.md).
 
-**Twelve processes became six.** `activity-notifications`, `email-worker`,
-`identity-maintenance`, `geodata-importer`, and `outbox-worker` each existed to
-run one loop. Each is now a job kind or a run mode of an existing service.
+**Twelve applications became four backend codebases.** `activity-notifications`,
+`email-worker`, `identity-maintenance`, `geodata-importer`, and `outbox-worker`
+each existed to run one loop. Each is now a job kind or a run mode of an
+existing service. Pod count is roughly unchanged — what disappears is twelve
+CI pipelines and the duplicated outbox/retry/dead-letter code in each.
 
 **`outbox-worker` held credentials for all three databases** — a boundary
 violation disguised as a convenience. The relay is per-database and part of the

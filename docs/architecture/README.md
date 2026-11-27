@@ -13,7 +13,7 @@ clutter that accumulated around it. The reasoning for each removal is in
 
 ## Shape of the system
 
-Five deployable units, three of which are codebases:
+Six deployable units — four backend codebases plus two static front ends:
 
 | Unit | Kind | Purpose | Database |
 | --- | --- | --- | --- |
@@ -21,7 +21,8 @@ Five deployable units, three of which are codebases:
 | `core` | domain service | Identity, sessions, callsigns, roles, programmes, content, notifications | `myota_core` |
 | `geodata` | domain service | Spatial catalogue, imports, conflation, review, provenance | `myota_geo` |
 | `activity` | domain service | Activations, QSOs, ADIF import, awards, statistics | `myota_activity` |
-| `admin-web`, `participant-web` | static front ends | Operator and participant interfaces | none |
+| `admin-web` | static front end | Operator interface | none |
+| `participant-web` | static front end | Participant interface | none |
 
 Each domain service has **one image and three run modes**:
 

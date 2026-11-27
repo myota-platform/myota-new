@@ -4,9 +4,9 @@ The brief was to keep the old functionality and remove as much clutter and
 complexity as possible, avoiding duplication. This is the ledger: every
 simplification, what it replaces, and what it costs.
 
-## Processes: 12 → 6
+## Applications: 12 → 4 codebases
 
-| Legacy process | Now |
+| Legacy application | Now |
 | --- | --- |
 | `gateway` | `gateway` (rewritten, now owns contracts) |
 | `identity` | `core-api` |
@@ -21,13 +21,18 @@ simplification, what it replaces, and what it costs.
 | `identity-maintenance` | `core-worker` (job kind `account.retention`) |
 | `outbox-worker` | relay mode in each service |
 
-Each of the removed processes existed to run one loop. `activity-notifications`
+Each of the removed applications existed to run one loop. `activity-notifications`
 consumed one durable and wrote to one table. `email-worker` consumed one subject
 and sent SMTP. `identity-maintenance` ran a nightly sweep. `outbox-worker` was a
 relay for all three databases at once, which was itself a boundary violation — a
 single process holding credentials for every database.
 
-Six processes, each with a reason to be separate.
+**Four backend codebases, each with a reason to be separate.** The reduction is in
+code and pipelines, not in pod count: a domain service runs as three workloads
+(api, worker, relay), so the cluster still schedules roughly the same number of
+containers. What disappears is three separate repositories' worth of duplicated
+retry, outbox, and dead-letter code, twelve CI pipelines, and twelve deployment
+artifacts to keep in step.
 
 ## Duplication removed
 
