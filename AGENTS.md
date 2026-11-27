@@ -272,14 +272,13 @@ docs/ui/styles/04-organic/
 ```sh
 node tools/render_mockups.mjs          # regenerate the images
 node tools/render_mockups.mjs --check  # fails if an image is stale
+node tools/check_ui.mjs                # every page x 3 viewports x 2 schemes
 ```
 
 The render check is **byte-exact**, so it is pinned to the Chromium that Playwright
 resolves through `package-lock.json`. Two Chromium builds render the same page
 identically most of the time and not always — upgrading Playwright means
 regenerating all renders in the same commit.
-node tools/check_ui.mjs                # every page x 3 viewports x 2 schemes
-```
 
 `check_ui.mjs` is the gate that matters. For **every** page under `docs/ui` it
 asserts, at 390 / 768 / 1440 px, in light and dark:
