@@ -82,6 +82,10 @@ The non-negotiable engineering rules are in [`AGENTS.md`](AGENTS.md):
 - [docs/architecture/scaling.md](docs/architecture/scaling.md) — the horizontal-scaling contract
 - [docs/ui/index.html](docs/ui/index.html) — eight UI mockups (open in a browser)
 - [docs/decisions/](docs/decisions/) — ADRs
+- [docs/architecture/structurizr/](docs/architecture/structurizr/README.md) — the C4 model
+
+Diagrams are Mermaid blocks inside the documents; the C4 model behind them is the
+authoritative description. Check both with `python3 tools/check_diagrams.py`.
 
 ## License
 

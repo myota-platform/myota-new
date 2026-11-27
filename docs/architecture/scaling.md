@@ -4,7 +4,35 @@
 document is the contract that makes that true, the specific things that break when
 you add a replica, and the mechanism that prevents each.
 
-![Horizontal scaling model](scaling.svg)
+```mermaid
+flowchart LR
+    clients["Admin console · Participant app<br/>static, N replicas"]
+    traefik["<b>Traefik</b><br/>rateLimit · circuitBreaker · retry<br/><i>one layer, global counters</i>"]
+    gateway["<b>Gateway × 2–10</b><br/>stateless · contract embedded · no database"]
+
+    subgraph services["Services — 2 to 20 replicas each"]
+        direction TB
+        api["<b>api</b><br/>sessions in Postgres"]
+        worker["<b>worker</b><br/>FOR UPDATE SKIP LOCKED"]
+        relay["<b>relay</b><br/>leases partitions"]
+    end
+
+    pooler["<b>PgBouncer</b><br/>transaction mode, one per database<br/>20 client conns per replica → 25 server conns"]
+    dbs[("myota_core · myota_geo · myota_activity")]
+
+    clients --> traefik --> gateway
+    gateway --> api
+    gateway --> worker
+    gateway --> relay
+    api --> pooler
+    worker --> pooler
+    relay --> pooler
+    pooler --> dbs
+```
+
+Every box in that diagram can be deleted at any moment. The tiers are listed with
+their replica ranges; the mechanisms that keep them independent are the table
+below.
 
 The rule is not "design for scale". It is: **any replica must be able to serve any
 request at any moment, and killing any replica at any moment must be invisible.**

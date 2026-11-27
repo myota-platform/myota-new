@@ -7,14 +7,35 @@ three.
 
 ## Pipeline
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Admin
+    participant API as geodata-api
+    participant S3 as object storage
+    participant W as geodata-worker
+    participant DB as myota_geo
+
+    Admin->>API: POST /v1/imports (source, programme, filename, size, checksum)
+    API-->>Admin: uploadId + presigned part URLs
+    Admin->>S3: PUT each part (file bytes never touch the cluster)
+    Admin->>API: POST /v1/imports/{id}/complete (part etags)
+    API->>DB: verify size + checksum, insert import_run and ops.job<br/>in one transaction
+    API-->>Admin: 202 queued
+
+    W->>DB: claim job (FOR UPDATE SKIP LOCKED)
+    W->>S3: stream the object
+    W->>W: normalise → validate → conflate
+    W->>DB: write import_candidate + import_error, status = review
+    W->>DB: mark job done
+
+    Admin->>API: POST /v1/imports/{id}/promote (≤300 candidates)
+    API->>DB: promote atomically, write entity + provenance + outbox
+    API-->>Admin: 200 completed
 ```
-┌──────────┐   ┌───────────┐   ┌──────────┐   ┌──────────┐   ┌─────────┐
-│  Upload  │──►│ Normalise │──►│ Validate │──►│ Conflate │──►│ Publish │
-│  (S3)    │   │ (adapter) │   │ (bounded)│   │ (scoring)│   │ (atomic)│
-└──────────┘   └───────────┘   └──────────┘   └──────────┘   └─────────┘
-     │              │                │              │             │
-   admin          worker           worker          worker        admin
-```
+
+Five stages. Upload and publish are driven by the administrator; normalise,
+validate and conflate are the worker's job.
 
 ### Stage 1 — Upload
 
@@ -176,6 +197,28 @@ Cancellation is a flag, not a state: `cancel_requested_at` is set by the API, th
 worker checks it between batches, and the run ends in `failed` with reason
 `cancelled`. This removes a state and two transitions without losing the
 capability.
+
+```mermaid
+stateDiagram-v2
+    direction TB
+    [*] --> queued : upload complete
+    queued --> running : worker claims the job
+    running --> review : candidates staged
+    running --> failed : unrecoverable error
+    review --> publishing : admin promotes
+    publishing --> completed : transaction commits
+    publishing --> failed : transaction aborts
+    queued --> failed : cancelled before claim
+    running --> failed : cancel flag observed between batches
+    completed --> [*]
+    failed --> [*]
+
+    note right of failed
+        Cancellation is a flag, not a state:
+        cancel_requested_at is set by the API and
+        the run ends in failed with reason=cancelled.
+    end note
+```
 
 ## Work dispatch
 

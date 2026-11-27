@@ -213,6 +213,28 @@ Recovery from a lost consumer is a **full resync**: the consumer drops its curso
 and re-reads the producer's current state through the public API, not the event
 log. It is slow and manual, which is the correct incentive to keep lag bounded.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Prod as core · producer
+    participant Log as core · ops.outbox_event
+    participant Pull as activity · puller
+    participant Job as activity · ops.job
+    participant H as activity · handler
+
+    Prod->>Log: INSERT in the same transaction as the domain change
+    Pull->>Log: GET /internal/events?after=seq
+    Log-->>Pull: events[n] and nextSeq
+    Pull->>Job: INSERT ... ON CONFLICT (id) DO NOTHING
+    Note over Pull,Job: the job id is the event id,<br/>so a duplicate pull is a no-op
+    Pull->>Pull: advance consumer_checkpoint in the same transaction
+    Pull->>Log: POST /internal/events/ack
+
+    H->>Job: claim FOR UPDATE SKIP LOCKED
+    H->>H: apply, idempotent by event id
+    H->>Job: state = done
+```
+
 ## Delivery semantics, stated plainly
 
 | Property | Guarantee | How |

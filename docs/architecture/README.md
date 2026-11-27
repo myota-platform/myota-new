@@ -9,9 +9,58 @@ functional scope of the previous implementation and removes the structural
 clutter that accumulated around it. The reasoning for each removal is in
 [consolidation.md](consolidation.md).
 
-![System context](system-context.svg)
+```mermaid
+flowchart LR
+    subgraph clients["Clients"]
+        direction TB
+        admin["Admin console<br/>separate login · MFA<br/>audience = admin"]
+        participant["Participant app<br/>separate login<br/>audience = participant"]
+    end
 
-Scaling model: [scaling.svg](scaling.svg) — see [scaling.md](scaling.md).
+    gateway["<b>API gateway</b><br/>Chi · Go · stateless<br/>holds the contract<br/>serves /docs"]
+
+    subgraph services["Domain services"]
+        direction TB
+        core["<b>core</b><br/>identity · roles<br/>programmes"]
+        geodata["<b>geodata</b><br/>entities · imports<br/>conflation"]
+        activity["<b>activity</b><br/>activations · awards<br/>statistics"]
+    end
+
+    subgraph data["Data — one owner each"]
+        direction TB
+        pooler["PgBouncer<br/>transaction mode"]
+        coreDb[("myota_core")]
+        geoDb[("myota_geo<br/>+ PostGIS")]
+        activityDb[("myota_activity")]
+    end
+
+    log[("event log<br/>ops.outbox_event<br/>each service pulls")]
+
+    admin -->|HTTPS| gateway
+    participant -->|HTTPS| gateway
+    gateway --> core
+    gateway --> geodata
+    gateway --> activity
+    core -.- log
+    geodata -.- log
+    activity -.- log
+    core --> pooler
+    geodata --> pooler
+    activity --> pooler
+    pooler --> coreDb
+    pooler --> geoDb
+    pooler --> activityDb
+```
+
+Dashed arrows are the only asynchronous path: facts produced into a service's own
+`ops.outbox_event` and pulled by consumers. There is no broker.
+
+The block above is a Mermaid projection. The **authoritative** description is the
+C4 model in [structurizr/workspace.dsl](structurizr/workspace.dsl), which also
+carries a container view, two dynamic views, and the deployment view. When the two
+disagree, the model is right.
+
+Scaling is a property of every tier — see [scaling.md](scaling.md).
 
 ## Shape of the system
 

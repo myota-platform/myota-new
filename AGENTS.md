@@ -131,7 +131,7 @@ libs/            shared libraries — ops, ui-tokens, limits
 web/             admin and participant front ends
 deploy/          Helm charts, Fleet definitions, SOPS secret files
 docs/            architecture, decisions, UI mockups, runbooks
-tools/           repo scripts and code generation
+tools/           repo scripts: check_diagrams.py, contract composition
 ```
 
 - Shared code goes in `libs/` and is consumed by workspace reference.
@@ -247,6 +247,75 @@ three times", or "one replica has the state", the change is incomplete.
 
 Full contract: [scaling.md](docs/architecture/scaling.md),
 [ADR-0005](docs/decisions/0005-horizontal-scaling.md).
+
+## 10. Diagrams are part of the change, not documentation debt
+
+The system is described twice, deliberately:
+
+| Representation | File | Authority |
+| --- | --- | --- |
+| **C4 model** | `docs/architecture/structurizr/workspace.dsl` | **Authoritative.** People, containers, external systems, relationships, deployment. |
+| **Mermaid blocks** | inside `docs/**.md` | A projection, for reading in a Markdown file. Rendered by GitHub, no build step. |
+
+**On any decision, change, or implementation that alters what the system is, update
+both in the same commit.**
+
+That includes, and is not limited to: adding, merging, splitting, or removing a
+service or container; changing a technology choice; adding or removing a database,
+table, or relationship; changing a synchronous or asynchronous path; changing
+authentication or the audience model; changing the deployment shape, replica
+ranges, or a scaling mechanism; adding or removing an external system.
+
+A commit that changes an architectural fact and leaves either representation stale
+is **incomplete**, regardless of whether the code works.
+
+### Which diagram to update
+
+| The change touches | Update |
+| --- | --- |
+| A service, its technology, or its dependencies | `workspace.dsl` containers + `docs/architecture/README.md` flowchart |
+| A table, column, or ownership boundary | `workspace.dsl` (if a container changed) + the relevant `erDiagram` in `data-model.md` |
+| A synchronous or asynchronous path | `workspace.dsl` relationships + `messaging.md` sequence |
+| An event type or delivery rule | `messaging.md` and `contracts/events/` |
+| Import stages, states, or the promotion flow | `geodata-imports.md` state and sequence diagrams |
+| Login, session, or audience handling | `auth-model.md` sequence |
+| Replica ranges, leases, pooling, or autoscaling | `scaling.md` flowchart and tables |
+| The deployment environment, namespace, or Fleet workspace | `workspace.dsl` deployment view |
+
+### Rules
+
+- **The DSL is authoritative.** If the Mermaid and the model disagree, the model
+  is right and the diagram is stale — fix the diagram, not the model, unless the
+  model is genuinely wrong.
+- **A new view is cheap; a redrawn picture is not.** Add a Structurizr view rather
+  than hand-drawing a new diagram.
+- **Every dynamic-view step must be a declared relationship.** The checker enforces
+  this, and it exists because a flow diagram that invents a connection is a
+  diagram that lies.
+- **Diagrams are Mermaid blocks, not committed images.** Do not add `.svg` or
+  `.png` diagrams to `docs/`. If a raster export is needed for a slide, generate
+  it and leave it out of the repository.
+- **Run the check before committing:**
+
+  ```sh
+  python3 tools/check_diagrams.py
+  ```
+
+  It renders every Mermaid block, validates the DSL structurally, and states
+  plainly what it could not verify (the DSL is not compiled without a Java
+  runtime).
+
+### Why this is a rule and not a preference
+
+Two representations drift. The drift is invisible in review, silent in production,
+and discovered months later by someone who trusted a diagram. Making the update
+part of the commit — and the check part of the gate — is the only version of this
+that survives contact with a busy week.
+
+The permanent fix is to generate the Mermaid from the DSL, which needs a Java
+runtime in CI. Until then the rule is the mechanism.
+
+See [docs/architecture/structurizr/README.md](docs/architecture/structurizr/README.md).
 
 ---
 

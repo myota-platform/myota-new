@@ -51,6 +51,28 @@ participant cookie to `/v1`. It fails for two reasons:
 Audience checking is enforced server-side in one middleware, so it holds for every
 caller.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Op as Administrator
+    participant Gate as gateway
+    participant Core as core
+
+    Op->>Gate: POST /v1/admin/auth/login
+    Gate->>Core: forward
+    Core->>Core: verify password AND a confirmed second factor
+    Core-->>Op: __Host-myota_admin_sid, audience=admin
+
+    Op->>Gate: GET /v1/admin/imports
+    Gate->>Gate: audience=admin matches the /v1/admin route class
+    Gate->>Core: forward
+    Core-->>Op: 200
+
+    Note over Op,Gate: A participant session attempts the same route
+    Op->>Gate: GET /v1/admin/imports, audience=participant
+    Gate-->>Op: 401 wrong-audience, never a redirect
+```
+
 ## Token shape
 
 ```

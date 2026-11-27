@@ -17,16 +17,33 @@ read in this order.
 | [architecture/auth-model.md](architecture/auth-model.md) | Separate admin and participant logins, and how the audience is enforced. |
 | [architecture/secrets-and-config.md](architecture/secrets-and-config.md) | SOPS + age. Why Sealed Secrets is not used. |
 | [architecture/technology.md](architecture/technology.md) | Language and framework per service, with the trade-off stated. |
+| [architecture/structurizr/](architecture/structurizr/README.md) | The authoritative C4 model, and how to render it. |
 
 ### Diagrams
 
-| Diagram | Shows |
-| --- | --- |
-| [architecture/system-context.svg](architecture/system-context.svg) | Clients → gateway → services → databases, with integration infrastructure. |
-| [architecture/erd.svg](architecture/erd.svg) | Entity relationships across the three databases, including cross-database ids. |
-| [architecture/scaling.svg](architecture/scaling.svg) | The replica fan-out and what makes each tier safe to run at N replicas. |
+Diagrams are **Mermaid blocks inside the documents** — no build step, no committed
+image, and GitHub renders them inline. There is nothing to regenerate and nothing
+to drift.
 
-Both are hand-written SVG: no build step, no external assets, readable in a diff.
+| Diagram | Where | Type |
+| --- | --- | --- |
+| System context | [architecture/README.md](architecture/README.md) | flowchart |
+| Entity relationships | [architecture/data-model.md](architecture/data-model.md) | three `erDiagram` blocks, one per database |
+| Import pipeline | [architecture/geodata-imports.md](architecture/geodata-imports.md) | sequence |
+| Import run state machine | [architecture/geodata-imports.md](architecture/geodata-imports.md) | state |
+| Login and audience enforcement | [architecture/auth-model.md](architecture/auth-model.md) | sequence |
+| Event delivery | [architecture/messaging.md](architecture/messaging.md) | sequence |
+| Horizontal scaling | [architecture/scaling.md](architecture/scaling.md) | flowchart |
+
+The **C4 model** behind these lives in
+[architecture/structurizr/workspace.dsl](architecture/structurizr/workspace.dsl).
+It is the authoritative description; the Mermaid blocks are a projection of it.
+
+Check everything with:
+
+```sh
+python3 tools/check_diagrams.py
+```
 
 ## Decisions
 
@@ -37,6 +54,7 @@ Both are hand-written SVG: no build step, no external assets, readable in a diff
 | [0003](decisions/0003-no-sealed-secrets.md) | No Sealed Secrets; SOPS with age instead. |
 | [0004](decisions/0004-drop-message-broker.md) | Remove the message broker; the outbox is the event log. |
 | [0005](decisions/0005-horizontal-scaling.md) | Every workload is horizontally scalable. |
+| [0006](decisions/0006-diagrams-as-code.md) | Diagrams as code: Mermaid projections over a Structurizr model. |
 
 An ADR is required when a rule in [AGENTS.md](../AGENTS.md) needs to be broken.
 

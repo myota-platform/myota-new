@@ -5,7 +5,9 @@ inventory for `myota-new`. It differs from the legacy schema in one important
 way: **each table has exactly one owning service, and no table is duplicated
 across databases.**
 
-![Entity relationships](erd.svg)
+One ERD per database. They are separate diagrams because they are separate
+databases: Mermaid cannot draw a relationship across them, and no such
+relationship exists.
 
 ## Conventions
 
@@ -54,6 +56,25 @@ CREATE INDEX ON ops.outbox_event (created_at);
 trims rows, so consumers treat it as a cursor and never as a count.
 
 ## `myota_core` — owned by `core`
+
+```mermaid
+erDiagram
+    account ||--o| account_credential : "has"
+    account ||--o{ account_mfa : "enrols"
+    account ||--o{ account_recovery_code : "holds"
+    account ||--o{ auth_session : "opens"
+    account ||--o{ callsign : "holds"
+    callsign ||--o| account_primary_callsign : "primary for"
+    callsign ||--o{ callsign_evidence : "justified by"
+    role_definition ||--o{ account_role : "defines"
+    account ||--o{ account_role : "granted"
+    programme ||--o{ programme_entity_type : "accepts"
+    programme ||--o{ programme_content : "publishes"
+    programme ||--o{ programme_policy_version : "publishes"
+    programme ||--o{ programme_policy_draft : "drafts"
+    account ||--o{ notification : "receives"
+    notification ||--o{ notification_delivery_attempt : "attempts"
+```
 
 Identity, authorization, programme configuration, and the notification ledger.
 This is the only database the gateway may ask `core` about.
@@ -110,6 +131,21 @@ databases. Here it is one ledger plus one attempt table plus the shared
 
 ## `myota_geo` — owned by `geodata`
 
+```mermaid
+erDiagram
+    source ||--o{ source_snapshot : "produces"
+    source ||--o{ import_schedule : "scheduled as"
+    source_snapshot ||--o{ entity_provenance : "source of"
+    import_run ||--o{ import_candidate : "stages"
+    import_run ||--o{ import_error : "records"
+    import_candidate ||--o{ conflation_candidate : "matched by"
+    entity ||--o{ entity_category : "classified"
+    entity ||--o{ entity_attachment : "has"
+    entity ||--o{ entity_review : "reviewed"
+    entity ||--o{ entity_provenance : "derived from"
+    entity ||--o{ geodata_audit_event : "audited"
+```
+
 The spatial catalogue. The only database with `postgis`.
 
 ### Entities
@@ -148,6 +184,18 @@ The spatial catalogue. The only database with `postgis`.
 | `geodata_audit_event` | `id`, `entity_id`, `actor_id → ext:core`, `action`, `before jsonb`, `after jsonb`, `occurred_at` |
 
 ## `myota_activity` — owned by `activity`
+
+```mermaid
+erDiagram
+    activation ||--o{ qso : "logs"
+    activation ||--o{ log_import : "imports into"
+    log_import ||--o{ log_import_row : "contains"
+    qso ||--o{ qso_correction : "corrected by"
+    award_definition ||--o{ award_request : "requested"
+    award_definition ||--o{ award_progress : "tracked in"
+    award_definition ||--o{ award_issuance : "issued as"
+    statistic_snapshot ||--o{ leaderboard_entry : "ranks"
+```
 
 Activations, logs, awards, statistics. No spatial columns — `activity` stores
 `entity_id` and asks `geodata` for geometry through its API when it needs it, or
