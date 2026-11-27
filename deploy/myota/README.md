@@ -22,6 +22,22 @@ Chunk **F1** creates this directory and this file — nothing else. **F5** adds
 `db/` and the PgBouncer wiring; **F6** adds the chart, the Fleet bundle, the
 namespace and both hostnames; **F7** wires image publication and digest pinning.
 
+## What happens to this directory before F6
+
+Two workflows watch it. Neither does anything destructive until a Fleet bundle
+exists in `deploy/fleet/myota-test/`:
+
+- **`smoke-test`** triggers on any change here, but probes `myota-test` and
+  `myota-admin-test` only once that bundle is on disk. Before F6 it posts a
+  notice and stops, because there is no environment yet and a check that goes
+  red while nothing is deployed is a check people stop reading.
+- **the image jobs** pin a published digest into
+  `deploy/fleet/myota-test/values.yaml`, and refuse to run when that file is
+  absent rather than creating it — the file is F6's to define.
+
+So a commit that only touches this README runs the smoke test, gets skipped, and
+comes back green. That is the intended reading of a green build here.
+
 ## Why configuration and secrets are separate directories
 
 Configuration is plaintext in Git and reconciled by Fleet, because a reviewable
