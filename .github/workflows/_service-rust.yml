@@ -43,11 +43,13 @@ jobs:
         id: scaffold
         run: |
           dir="${{ inputs.path }}"
-          if [ ! -d "$dir" ]; then
-            echo "::notice::$dir does not exist yet — nothing to build (chunk F1)"
+          # See _service-go.yml: no directory, or a README-only directory, is a
+          # placeholder. Rust source without a Cargo.toml is broken and fails.
+          if [ ! -d "$dir" ] || { [ ! -f "$dir/Cargo.toml" ] && [ -z "$(find "$dir" -name '*.rs' -print -quit)" ]; }; then
+            echo "::notice::$dir has no Rust source yet — nothing to build (chunk F1 scaffolds it)"
             echo "run=false" >> "$GITHUB_OUTPUT"
           elif [ ! -f "$dir/Cargo.toml" ]; then
-            echo "::error file=$dir/Cargo.toml::$dir exists but has no Cargo.toml"
+            echo "::error file=$dir/Cargo.toml::$dir has Rust source but no Cargo.toml"
             exit 1
           else
             echo "run=true" >> "$GITHUB_OUTPUT"

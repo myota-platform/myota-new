@@ -51,11 +51,16 @@ jobs:
         id: scaffold
         run: |
           dir="${{ inputs.path }}"
-          if [ ! -d "$dir" ]; then
-            echo "::notice::$dir does not exist yet — nothing to build (chunk F1)"
+          # Three states, not two. No directory, or a directory holding only a
+          # README, is a placeholder the plan has not reached. A directory with Go
+          # source but no go.mod is broken. Only the last fails — a red build for
+          # work that has not happened yet is noise, and noise in a green build is
+          # how people stop reading logs.
+          if [ ! -d "$dir" ] || { [ ! -f "$dir/go.mod" ] && [ -z "$(find "$dir" -name '*.go' -print -quit)" ]; }; then
+            echo "::notice::$dir has no Go source yet — nothing to build (chunk F1 scaffolds it)"
             echo "run=false" >> "$GITHUB_OUTPUT"
           elif [ ! -f "$dir/go.mod" ]; then
-            echo "::error file=$dir/go.mod::$dir exists but has no go.mod"
+            echo "::error file=$dir/go.mod::$dir has Go source but no go.mod"
             exit 1
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
