@@ -43,8 +43,35 @@ jobs:
     name: probe
     runs-on: ubuntu-24.04
     steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: is the test environment deployed?
+        id: deployed
+        # Before F6 there is no Fleet bundle and no namespace, so no hostname is
+        # meant to answer yet. Probing anyway makes this workflow red from its
+        # first commit — and a workflow that cannot pass until an unrelated chunk
+        # lands is one people learn to skim past. Same reasoning as the scaffold
+        # guards in _service-*.yml, and the same reasoning that keeps this off a
+        # schedule until after F6.
+        #
+        # A manual dispatch skips the guard on purpose: observing a half-built
+        # environment is what workflow_dispatch is for.
+        run: |
+          if [ -f deploy/fleet/myota-test/values.yaml ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "::notice::no test bundle on disk — probing anyway because this was dispatched by hand"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::deploy/fleet/myota-test/ has no bundle — the test environment is chunk F6. Nothing to probe."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: participant app
         id: participant
+        if: steps.deployed.outputs.run == 'true'
         run: |
           url="https://myota-test.ea7klk.es/healthz"
           echo "probing $url"
@@ -55,6 +82,7 @@ jobs:
 
       - name: admin app
         id: admin
+        if: steps.deployed.outputs.run == 'true'
         run: |
           url="https://myota-admin-test.ea7klk.es/healthz"
           echo "probing $url"
@@ -64,6 +92,7 @@ jobs:
           echo "code=$code" >> "$GITHUB_OUTPUT"
 
       - name: TLS certificates
+        if: steps.deployed.outputs.run == 'true'
         run: |
           for host in myota-test.ea7klk.es myota-admin-test.ea7klk.es; do
             echo "--- $host"
@@ -74,6 +103,7 @@ jobs:
           done
 
       - name: verdict
+        if: steps.deployed.outputs.run == 'true'
         env:
           PARTICIPANT: ${{ steps.participant.outputs.code }}
           ADMIN: ${{ steps.admin.outputs.code }}
