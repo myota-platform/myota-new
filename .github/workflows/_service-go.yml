@@ -4,7 +4,8 @@
 # change to one service never builds the other. The shared body lives here once.
 #
 # No stored secret is used. GITHUB_TOKEN with packages:write publishes to GHCR;
-# the cluster credential does not exist because CD is a commit, not a push.
+# the cluster credential does not exist, because CD is a commit rather than a push
+# to a cluster.
 
 name: _service-go
 
@@ -12,7 +13,7 @@ on:
   workflow_call:
     inputs:
       key:
-        description: Chunk/service key used in commit messages, e.g. core
+        description: Chunk/service key used in commit messages, e.g. gateway
         type: string
         required: true
       image:
@@ -40,21 +41,35 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-go@v7
+      # Before the toolchain, deliberately. `setup-go` with a cache path that does
+      # not exist yet warns on every run, and noise in a green build is how people
+      # stop reading logs.
+      #
+      # An absent directory means the chunk has not run; an existing directory
+      # without a manifest means something is wrong. Only the second fails.
+      - name: is the service scaffolded?
+        id: scaffold
+        run: |
+          dir="${{ inputs.path }}"
+          if [ ! -d "$dir" ]; then
+            echo "::notice::$dir does not exist yet — nothing to build (chunk F1)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif [ ! -f "$dir/go.mod" ]; then
+            echo "::error file=$dir/go.mod::$dir exists but has no go.mod"
+            exit 1
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: setup go
+        if: steps.scaffold.outputs.run == 'true'
+        uses: actions/setup-go@v7
         with:
           go-version: '1.24'
           cache-dependency-path: ${{ inputs.path }}/go.sum
 
-      # A clear failure beats a cryptic one: the service has not been scaffolded
-      # yet, which is chunk F1's job.
-      - name: check the service exists
-        run: |
-          if [ ! -f "${{ inputs.path }}/go.mod" ]; then
-            echo "::error file=${{ inputs.path }}/go.mod::no go.mod — scaffold this service (chunk F1)"
-            exit 1
-          fi
-
       - name: gofmt
+        if: steps.scaffold.outputs.run == 'true'
         working-directory: ${{ inputs.path }}
         run: |
           unformatted=$(gofmt -l .)
@@ -63,10 +78,12 @@ jobs:
           fi
 
       - name: vet
+        if: steps.scaffold.outputs.run == 'true'
         working-directory: ${{ inputs.path }}
         run: go vet ./...
 
       - name: test
+        if: steps.scaffold.outputs.run == 'true'
         working-directory: ${{ inputs.path }}
         run: go test -race -count=1 ./...
 
@@ -78,18 +95,37 @@ jobs:
     permissions:
       contents: write   # commit the digest bump
       packages: write   # push to GHCR
+    env:
+      # One definition of the image reference. Two is how a tag and a digest end
+      # up disagreeing.
+      REGISTRY_PATH: ghcr.io/${{ github.repository_owner }}/${{ inputs.image }}
     steps:
       - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v4
+      - name: does a Dockerfile exist?
+        id: scaffold
+        run: |
+          if [ ! -f "${{ inputs.path }}/Dockerfile" ]; then
+            echo "::notice::${{ inputs.path }}/Dockerfile does not exist yet — no image to publish"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: docker/login-action@v4
+      - name: setup buildx
+        if: steps.scaffold.outputs.run == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: log in to GHCR
+        if: steps.scaffold.outputs.run == 'true'
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: build and push
+        if: steps.scaffold.outputs.run == 'true'
         id: build
         uses: docker/build-push-action@v7
         with:
@@ -105,41 +141,42 @@ jobs:
           cache-to: type=gha,scope=${{ inputs.key }},mode=max
 
       - name: make the package public
-        # Idempotent: the org default may already be public. A failure here is not
-        # fatal, because a private package is caught by the smoke test's pull.
+        if: steps.scaffold.outputs.run == 'true'
+        # Idempotent: the org default may already be public. Not fatal — a private
+        # package is caught by the smoke test, which pulls without credentials.
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh api --method PATCH \
             "/orgs/${{ github.repository_owner }}/packages/container/${{ inputs.image }}" \
             -f visibility=public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: pin the digest in the test values
+        if: steps.scaffold.outputs.run == 'true'
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
           IMAGE: ${{ inputs.image }}
-          KEY: ${{ inputs.key }}
         run: |
           file="deploy/fleet/myota-test/values.yaml"
           if [ ! -f "$file" ]; then
             echo "::error file=$file::$file does not exist — the deploy skeleton is chunk F6, ordered before F7"
             exit 1
           fi
-          # replace the image line for this service only, keeping everything else
           python3 - "$file" "$IMAGE" "$REGISTRY_PATH" "$DIGEST" <<'PY'
           import re, sys
           path, image, ref, digest = sys.argv[1:5]
           text = open(path).read()
+          # anchored on the exact key, so "core" does not also rewrite "core-worker"
           pattern = re.compile(rf"(^\s*{re.escape(image)}:\s*).*$", re.M)
           if not pattern.search(text):
               sys.exit(f"no '{image}:' entry in {path}")
-          # the full registry path, not the bare name: ghcr.io/<owner>/<image>
           text = pattern.sub(lambda m: f"{m.group(1)}{ref}@{digest}", text)
           open(path, "w").write(text)
           PY
 
       - name: commit the digest bump
+        if: steps.scaffold.outputs.run == 'true'
         run: |
           if git diff --quiet; then
             echo "digest already current; nothing to commit"

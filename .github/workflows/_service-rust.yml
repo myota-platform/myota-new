@@ -25,42 +25,54 @@ on:
 permissions:
   contents: read
 
-env:
-  CARGO_TERM_COLOR: always
-  # fail fast on warnings in CI; locally you can still iterate
-  RUSTFLAGS: -D warnings
-
 jobs:
   verify:
     name: verify
     runs-on: ubuntu-24.04
+    env:
+      CARGO_TERM_COLOR: always
+      RUSTFLAGS: -D warnings
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - uses: actions-rust-lang/setup-rust-toolchain@v2
+      # An absent directory means the chunk has not run; an existing directory
+      # without a manifest means something is wrong. Only the second fails.
+      - name: is the service scaffolded?
+        id: scaffold
+        run: |
+          dir="${{ inputs.path }}"
+          if [ ! -d "$dir" ]; then
+            echo "::notice::$dir does not exist yet — nothing to build (chunk F1)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif [ ! -f "$dir/Cargo.toml" ]; then
+            echo "::error file=$dir/Cargo.toml::$dir exists but has no Cargo.toml"
+            exit 1
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: setup rust
+        if: steps.scaffold.outputs.run == 'true'
+        uses: actions-rust-lang/setup-rust-toolchain@v2
         with:
-          toolchain: 1.85
+          toolchain: '1.85'
           components: rustfmt, clippy
           cache-workspaces: ${{ inputs.path }}
 
-      - name: check the service exists
-        run: |
-          if [ ! -f "${{ inputs.path }}/Cargo.toml" ]; then
-            echo "::error file=${{ inputs.path }}/Cargo.toml::no Cargo.toml — scaffold this service (chunk F1)"
-            exit 1
-          fi
-
       - name: rustfmt
+        if: steps.scaffold.outputs.run == 'true'
         working-directory: ${{ inputs.path }}
         run: cargo fmt --all --check
 
       - name: clippy
+        if: steps.scaffold.outputs.run == 'true'
         working-directory: ${{ inputs.path }}
         run: cargo clippy --all-targets -- -D warnings
 
       - name: test
+        if: steps.scaffold.outputs.run == 'true'
         working-directory: ${{ inputs.path }}
         run: cargo test --all
 
@@ -73,21 +85,34 @@ jobs:
       contents: write
       packages: write
     env:
-      # one definition of the image reference; a second one is how a tag and a
-      # digest end up disagreeing
       REGISTRY_PATH: ghcr.io/${{ github.repository_owner }}/${{ inputs.image }}
     steps:
       - uses: actions/checkout@v7
 
-      - uses: docker/setup-buildx-action@v4
+      - name: does a Dockerfile exist?
+        id: scaffold
+        run: |
+          if [ ! -f "${{ inputs.path }}/Dockerfile" ]; then
+            echo "::notice::${{ inputs.path }}/Dockerfile does not exist yet — no image to publish"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - uses: docker/login-action@v4
+      - name: setup buildx
+        if: steps.scaffold.outputs.run == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: log in to GHCR
+        if: steps.scaffold.outputs.run == 'true'
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: build and push
+        if: steps.scaffold.outputs.run == 'true'
         id: build
         uses: docker/build-push-action@v7
         with:
@@ -102,19 +127,20 @@ jobs:
           cache-to: type=gha,scope=${{ inputs.key }},mode=max
 
       - name: make the package public
+        if: steps.scaffold.outputs.run == 'true'
         continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh api --method PATCH \
             "/orgs/${{ github.repository_owner }}/packages/container/${{ inputs.image }}" \
             -f visibility=public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: pin the digest in the test values
+        if: steps.scaffold.outputs.run == 'true'
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
           IMAGE: ${{ inputs.image }}
-          KEY: ${{ inputs.key }}
         run: |
           file="deploy/fleet/myota-test/values.yaml"
           if [ ! -f "$file" ]; then
@@ -128,12 +154,12 @@ jobs:
           pattern = re.compile(rf"(^\s*{re.escape(image)}:\s*).*$", re.M)
           if not pattern.search(text):
               sys.exit(f"no '{image}:' entry in {path}")
-          # the full registry path, not the bare name: ghcr.io/<owner>/<image>
           text = pattern.sub(lambda m: f"{m.group(1)}{ref}@{digest}", text)
           open(path, "w").write(text)
           PY
 
       - name: commit the digest bump
+        if: steps.scaffold.outputs.run == 'true'
         run: |
           if git diff --quiet; then
             echo "digest already current; nothing to commit"
