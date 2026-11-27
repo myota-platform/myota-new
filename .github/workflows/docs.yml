@@ -18,6 +18,7 @@ on:
       - 'contracts/**'
       - 'AGENTS.md'
       - 'README.md'
+      - 'Makefile'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/docs.yml'
@@ -28,6 +29,7 @@ on:
       - 'contracts/**'
       - 'AGENTS.md'
       - 'README.md'
+      - 'Makefile'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/docs.yml'
@@ -65,6 +67,21 @@ jobs:
           echo "STRUCTURIZR_CLI=/tmp/scli/structurizr.sh" >> "$GITHUB_ENV"
           /tmp/scli/structurizr.sh version
 
+      - name: install Python contract tooling
+        # A venv rather than a system install: the runner's Python is externally
+        # managed and refuses to write to site-packages. Putting the venv's bin on
+        # GITHUB_PATH makes every later `python3` this one, so the contract check
+        # always runs with the real OpenAPI 3.1 validator instead of the
+        # structural fallback.
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get install -y -qq python3-venv
+          python3 -m venv "$RUNNER_TEMP/py"
+          "$RUNNER_TEMP/py/bin/pip" install --quiet --upgrade pip
+          "$RUNNER_TEMP/py/bin/pip" install --quiet -r tools/requirements.txt
+          echo "$RUNNER_TEMP/py/bin" >> "$GITHUB_PATH"
+
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -91,6 +108,15 @@ jobs:
           # mmdc must be a real binary on PATH: the checker execs it directly
           npm install --global @mermaid-js/mermaid-cli
           mmdc --version
+
+      - name: contracts compose and validate
+        run: python3 tools/compose_contracts.py --check
+
+      - name: composer rules
+        run: python3 tools/test_compose_contracts.py
+
+      - name: event catalogue
+        run: python3 tools/check_events.py
 
       - name: decision records
         run: python3 tools/check_adrs.py

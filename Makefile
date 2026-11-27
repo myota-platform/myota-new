@@ -15,7 +15,9 @@ SHELL := /bin/bash
 GO_MODULE_DIRS    := $(patsubst %/go.mod,%,$(shell find . -name go.mod -not -path '*/node_modules/*' -not -path '*/target/*'))
 RUST_CRATE_DIRS   := $(patsubst %/Cargo.toml,%,$(shell find . -name Cargo.toml -not -path '*/node_modules/*' -not -path '*/target/*'))
 
-PYTHON_CHECKS := tools/check_adrs.py tools/check_links.py
+# Checks that take no arguments are discovered, so a new one joins the gate by
+# existing. The two that need an argument or a flag are named below.
+PYTHON_CHECKS := $(filter-out tools/check_design_system.py tools/check_diagrams.py,$(wildcard tools/check_*.py))
 NODE_CHECKS   := tools/check_ui.mjs
 
 # ---------------------------------------------------------------- toolchains ---
@@ -81,8 +83,19 @@ test: check-toolchains
 	  ( cd "$$dir" && cargo test --quiet ) || exit 1; \
 	done
 
-# Static checks that need no browser: decision records, links, and design-system
-# conformance for any front end that exists.
+# The contract gate: compose the three service documents, validate the result as
+# OpenAPI 3.1, and fail when the committed composed file is stale. It needs PyYAML
+# and — for the real validation rather than the structural fallback — the packages
+# in tools/requirements.txt.
+.PHONY: checks-contracts
+checks-contracts:
+	@echo "==> tools/compose_contracts.py --check"
+	@python3 tools/compose_contracts.py --check
+	@echo "==> tools/test_compose_contracts.py"
+	@python3 tools/test_compose_contracts.py
+
+# Static checks that need no browser: decision records, links, the event
+# catalogue, and design-system conformance for any front end that exists.
 .PHONY: checks-static
 checks-static:
 	@for check in $(PYTHON_CHECKS); do \
@@ -110,7 +123,7 @@ checks-diagrams:
 	@python3 tools/check_diagrams.py
 
 .PHONY: verify
-verify: check-toolchains fmt lint test checks-static checks-diagrams
+verify: check-toolchains fmt lint test checks-contracts checks-static checks-diagrams
 	@echo ""
 	@echo "verify: ok"
 
@@ -133,7 +146,8 @@ help:
 	@echo "  make fmt          gofmt and cargo fmt --check"
 	@echo "  make lint         go vet and cargo clippy -D warnings"
 	@echo "  make test         go test -race and cargo test, per module and crate"
-	@echo "  make checks-static   ADRs, links, design-system conformance"
+	@echo "  make checks-static   ADRs, links, event catalogue, design-system conformance"
+	@echo "  make checks-contracts  compose the contracts and validate OpenAPI 3.1"
 	@echo "  make checks-browser  UI sweep and mockup render freshness"
 	@echo "  make checks-diagrams diagram heuristics (Mermaid, Structurizr name checks)"
 	@echo "  make clean        remove build output"

@@ -1,0 +1,17 @@
+# Python tooling used by the checks in `tools/`.
+#
+# `make verify` runs without these installed and reports what it could not check.
+# CI installs them, so CI always runs the real validator rather than the
+# structural fallback — a check that is skipped in one place and enforced in
+# another is a check that will be trusted in the wrong one.
+#
+#   pip install -r tools/requirements.txt
+
+# PyYAML reads the contract documents. Present on the GitHub runner image, but
+# named here so a bare machine can install it deliberately.
+PyYAML==6.0.2
+
+# The OpenAPI 3.1 validator. `compose_contracts.py` falls back to its own
+# structural checks without it, because a contract that silently stopped
+# validating would be worse than one that admits it was not validated.
+openapi-spec-validator==0.7.2
