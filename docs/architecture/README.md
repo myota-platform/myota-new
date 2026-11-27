@@ -69,7 +69,7 @@ Six deployable units — four backend codebases plus two static front ends:
 | Unit | Kind | Purpose | Database |
 | --- | --- | --- | --- |
 | `gateway` | stateless proxy + contract host | Single entry point, routing, edge policy, OpenAPI playground | none |
-| `core` | domain service | Identity, sessions, callsigns, roles, programmes, content, notifications | `myota_core` |
+| `core` | domain service | Identity, sessions, callsigns, roles, programmes, content, **all email flows**, notifications | `myota_core` |
 | `geodata` | domain service | Spatial catalogue, imports, conflation, review, provenance | `myota_geo` |
 | `activity` | domain service | Activations, QSOs, ADIF import, awards, statistics | `myota_activity` |
 | `admin-web` | static front end | Operator interface | none |
@@ -217,6 +217,38 @@ The reverse is also true. Both audiences are issued by `core`, from the same
 in one browser without either leaking into the other.
 
 See [auth-model.md](auth-model.md).
+
+## Email: registration, activation, recovery, address change
+
+All four account-lifecycle flows live in `core` and share one primitive — a
+single-use, hashed, expiring token bound to one account and one purpose.
+
+| Flow | Token lifetime | Ends with |
+| --- | --- | --- |
+| Registration → activation | 24 h | account `pending` → `active` |
+| Password recovery | 30 min | new password, **all sessions revoked** |
+| Email change (two-sided) | 2 h | address changed, old address notified with a cancel link |
+
+Nothing is sent inline. The handler writes a `notification` row in the same
+transaction as the domain change, and `core-worker` delivers it with bounded
+retries. The token and the email therefore commit together: if the send fails, the
+token still exists and a resend works.
+
+Two properties are load-bearing and easy to lose:
+
+- **No enumeration.** Registration and recovery-request return an identical
+  status, body and timing whether or not the address exists — including writing a
+  token row on the miss path so the fast path is not detectably faster.
+- **No flow reuse.** A `verify_email` token presented to the reset endpoint is
+  rejected, not reinterpreted. Without that, every welcome email is an account
+  takeover.
+
+The legacy implementation had no email-change flow at all, so an address change
+meant abandoning the account. It now requires the current password, notifies the
+old address immediately with a one-click cancel, and does not take effect until
+the new address confirms.
+
+See [email-flows.md](email-flows.md).
 
 ## Geodata imports are kept, simplified
 

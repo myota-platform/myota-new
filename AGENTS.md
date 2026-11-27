@@ -254,7 +254,48 @@ See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
   ordering dependencies, no reliance on wall-clock sleeps.
 - CI gates on the full suite; a red test is never bypassed to ship.
 
-## 9. Horizontal scaling is a correctness property
+## 9. Email flows are security-critical, not plumbing
+
+Every account-lifecycle flow lives in `core`. There is one notification ledger,
+one delivery worker, one SMTP credential.
+
+| Flow | Token | Lifetime | Ends with |
+| --- | --- | --- | --- |
+| Registration → activation | `verify_email` | 24 h | `pending` → `active` |
+| Password recovery | `reset_password` | 30 min | new password, all sessions revoked |
+| Email change | `change_email` | 2 h | address changed, old address notified |
+
+Rules that must not be relaxed:
+
+- **One token table, one purpose per row.** `verification_token.purpose ∈
+  (verify_email, reset_password, change_email)`. A token presented to the wrong
+  endpoint is **rejected**, never reinterpreted. Without this, every welcome email
+  is an account takeover.
+- **Store the hash, never the token.** The raw value exists only in the email.
+  A database dump must not allow a password reset.
+- **Re-check `email` on use.** If the address changed after issue, the token no
+  longer applies — this is what stops an attacker who controls the old address.
+- **Single use, and issuing invalidates prior tokens** for the same
+  `(account_id, purpose)`. `WHERE used_at IS NULL` so a race cannot redeem twice.
+- **No enumeration.** Registration and recovery-request must return identical
+  status, body and **timing** whether or not the address exists. Do the token
+  write on the miss path too, or the fast path is detectable with a stopwatch.
+- **Email is never sent inline.** Write a `notification` row in the domain
+  transaction; `core-worker` delivers with bounded retries (8 attempts, then
+  `dead`). The token and the email commit together.
+- **`template` is an allowlisted id**, never caller-supplied text. Otherwise the
+  notification system is an open relay.
+- **Password reset revokes every session.** A reset means the password was lost or
+  compromised; leaving an attacker's session alive defeats it.
+- **Email change requires the current password, notifies the old address with a
+  one-click cancel, and does not take effect until the new address confirms.**
+- **Deliverability is an availability concern.** SPF, DKIM and DMARC on a dedicated
+  sending subdomain. If password resets land in spam, users cannot recover
+  accounts.
+
+See [docs/architecture/email-flows.md](docs/architecture/email-flows.md).
+
+## 10. Horizontal scaling is a correctness property
 
 **Any replica must serve any request at any moment, and killing any replica at
 any moment must be invisible.** This applies to every workload, including both
@@ -288,7 +329,7 @@ three times", or "one replica has the state", the change is incomplete.
 Full contract: [scaling.md](docs/architecture/scaling.md),
 [ADR-0005](docs/decisions/0005-horizontal-scaling.md).
 
-## 10. Diagrams are part of the change, not documentation debt
+## 11. Diagrams are part of the change, not documentation debt
 
 The system is described twice, deliberately:
 

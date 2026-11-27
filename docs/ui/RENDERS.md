@@ -1,6 +1,6 @@
 # UI mockups
 
-Static renders of the eight interface screens. These are images because GitHub
+Static renders of the ten interface screens. These are images because GitHub
 shows HTML as source rather than rendering it — the interactive versions are the
 `.html` files in this directory, and `renders/` holds the viewable form.
 
@@ -81,6 +81,24 @@ Elapsed timer, QSO logging form, band breakdown, recent contacts.
 Award cards with progress, issued certificates, next milestone.
 
 ![Awards](renders/participant-04-awards.png)
+
+### Check your email
+
+Shown immediately after registration. The address is repeated back, the token
+lifetime is stated, and the resend limit is honest — three per hour.
+
+![Check your email](renders/participant-05-check-email.png)
+
+<p align="center">
+  <img src="renders/participant-05-check-email-mobile.png" alt="Check your email on a phone" width="390">
+</p>
+
+### Set a new password
+
+Landed from a recovery link. States the 30-minute token lifetime, shows which
+requirements are met, and warns that saving signs the account out everywhere.
+
+![Set a new password](renders/participant-06-reset-password.png)
 
 ---
 

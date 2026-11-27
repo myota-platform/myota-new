@@ -15,6 +15,7 @@ read in this order.
 | [architecture/messaging.md](architecture/messaging.md) | Inter-service messaging without a broker: cursors, partitions, retention, failure modes. |
 | [architecture/scaling.md](architecture/scaling.md) | The horizontal-scaling contract: what breaks at N replicas and what prevents it. |
 | [architecture/auth-model.md](architecture/auth-model.md) | Separate admin and participant logins, and how the audience is enforced. |
+| [architecture/email-flows.md](architecture/email-flows.md) | Registration, activation, password recovery, email change — tokens and delivery. |
 | [architecture/secrets-and-config.md](architecture/secrets-and-config.md) | Configuration (Fleet) and secrets (SOPS + age) as two separate stores. Why Sealed Secrets is not used. |
 | [architecture/ci-secrets.md](architecture/ci-secrets.md) | GitHub Actions credentials: what CI needs, how to set it, and why that is almost nothing. |
 | [architecture/technology.md](architecture/technology.md) | Language and framework per service, with the trade-off stated. |
@@ -63,7 +64,7 @@ An ADR is required when a rule in [AGENTS.md](../AGENTS.md) needs to be broken.
 
 ## UI mockups
 
-**[docs/ui/RENDERS.md](ui/RENDERS.md) — the gallery.** Eight screens, rendered as
+**[docs/ui/RENDERS.md](ui/RENDERS.md) — the gallery.** Ten screens, rendered as
 PNG so they are visible in the repository. GitHub shows HTML as source, so the
 images are the viewable form and the `.html` files are the interactive originals.
 
@@ -73,6 +74,8 @@ images are the viewable form and the `.html` files are the interactive originals
 | [Geodata review](ui/renders/admin-02-geodata-review.png) | [Map explorer](ui/renders/participant-02-map.png) |
 | [Import run detail](ui/renders/admin-03-import-run.png) | [Live activation](ui/renders/participant-03-activation.png) |
 | [Programmes and awards](ui/renders/admin-04-programmes-awards.png) | [Awards](ui/renders/participant-04-awards.png) |
+| | [Check your email](ui/renders/participant-05-check-email.png) |
+| | [Set a new password](ui/renders/participant-06-reset-password.png) |
 
 Interactive versions: [`ui/index.html`](ui/index.html) — open locally in a browser.
 

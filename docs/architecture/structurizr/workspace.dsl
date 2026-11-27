@@ -110,7 +110,7 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
 
         geodata -> objectStorage "Streams import sources and writes attachments" "HTTPS, presigned"
         activity -> objectStorage "Stores award certificates" "HTTPS, presigned"
-        core -> smtp "Sends notifications" "SMTP over TLS"
+        core -> smtp "Sends verification, recovery, and address-change mail" "SMTP over TLS"
 
         // ------------------------------------------------------------------
         // Relationships — service to service
@@ -198,6 +198,20 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
             adminWeb -> gateway "POST /v1/imports/{id}/promote"
             gateway -> geodata "Promotes atomically, writes entities and outbox"
             geodata -> geoDb "Commits entities with provenance"
+        }
+
+        // Registration and activation, end to end.
+        dynamic myota "RegistrationFlow" "A participant registers and activates their account." {
+            participant -> participantWeb "Submits the registration form"
+            participantWeb -> gateway "POST /v1/auth/register"
+            gateway -> core "Creates a pending account and a verification token"
+            core -> coreDb "Commits account, token and notification in one transaction"
+            core -> smtp "Sends account-verify.v1 with a single-use link"
+            participant -> participantWeb "Clicks the link in the mail"
+            participantWeb -> gateway "GET /v1/auth/verify?t=..."
+            gateway -> core "Redeems the token: purpose and address checked, marked used"
+            core -> coreDb "account.status becomes active, session issued"
+            core -> smtp "Sends account-welcome.v1"
         }
 
         // The messaging path, to make the absence of a broker explicit.

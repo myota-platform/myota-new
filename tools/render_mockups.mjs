@@ -33,6 +33,9 @@ const SHOTS = [
   { file: 'participant-02-map.html',       out: 'renders/participant-02-map',       w: 1440, h: 1000, full: true },
   { file: 'participant-03-activation.html', out: 'renders/participant-03-activation', w: 1440, h: 1000, full: true },
   { file: 'participant-04-awards.html',    out: 'renders/participant-04-awards',    w: 1440, h: 1000, full: true },
+  { file: 'participant-05-check-email.html',   out: 'renders/participant-05-check-email',   w: 1440, h: 900, full: true },
+  { file: 'participant-06-reset-password.html', out: 'renders/participant-06-reset-password', w: 1440, h: 900, full: true },
+  { file: 'participant-05-check-email.html',   out: 'renders/participant-05-check-email-mobile',   w: 390, h: 844, full: true },
   { file: 'admin-02-geodata-review.html',  out: 'renders/admin-02-geodata-review-mobile', w: 390, h: 844, full: true },
   { file: 'participant-02-map.html',       out: 'renders/participant-02-map-mobile',      w: 390, h: 844, full: true },
 

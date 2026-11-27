@@ -73,7 +73,9 @@ erDiagram
     programme ||--o{ programme_policy_version : "publishes"
     programme ||--o{ programme_policy_draft : "drafts"
     account ||--o{ notification : "receives"
+    account ||--o{ verification_token : "proves via"
     notification ||--o{ notification_delivery_attempt : "attempts"
+    notification ||--o{ notification_bounce : "bounced by"
 ```
 
 Identity, authorization, programme configuration, and the notification ledger.
@@ -83,12 +85,11 @@ This is the only database the gateway may ask `core` about.
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `account` | `id`, `display_name`, `email citext`, `participation_type`, `status`, `insertion_order` | Root subject. `participation_type ∈ (OPERATOR, SWL)`. |
+| `account` | `id`, `display_name`, `email citext`, `participation_type`, `status`, `email_verified`, `insertion_order` | Root subject. `participation_type ∈ (OPERATOR, SWL)`. `status ∈ (pending, active, closed)` — a registered but unverified account is `pending` and cannot log in; it is swept after 7 days so a mistyped address does not permanently block the real owner. |
 | `account_credential` | `account_id` PK/FK, `password_hash`, `password_changed_at`, `failed_attempts`, `locked_until` | Password optional (credential-less accounts). Check: hash and timestamp are both null or both set. |
 | `account_mfa` | `account_id`, `method`, `secret_ref`, `confirmed_at`, `last_used_at` | PK `(account_id, method)`. `method ∈ (totp, webauthn)`. At least one confirmed row is required for an account holding an admin role. |
 | `account_recovery_code` | `id`, `account_id`, `code_hash`, `used_at` | Single-use MFA recovery codes. Separate table because there are several per account, unlike `account_mfa`. |
-| `account_recovery_token` | `token_hash` PK, `account_id`, `expires_at`, `used_at` | Single-use, hashed at rest. |
-| `email_verification_token` | `token_hash` PK, `account_id`, `expires_at`, `used_at` | |
+| `verification_token` | `token_hash` PK, `account_id` FK, `purpose`, `email citext`, `expires_at`, `used_at`, `issued_ip inet` | **One table for all four email flows.** `purpose ∈ (verify_email, reset_password, change_email)`. The raw token is never stored — only its SHA-256. `purpose` and `email` are both re-checked on use, so a token cannot be reinterpreted or used against a changed address. Issuing invalidates prior tokens for the same `(account_id, purpose)`. See [email-flows.md](email-flows.md). |
 | `auth_session` | `id`, `account_id`, `audience`, `refresh_token_hash`, `access_jti`, `expires_at`, `revoked_at`, `user_agent`, `remote_addr` | **`audience ∈ (participant, admin)`** — the column that keeps the two logins separate. |
 | `auth_revocation` | `jti` PK, `expires_at`, `revoked_at` | Denylist for access tokens. |
 | `login_rate_limit` | `key_hash` PK, `window_started_at`, `request_count` | Per-account lockout. Not the same thing as edge rate limiting (Traefik): this counter must be global and authoritative, so it lives in the database. |
@@ -102,7 +103,7 @@ This is the only database the gateway may ask `core` about.
 | `callsign_evidence` | `id`, `callsign_id`, `evidence_type`, `source`, `checksum`, `metadata jsonb`, `status` | |
 | `account_primary_callsign` | `account_id` PK, `callsign_id` UNIQUE | One primary per account; a callsign can be primary for at most one account. |
 | `role_definition` | `role_code` PK, `display_name`, `scopes text[]`, `is_system` | Catalogue of roles. |
-| `account_role` | `id`, `account_id`, `role_code`, `programme_id → ext:self`, `jurisdiction_code`, `entity_type_code`, `scopes jsonb`, `valid_to` | Scoped grant. Partial index on open roles. |
+| `account_role` | `id`, `account_id` FK, `role_code` FK, `programme_id` FK, `jurisdiction_code`, `entity_type_code`, `scopes jsonb`, `valid_to` | Scoped grant. Partial index on open roles. |
 | `approver_scope` | `id`, `programme_id`, `entity_type_code`, `account_id` | Who may approve geodata in a scope. |
 
 ### Programmes
@@ -120,8 +121,10 @@ This is the only database the gateway may ask `core` about.
 
 | Table | Key columns | Notes |
 | --- | --- | --- |
-| `notification` | `id`, `account_id → ext:self`, `template`, `payload jsonb`, `channel`, `status`, `attempts`, `sent_at` | `status ∈ (queued, sent, failed, dead)`. |
-| `notification_delivery_attempt` | `id`, `notification_id`, `attempt`, `outcome`, `provider_response` | |
+| `notification` | `id`, `account_id` FK, `template`, `channel`, `payload jsonb`, `status`, `attempts`, `provider_id`, `failure_reason`, `created_at`, `sent_at` | `status ∈ (queued, sending, delivered, failed, dead, suppressed)`. `template` is an **allowlisted id** (`account-verify.v1`), never caller-supplied body text — otherwise the notification system is an open relay. `provider_id` is the SMTP message id, used to correlate bounces. `channel ∈ (email, in_app)`. |
+| `notification_delivery_attempt` | `id`, `notification_id`, `attempt`, `outcome`, `provider_response`, `attempted_at` | `outcome ∈ (accepted, transient_failure, permanent_failure)`. Bounded at 8 attempts, then `status = dead`. |
+| `notification_bounce` | `id`, `notification_id`, `type`, `code`, `diagnostic`, `received_at` | From the provider webhook. `type ∈ (hard, soft, complaint)`. A hard bounce marks the address undeliverable and suppresses further mail without closing the account. |
+| `email_suppression` | `email citext` PK, `reason`, `created_at`, `released_at` | Addresses that must not receive mail: hard-bounced, complained, or manually suppressed. Keyed by address, **not** by notification — the worker checks it before sending, so there is no foreign key and the table survives an account being deleted. Exposed in the admin console so an operator can see how many accounts are unreachable. |
 
 The legacy system had `email_delivery`, `email_delivery_attempt`,
 `email_dead_letter`, `email_dead_letter_redrive`, plus `activity_notification`
