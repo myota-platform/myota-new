@@ -179,7 +179,9 @@ the default is stdout logs plus `/metrics`.
 | Kubernetes service mesh (Istio/Linkerd) | The gateway plus three services does not need mTLS mesh complexity on a single-node K3s cluster. |
 | Sealed Secrets | Explicitly excluded — see [secrets-and-config.md](secrets-and-config.md). |
 | NATS JetStream | Removed. The outbox is already a durable log; the broker was a second one in front of it. See [ADR-0004](../decisions/0004-drop-message-broker.md). |
-| Redis / Redis Streams | Would be the first choice if a broker became necessary, but adds a stateful server for a job Postgres already handles. |
+| Redis Pub/Sub | Insufficient, not merely rejected: no persistence, no replay, no acknowledgement, no consumer groups, and fan-out to every subscriber. A worker restart loses work. |
+| Redis Streams | Meets the durability contract and is a candidate *if* a trigger in ADR-0004 fires, but adds a stateful server to replicate a job Postgres already performs. |
+| Postgres `LISTEN`/`NOTIFY` | Fire-and-forget with an 8 000-byte payload, and incompatible with PgBouncer transaction pooling. Viable only as a wake-up hint, which no workflow here needs. |
 | Service mesh (Istio/Linkerd) | Three services on one node do not need mTLS mesh complexity. |
 
 ## Decision record

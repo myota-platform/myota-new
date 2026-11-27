@@ -100,9 +100,13 @@ RabbitMQ, no Kafka. The durable log is the outbox; consumers pull from it.
   3. `geodata` → `activity` for deletion impact before retiring an entity.
   A chain of more than one synchronous hop is forbidden.
 
-Adding a broker back requires an ADR. If event volume passes ~10⁶/day, or a
-consumer must survive a multi-day outage without a resync, that ADR is justified —
-Redis Streams first. See [ADR-0004](docs/decisions/0004-drop-message-broker.md)
+Adding a broker back requires an ADR, and so does adding any pub/sub library.
+"Simple pub/sub" is not a lighter version of this: fire-and-forget transport (Redis
+Pub/Sub, `LISTEN`/`NOTIFY`) loses every message published during a restart and
+cannot distribute work across replicas, because every subscriber receives every
+message. The trigger for that ADR is a specific guarantee Postgres stopped
+providing — see the trigger table in
+[ADR-0004](docs/decisions/0004-drop-message-broker.md#reconsideration-triggers)
 and [messaging.md](docs/architecture/messaging.md).
 
 ## 4. Job persistence external

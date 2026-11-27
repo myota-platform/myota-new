@@ -45,13 +45,31 @@ service already had on day one. The components are:
 So it is roughly the same amount of code, with no server, no PVC, no stream
 lifecycle, and one fewer distributed system to reason about. That is the trade.
 
-**Redis Streams would also be viable** and is the recommended fallback. It is
-genuinely simpler than JetStream: `XADD`, `XREADGROUP`, `XACK`, consumer groups
-created implicitly, no stream or durable lifecycle to manage. It loses to this
-design on exactly one axis — it adds a stateful server that the cluster does not
-otherwise run, for a job Postgres already performs correctly. If the puller ever
-becomes a maintenance burden, or event volume passes ~10⁶/day, Redis Streams is
-the next step, not JetStream.
+**No Redis, and no pub/sub library either.** The word "pub/sub" covers three
+different contracts, and only the third is usable here:
+
+| Tier | Delivery | Survives a restart | One worker per message | Usable |
+| --- | --- | --- | --- | --- |
+| In-process (channels, event emitters) | synchronous | n/a — same process | n/a | no: invisible across replicas |
+| Fire-and-forget (Redis Pub/Sub, `LISTEN`/`NOTIFY`) | at-most-once | no | no — all subscribers get everything | no |
+| Persistent log (Streams, JetStream, Kafka) | at-least-once | yes | yes | yes |
+
+The middle tier is the one people mean by "simple". It loses every message
+published while a worker restarts, and it cannot spread work across replicas
+because every subscriber receives every message. Both are disqualifying.
+
+The outbox **is** the third tier. It is a persistent, ordered, replayable log with
+acknowledged consumption, and it needs no server beyond Postgres. Redis Streams
+would only become relevant if a trigger in
+[ADR-0004](../decisions/0004-drop-message-broker.md#reconsideration-triggers)
+fires — throughput, independent retention, or a non-Postgres producer — and even
+then it is one candidate to evaluate rather than a predetermined answer.
+
+If a *hint* is ever wanted so a puller notices new events faster than its 2 s
+poll, Postgres `LISTEN`/`NOTIFY` is the cheapest option. It is deliberately not
+used: the latency it would save is below the tolerance of every workflow here, and
+it needs a session-level connection, which PgBouncer transaction pooling does not
+provide.
 
 ## The model
 
@@ -285,7 +303,7 @@ true:
 
 If that happens, the seam is already in the right place: the puller's `GET
 /internal/events` and the producer's outbox relay are the only two places that
-know how events travel. Swapping in Redis Streams or JetStream is a change to
+know how events travel. Swapping in a broker is a change to
 those two components, not to any domain code.
 
 ## Subjects and partitions

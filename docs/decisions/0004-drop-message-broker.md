@@ -32,6 +32,80 @@ broker was a second durable log in front of the first. An outbox row was not
 marked published until the broker accepted it, so a broker outage stalled
 publication even though the event was already durable in Postgres.
 
+## Do you need Redis Streams?
+
+**No. Nothing in this system uses Redis, and nothing needs to.** Redis Streams
+appears in this ADR only as a *fallback if the design ever fails* — it is not a
+component, not a dependency, and not on the deployment list.
+
+If the question behind the question is *"isn't ordinary pub/sub enough?"*, the
+answer is also no, for a reason that is structural rather than a matter of taste.
+The word covers three different things with three different guarantees:
+
+| Tier | Examples | Delivery | Survives a subscriber restart | Distributes work across replicas | Sufficient here |
+| --- | --- | --- | --- | --- | --- |
+| In-process | Go channels, Rust `broadcast`, Node `EventEmitter` | synchronous | n/a — same process | no | **No** |
+| Fire-and-forget | Redis Pub/Sub, Postgres `LISTEN`/`NOTIFY`, MQTT QoS 0 | at-most-once | **no** | **no** — every subscriber gets every message | **No** |
+| Persistent log | Redis Streams, JetStream, Kafka, **the outbox** | at-least-once | yes | yes | Yes — and this is what we already have |
+
+### Why the middle row fails here
+
+That row is what people usually mean by "simple pub/sub", and it breaks two
+requirements the system cannot give up.
+
+**1. Durability.** A worker that restarts loses every message published during the
+gap. Redis Pub/Sub holds nothing on disk and has no replay: a subscriber that is
+disconnected for 50 ms is simply absent, and the message is gone. Rule 4 says a
+restart must never lose an effect, so a transport that loses effects on restart is
+not a weaker option — it is a different contract.
+
+**2. Work distribution.** Pub/Sub delivers every message to *every* subscriber.
+That is fan-out, which is correct for cache invalidation and wrong for a job
+queue. Spreading work across N worker replicas needs partition assignment,
+ownership, lease expiry and rebalancing. Building those on top of a fan-out bus is
+most of a broker, written by hand, with no tests.
+
+There is also no acknowledgement. Nothing tells the producer the work happened, so
+there is no basis for retry — and retry is the entire reason `ops.job` exists.
+
+### The nearest miss: Postgres `LISTEN`/`NOTIFY`
+
+This is the most tempting option because it is already installed. It has one
+genuine advantage: notifications are delivered only after the transaction commits,
+so it is transactional in exactly the way a domain event needs.
+
+It still fails the same two tests — fire-and-forget, and all listeners receive
+every notification — plus two of its own:
+
+- the payload is limited to 8 000 bytes, so any real event has to be a pointer;
+- **it is incompatible with PgBouncer in transaction mode**, because `LISTEN`
+  needs a session-level connection that survives across statements. Every listener
+  replica would need a dedicated direct connection, reintroducing the connection
+  pressure that [ADR-0005](0005-horizontal-scaling.md) exists to remove.
+
+*This limitation is documented PgBouncer behaviour, not something measured here —
+the host has no PgBouncer installed and no throwaway database to test against.*
+
+`LISTEN`/`NOTIFY` could still serve one narrow purpose: as a wake-up hint so a
+puller notices new events in milliseconds instead of waiting for its next poll.
+Rejected as not worth it: the polling interval is 2 seconds, and every workflow in
+this system — imports measured in minutes, awards evaluated nightly, notifications
+in tens of seconds — has a tolerance far above that. A hint mechanism would add a
+session connection per replica to save latency nobody can perceive.
+
+### Why Redis Streams was named as the fallback at all
+
+Because if a trigger in the list below ever fires, Redis Streams is the smallest
+broker that actually meets the requirement — it has persistence, consumer groups,
+and acknowledgements, unlike its own Pub/Sub sibling. But *"the smallest sufficient
+broker"* is not the same claim as *"the one we would adopt"*, and naming a product
+in advance skips the analysis that should happen when the trigger fires.
+
+**Corrected position:** if a trigger fires, evaluate Redis Streams and Kafka against
+the specific constraint that fired — throughput, independent retention, or a
+non-Postgres producer. Do not adopt a broker because it is the one written down
+here.
+
 ## Decision
 
 Remove the broker. Use the outbox as the event log, read by consumers through an
@@ -62,10 +136,23 @@ duplicated by the outbox. On a single node it provides no availability benefit
 over local disk.
 
 **Redis Streams.** Genuinely simpler than JetStream — `XADD`/`XREADGROUP`/`XACK`,
-consumer groups created implicitly, no stream or durable lifecycle to manage. But
-it adds a stateful server the cluster does not otherwise need, and duplicates the
-one thing Postgres already does well here. Would be the first choice if a broker
-became necessary.
+consumer groups created implicitly, no stream or durable lifecycle to manage. It
+meets the durability requirement that Redis Pub/Sub does not. Rejected for now
+because it adds a stateful server the cluster does not otherwise need, to replicate
+a job Postgres already performs — but it is a legitimate candidate *if* a trigger
+below fires. See "Do you need Redis Streams?" above for why its Pub/Sub sibling is
+not an option at all.
+
+**Redis Pub/Sub.** Not merely rejected — insufficient. No persistence, no replay,
+no acknowledgement, no consumer groups, and every subscriber receives every
+message. A worker restart loses the messages published during the gap, which
+violates the job contract outright.
+
+**Postgres `LISTEN`/`NOTIFY`.** The most tempting option, since Postgres is already
+running and notifications are transactional. Rejected: fire-and-forget, fan-out to
+all listeners, an 8 000-byte payload ceiling, and incompatible with PgBouncer
+transaction pooling — each listener would need a dedicated session connection. A
+viable *wake-up hint*, not a viable transport.
 
 **Postgres-based bus in a dedicated `myota_bus` database.** Correct and
 well-understood, but adds a fourth database to operate, back up, and restore —
@@ -87,6 +174,9 @@ concepts than the workload justifies.
   pressure.
 - ~250 lines of broker glue and 5 recovery test suites deleted.
 - Relay sharding (ADR-0005) becomes possible, removing the single-relay ceiling.
+- **No new runtime dependency of any kind.** Removing the broker did not require a
+  replacement bus, an in-memory cache, or a second store. The pub/sub capability
+  the system needs is a table, a cursor and an endpoint.
 
 **Lost, and this is real**
 
@@ -104,12 +194,23 @@ concepts than the workload justifies.
 
 ## Reconsideration triggers
 
-Adopt a broker — Redis Streams first — if any of these hold:
+Reconsider a broker if any of these hold. If one fires, evaluate the options
+against the constraint that fired rather than defaulting to a name:
 
 - sustained event volume above 10⁶/day;
 - a consumer must survive a multi-day outage without a manual resync;
 - services multiply past ~8 and trim/ack bookkeeping becomes its own maintenance;
 - a non-Postgres producer must publish into the same stream.
+
+When a trigger fires, the comparison is not "which broker" but "which guarantee did
+Postgres stop providing":
+
+| If the trigger is | Then the requirement is | Candidates |
+| --- | --- | --- |
+| Throughput above ~10⁶ events/day | publish/consume rate | Redis Streams, Kafka, partitioning the outbox further |
+| Independent retention | keep events longer than the producer's database allows | Kafka, object-storage archive |
+| A non-Postgres producer | an ingest point outside the services | Redis Streams, Kafka |
+| Trim/ack bookkeeping becoming error-prone | fewer moving parts in the app | a managed bus, accepting a new dependency |
 
 The seam is already in the right place: `GET /internal/events`, the outbox relay,
 and the puller. Swapping transport changes those three components and no domain
