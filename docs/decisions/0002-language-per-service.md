@@ -1,6 +1,7 @@
 # ADR-0002 — Language and framework per service
 
-**Status:** accepted · 2026-11-27
+**Status:** proposed · 2026-11-27
+**Provenance:** the brief asked for *suggestions* of languages and frameworks, not a selection, so this records a recommendation and stays **proposed**. Nothing is implemented against it yet.
 **Supersedes:** the single-runtime assumption of the previous implementation
 
 ## Context
@@ -65,13 +66,13 @@ where an operator feels latency, waiting on a run.
 
 ## Consequences
 
-**If the default is taken (Go everywhere)**
+**Gained, if the default is taken (Go everywhere)**
 
 - One toolchain, one CI pipeline, one lint config, one deployment pattern.
 - Whole platform fits in existing cluster headroom.
 - Geodata is slower than Rust but comfortably adequate for batch imports.
 
-**If the polyglot option is taken**
+**Cost, if the polyglot option is taken**
 
 - Three toolchains, three CI pipelines, three dependency-audit paths, three
   on-call skill sets. This is real cost and it works against the consolidation
@@ -93,3 +94,17 @@ A service may only leave the default language for a **measured** reason that is
 recorded in an ADR: a latency budget it cannot meet, a memory ceiling it cannot
 stay under, or a correctness property it cannot express. Preference is not a
 reason.
+
+## Verification
+
+This ADR is **proposed**, so there is nothing to verify yet. What ratification
+requires:
+
+| Question | Answer needed before implement |
+| --- | --- |
+| Is polyglot wanted, or Go everywhere? | one sentence from the owner of the project |
+| If polyglot: is a JRE-free CI acceptable with three toolchains? | yes/no, and who carries the on-call cost |
+| If Go everywhere: does `sqlc` give enough compile-time safety on the credential path? | a spike, or an explicit acceptance of the difference |
+
+Until those are answered, rule 6 in `AGENTS.md` records this as the working
+assumption and implementation should not assume either answer is final.

@@ -1,6 +1,7 @@
 # ADR-0006 — Diagrams as code: Mermaid projections over a Structurizr model
 
 **Status:** accepted · 2026-11-27
+**Provenance:** directed — "use Mermaid blocks, prepare for Structurizr".
 **Supersedes:** the hand-written SVG generator in `tools/render_diagrams.py`
 
 ## Context
@@ -100,11 +101,15 @@ runtime in CI. That is the next step.
 
 **Cost**
 
-- Dual maintenance until CI has Java.
+- Dual maintenance until the Mermaid export is wired into CI and the blocks are
+  generated rather than hand-written. The tooling for it exists and works; what is
+  missing is the commit step.
 - Contributors must know two syntaxes, though only one of them (Mermaid) is needed
   to fix a diagram in a document.
-- The DSL is structurally validated but **not compiled** on this host — no Java
-  runtime. That gap is stated in the Structurizr README rather than hidden.
+- The DSL compiles on this host (`openjdk-17` plus `structurizr-cli` at
+  `/opt/structurizr`), so the earlier "structurally validated, not compiled" gap
+  is closed. It remains a per-host dependency: a machine without a JRE gets the
+  heuristic layer and `--full` fails loudly rather than passing silently.
 
 ## Verification
 

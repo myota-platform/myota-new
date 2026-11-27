@@ -65,6 +65,8 @@ most important rule in this repository.
 - Each service carries its own `/healthz`, `/readyz`, `/metrics`, migrations, and
   deployment manifest. One service deploys, scales, and rolls back alone.
 
+See [ADR-0001](docs/decisions/0001-service-boundaries-follow-databases.md).
+
 ## 3. Communication between services via pubsub
 
 Pub/sub semantics, **no message broker**. There is no NATS, no Redis, no
@@ -147,11 +149,44 @@ tools/           repo scripts: check_diagrams.py, contract composition
   imported by both the contract generator and the validators, so the contract
   cannot disagree with enforcement.
 
-## 6. The UI style is 04‑Organic
+## 6. Technology
+
+**One language per service, chosen for the shape of its work.** The full
+comparison is [ADR-0002](docs/decisions/0002-language-per-service.md), which is
+**proposed** — nothing is implemented against it yet, and a stack decision is the
+one thing that should be settled before any code exists.
+
+Recommended, and the current working assumption:
+
+| Service | Language | Framework | Why |
+| --- | --- | --- | --- |
+| `gateway` | Go 1.24 | Chi | I/O multiplexing; contracts in `embed.FS` |
+| `core` | Rust 2024 | Axum + SQLx | compile-time-checked SQL on the credential path |
+| `geodata` | Rust 2024 | Axum + SQLx + geozero | CPU-bound geometry, no GC |
+| `activity` | Go 1.24 | Echo + pgx | throughput, worker pools |
+| `admin-web` | TypeScript | Vue 3 + Vite | dense tables and forms |
+| `participant-web` | TypeScript | Svelte 5 + Vite | smallest runtime on a phone |
+
+**The default if a single stack must be chosen is Go everywhere** (Chi for the
+gateway, Echo for the domain services, `sqlc` for queries). That option exists
+because three toolchains is a real cost, and it is the recommendation if
+polyglot is not wanted.
+
+- **A service may leave the default language only for a measured reason** — a
+  latency budget it cannot meet, a memory ceiling it cannot stay under, or a
+  correctness property it cannot express. Preference is not a reason, and the
+  reason goes in an ADR.
+- **Front ends are static builds.** No server-side runtime in production, because
+  that would turn a static artifact into a stateful service with a database
+  connection for no product benefit.
+- **One build image per language, pinned by digest.** No `latest`, anywhere.
+
+## 7. The UI style is 04‑Organic
 
 **`docs/ui/styles/04-organic/` is the preferred and only UI direction.** It is
 not one option among four — the other three were samples that informed the choice
-and are now historical.
+and are now historical. See
+[ADR-0007](docs/decisions/0007-ui-direction-organic.md).
 
 ```
 docs/ui/styles/04-organic/
@@ -221,7 +256,7 @@ because clipping those is the point.
 Both tools need Playwright with a Chromium build. `PLAYWRIGHT_CHROMIUM` forces a
 specific binary; otherwise an already-downloaded build is discovered.
 
-## 7. Deployment on this local K3s cluster
+## 8. Deployment on this local K3s cluster
 
 - Target: the local K3s cluster, Fleet workspace **`myota`**, Kubernetes namespace
   **`myota`**.
@@ -291,7 +326,7 @@ See [ADR-0003](docs/decisions/0003-no-sealed-secrets.md),
 [docs/architecture/secrets-and-config.md](docs/architecture/secrets-and-config.md),
 and [docs/architecture/ci-secrets.md](docs/architecture/ci-secrets.md).
 
-## 8. Separate admin and participant surfaces
+## 9. Separate admin and participant surfaces
 
 Two front ends, two login surfaces, one identity store.
 
@@ -334,7 +369,7 @@ The console has **two** account-management areas, because they fail differently:
 
 See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
 
-## 9. Test-driven development
+## 10. Test-driven development
 
 - Write the failing test first, then the smallest implementation that makes it
   pass, then refactor. A commit that adds behaviour without a test is incomplete.
@@ -351,7 +386,7 @@ See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
   ordering dependencies, no reliance on wall-clock sleeps.
 - CI gates on the full suite; a red test is never bypassed to ship.
 
-## 10. Email flows are security-critical, not plumbing
+## 11. Email flows are security-critical, not plumbing
 
 Every account-lifecycle flow lives in `core`. There is one notification ledger,
 one delivery worker, one SMTP credential.
@@ -392,7 +427,7 @@ Rules that must not be relaxed:
 
 See [docs/architecture/email-flows.md](docs/architecture/email-flows.md).
 
-## 11. Horizontal scaling is a correctness property
+## 12. Horizontal scaling is a correctness property
 
 **Any replica must serve any request at any moment, and killing any replica at
 any moment must be invisible.** This applies to every workload, including both
@@ -426,7 +461,7 @@ three times", or "one replica has the state", the change is incomplete.
 Full contract: [scaling.md](docs/architecture/scaling.md),
 [ADR-0005](docs/decisions/0005-horizontal-scaling.md).
 
-## 12. Diagrams are part of the change, not documentation debt
+## 13. Diagrams are part of the change, not documentation debt
 
 The system is described twice, deliberately:
 
@@ -483,7 +518,7 @@ is **incomplete**, regardless of whether the code works.
   node tools/render_mockups.mjs --check  # fails if a render is stale
   ```
 
-  Screens live in `docs/ui/styles/04-organic/` — see rule 6. Adding a screen means
+  Screens live in `docs/ui/styles/04-organic/` — see rule 7. Adding a screen means
   adding it to `SHOTS` in the render script, or its image will not exist and
   `--check` will not notice.
 
@@ -535,7 +570,8 @@ that survives contact with a busy week.
 The permanent fix is to generate the Mermaid from the DSL, which needs a Java
 runtime in CI. Until then the rule is the mechanism.
 
-See [docs/architecture/structurizr/README.md](docs/architecture/structurizr/README.md).
+See [ADR-0006](docs/decisions/0006-diagrams-as-code.md) and
+[docs/architecture/structurizr/README.md](docs/architecture/structurizr/README.md).
 
 ---
 
@@ -587,7 +623,7 @@ that would justify bringing a broker back.
 leader per database" — a throughput ceiling and a publication gap on restart. The
 gateway rate-limited in memory, so N replicas meant N× the limit. Uploads were
 proxied through the API, making its memory proportional to file size. All three
-are fixed by rule 11, and the connection wall (600 connections needed at 20
+are fixed by rule 12, and the connection wall (600 connections needed at 20
 replicas, 100 available) is closed by PgBouncer.
 
 **The contract was declared but never served.** One `openapi.yaml` existed and

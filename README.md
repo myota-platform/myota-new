@@ -82,7 +82,7 @@ The non-negotiable engineering rules are in [`AGENTS.md`](AGENTS.md):
 - [docs/architecture/scaling.md](docs/architecture/scaling.md) — the horizontal-scaling contract
 - [docs/ui/RENDERS.md](docs/ui/RENDERS.md) — ten UI screens, rendered and viewable
 - [docs/ui/styles/STYLES.md](docs/ui/styles/STYLES.md) — the same two screens in four design directions
-- [docs/decisions/](docs/decisions/) — ADRs
+- [docs/decisions/](docs/decisions/README.md) — seven ADRs and the process that governs them
 - [docs/architecture/structurizr/](docs/architecture/structurizr/README.md) — the C4 model
 
 Diagrams are Mermaid blocks inside the documents; the C4 model behind them is the

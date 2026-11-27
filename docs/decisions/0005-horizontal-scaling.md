@@ -1,6 +1,7 @@
 # ADR-0005 — Every workload is horizontally scalable
 
 **Status:** accepted · 2026-11-27
+**Provenance:** directed — "all services, including the front-ends, must be able to scale horizontally".
 
 ## Context
 

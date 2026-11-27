@@ -59,8 +59,15 @@ python3 tools/check_diagrams.py --full     # CI with Java: DSL must compile too
 | [0004](decisions/0004-drop-message-broker.md) | Remove the message broker; the outbox is the event log. |
 | [0005](decisions/0005-horizontal-scaling.md) | Every workload is horizontally scalable. |
 | [0006](decisions/0006-diagrams-as-code.md) | Diagrams as code: Mermaid projections over a Structurizr model. |
+| [0007](decisions/0007-ui-direction-organic.md) | The UI direction is 04-Organic. |
 
-An ADR is required when a rule in [AGENTS.md](../AGENTS.md) needs to be broken.
+An ADR is required when a rule in [`AGENTS.md`](../AGENTS.md) needs to be broken.
+
+[**decisions/README.md**](decisions/README.md) documents the process: what needs
+an ADR, the status vocabulary (`proposed` / `accepted` / `superseded` /
+`rejected`), and the required structure. Run `python3 tools/check_adrs.py` to
+verify every record is numbered, complete, sourced, and reflected in
+`AGENTS.md`.
 
 ## UI mockups
 

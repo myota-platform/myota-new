@@ -1,6 +1,7 @@
 # ADR-0004 — Remove the message broker; use the outbox as the event log
 
 **Status:** accepted · 2026-11-27
+**Provenance:** directed — "see if NATS/JetStream is really needed, adopt a simpler pub/sub solution if viable".
 **Supersedes:** the NATS JetStream decision inherited from the previous implementation
 
 ## Context
@@ -178,7 +179,7 @@ concepts than the workload justifies.
   replacement bus, an in-memory cache, or a second store. The pub/sub capability
   the system needs is a table, a cursor and an endpoint.
 
-**Lost, and this is real**
+**Cost** — stated plainly, not buried
 
 - **Producer availability couples to consumer progress.** If `core` is down, a
   consumer cannot fetch `core.*` events, though it still processes jobs it holds.

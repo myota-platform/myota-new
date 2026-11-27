@@ -1,6 +1,7 @@
 # ADR-0003 — No Sealed Secrets; SOPS with age instead
 
 **Status:** accepted · 2026-11-27
+**Provenance:** directed — "avoid sealed secrets in the k3s cluster".
 
 ## Context
 

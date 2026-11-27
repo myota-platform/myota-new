@@ -1,6 +1,7 @@
 # ADR-0001 — Service boundaries follow the databases
 
 **Status:** accepted · 2026-11-27
+**Provenance:** proposed during this design; no explicit approval recorded. Treat as the working assumption until ratified.
 
 ## Context
 
@@ -71,7 +72,9 @@ benefit.
 
 - Ownership is a fact of the deployment, not a rule in a document.
 - One implementation of outbox/idempotency/dead-letter, used by three services.
-- Twelve deployable processes become six.
+- Twelve applications become four backend codebases. Pod count is roughly
+  unchanged, because a domain service runs as api / worker / relay — what
+  disappears is twelve CI pipelines and the duplicated plumbing in each.
 - A role check is transactional.
 
 **Cost**
