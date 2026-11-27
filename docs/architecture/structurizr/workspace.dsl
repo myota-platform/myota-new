@@ -142,6 +142,8 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
 
                     infrastructureNode traefik "TLS termination, rate limiting, circuit breaking, retries. Single ingress; counters are global." "Traefik"
                     infrastructureNode pgbouncer "Transaction-mode pooler, one instance per database. Replicas hold pools of 20; the pooler presents 25 server connections regardless of replica count." "PgBouncer"
+                    infrastructureNode fleetConfig "Non-secret configuration, reconciled from Git by Fleet. A change is a pull request; a rollback is a revert." "Kubernetes ConfigMap"
+                    infrastructureNode sopsSecrets "SOPS-encrypted secrets under deploy/myota/secrets. Applied by an operator step, never reconciled, because an automated sync that can decrypt is an automated sync that can leak." "SOPS + age"
 
                     containerInstance gateway
                     containerInstance core

@@ -15,7 +15,8 @@ read in this order.
 | [architecture/messaging.md](architecture/messaging.md) | Inter-service messaging without a broker: cursors, partitions, retention, failure modes. |
 | [architecture/scaling.md](architecture/scaling.md) | The horizontal-scaling contract: what breaks at N replicas and what prevents it. |
 | [architecture/auth-model.md](architecture/auth-model.md) | Separate admin and participant logins, and how the audience is enforced. |
-| [architecture/secrets-and-config.md](architecture/secrets-and-config.md) | SOPS + age. Why Sealed Secrets is not used. |
+| [architecture/secrets-and-config.md](architecture/secrets-and-config.md) | Configuration (Fleet) and secrets (SOPS + age) as two separate stores. Why Sealed Secrets is not used. |
+| [architecture/ci-secrets.md](architecture/ci-secrets.md) | GitHub Actions credentials: what CI needs, how to set it, and why that is almost nothing. |
 | [architecture/technology.md](architecture/technology.md) | Language and framework per service, with the trade-off stated. |
 | [architecture/structurizr/](architecture/structurizr/README.md) | The authoritative C4 model, and how to render it. |
 

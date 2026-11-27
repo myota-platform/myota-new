@@ -161,25 +161,61 @@ tools/           repo scripts: check_diagrams.py, contract composition
   `-api`, `-worker`, and `-relay` from one image, plus the gateway and the two
   front ends. Replica ranges are in `docs/architecture/README.md`.
 
-### Secrets — Sealed Secrets is prohibited
+### Configuration and secrets are separate stores
 
-**Do not use Sealed Secrets.** No Myota secret may be a `SealedSecret`, and no
-workload may depend on the sealed-secrets controller.
+**Keep them apart. They have different lifecycles, different reviewers, and
+different blast radii, and mixing them destroys both.**
 
-- Secrets are SOPS-encrypted files under `deploy/myota/secrets/*.sops.yaml`,
-  decrypted by an operator workflow (`sops --decrypt … | kubectl apply -f -`).
-- Encrypted files stay **outside** Fleet's reconciled paths. An automated sync
-  that can decrypt secrets is an automated sync that can leak them.
-- Non-secret configuration is a ConfigMap, reconciled by Fleet and reviewable in
-  the pull request that changes it.
-- One secret per service. A service mounts only its own. No duplicated
-  `registry-credentials` per namespace — there is one namespace, and images are
-  public.
-- Never commit plaintext credentials, private keys, age private keys, or bearer
-  tokens. Enforced by `gitleaks` in pre-commit and CI, not by discipline.
+| | Configuration | Secrets |
+| --- | --- | --- |
+| Files | `deploy/myota/config/*.yaml` — **plaintext** | `deploy/myota/secrets/*.sops.yaml` — encrypted |
+| Applied by | **Fleet, automatically** | an operator or pipeline step, deliberately |
+| Change is | a reviewable pull request | resealed ciphertext |
+| Contains | behaviour: log level, TTLs, endpoints, switches, replica counts | credentials only |
 
-See [ADR-0003](docs/decisions/0003-no-sealed-secrets.md) and
-[docs/architecture/secrets-and-config.md](docs/architecture/secrets-and-config.md).
+- **Configuration goes through Fleet.** That is the intended path and the right
+  default: a change is a diff, a rollback is a revert, and nothing is applied by
+  hand.
+- **Secrets never go through Fleet.** Encrypted files stay outside the reconciled
+  paths. An automated sync that can decrypt is an automated sync that can leak.
+- **A DSN goes in the secret store** because it embeds a password. Host, port and
+  database name are configuration. If splitting one value across two stores feels
+  awkward, use discrete variables instead of one URL — better practice anyway.
+- **No key may exist in both** a service's ConfigMap and its Secret. `envFrom`
+  resolves the later entry first, so an overlap is a silent precedence bug. CI
+  parses both and fails on intersection.
+- **A service mounts its own secrets only.** No shared database credentials, no
+  duplicated `registry-credentials` per namespace — there is one namespace, and
+  images are public.
+- **The endpoint is configuration; the credential is a secret.** A value belongs in
+  the secret store only when it grants access to something.
+
+### CI credentials are a third store
+
+**GitHub Actions holds credentials for the pipeline, never for the cluster.**
+
+- CI must need **zero stored secrets** to build, test and publish: `GITHUB_TOKEN`
+  with `packages: write` covers GHCR, and a deploy is a git commit that Fleet
+  reconciles. A workflow that needs a cluster credential means the deploy design
+  is wrong.
+- When a stored secret is genuinely needed (a real SMTP account for integration
+  tests, a module proxy token), put it in a **GitHub environment**, not at
+  repository level, and set it with `gh secret set` reading from stdin.
+- Never `echo` a secret, pass one as an argument, or write one to the workspace.
+- Never use `pull_request_target` with a checkout of the PR head — that gives
+  untrusted code the secrets. Fork PRs get none, and that default stays.
+- Pin third-party actions to a commit SHA: a mutable tag is a supply-chain path
+  into whatever the job can read.
+
+### Never in the repository
+
+Plaintext credentials, private keys, age private keys, bearer tokens, a credential
+in a ConfigMap, a secret in a workflow file. Enforced by `gitleaks` in pre-commit
+and CI, not by discipline.
+
+See [ADR-0003](docs/decisions/0003-no-sealed-secrets.md),
+[docs/architecture/secrets-and-config.md](docs/architecture/secrets-and-config.md),
+and [docs/architecture/ci-secrets.md](docs/architecture/ci-secrets.md).
 
 ## 7. Separate admin and participant surfaces
 
