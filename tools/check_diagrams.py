@@ -9,10 +9,21 @@ Two diagram sources are maintained:
 This script does as much as the local toolchain allows and says plainly what it
 could not check. It never reports success for a check it did not perform.
 
-    python3 tools/check_diagrams.py            # everything available
+    python3 tools/check_diagrams.py            # report gaps, fail only on defects
+    python3 tools/check_diagrams.py --strict   # CI gate: Mermaid must be rendered
+    python3 tools/check_diagrams.py --full     # also require the DSL to be compiled
     MMDC=/path/to/mmdc python3 tools/check_diagrams.py
 
 Exit status is non-zero if any check fails.
+
+--strict fails when the Mermaid blocks could not be *rendered* (mmdc absent). Use
+it in CI: "could not verify" must not look like "passed".
+
+--full additionally fails when the Structurizr DSL could not be *compiled*, which
+needs a Java runtime. It is separate from --strict because the Java gap is a known
+property of this environment rather than of the artifacts, and a gate that is
+permanently red is a gate everyone learns to ignore. The gap is still printed on
+every run, and it is recorded in docs/architecture/structurizr/README.md.
 
 Mermaid rendering needs @mermaid-js/mermaid-cli (`mmdc`). If it is missing, the
 blocks are still extracted and syntax-checked, and the script reports that
@@ -45,7 +56,7 @@ DIAGRAM_KEYWORDS = {
 }
 
 failures: list[str] = []
-notes: list[str] = []
+notes: list[tuple[str, bool]] = []  # (message, blocks --full only)
 
 
 def fail(msg: str) -> None:
@@ -96,10 +107,10 @@ def check_mermaid() -> bool:
 
     mmdc = os.environ.get("MMDC") or shutil.which("mmdc")
     if not mmdc:
-        notes.append(
+        notes.append((
             "Mermaid blocks were syntax-checked but NOT rendered: mmdc not found. "
-            "Install @mermaid-js/mermaid-cli to render."
-        )
+            "Install @mermaid-js/mermaid-cli to render.", False,
+        ))
         print("  note  mmdc not found — syntax checked only, not rendered")
         return False
 
@@ -196,27 +207,30 @@ def check_structurizr() -> None:
 
     for kind in ("systemContext", "container", "deployment"):
         if not re.search(rf"^\s*{kind}\s+\w+\s+\"", views_part, re.M):
-            notes.append(f"workspace.dsl: no {kind} view defined")
+            notes.append((f"workspace.dsl: no {kind} view defined", True))
 
     if shutil.which("java") is None:
-        notes.append(
+        notes.append((
             "workspace.dsl was structurally checked but NOT compiled: no Java "
-            "runtime. Run `structurizr-cli` or paste into structurizr.com/dsl."
-        )
+            "runtime. Run `structurizr-cli` or paste into structurizr.com/dsl.", True,
+        ))
         print("  note  no Java — structural check only, DSL not compiled")
 
 
 # ---------------------------------------------------------------------------
 
 def main() -> int:
+    strict = "--strict" in sys.argv[1:] or "--full" in sys.argv[1:]
+    full = "--full" in sys.argv[1:]
     rendered = check_mermaid()
     check_structurizr()
 
     print()
     if notes:
         print("Not verified:")
-        for n in notes:
-            print(f"  - {n}")
+        for msg, full_only in notes:
+            tag = "  (blocks --full only)" if full_only else ""
+            print(f"  - {msg}{tag}")
         print()
 
     if failures:
@@ -225,7 +239,15 @@ def main() -> int:
             print(f"  - {f}")
         return 1
 
-    scope = "rendered" if rendered else "syntax-checked"
+    blocking = [m for m, full_only in notes if full or not full_only]
+    if strict and blocking:
+        flag = "--full" if full else "--strict"
+        print(f"FAILED ({flag}): {len(blocking)} check(s) could not be performed")
+        for m in blocking:
+            print(f"  - {m}")
+        return 1
+
+    scope = "rendered" if rendered else "syntax-checked only"
     print(f"OK: all Mermaid diagrams {scope}; Structurizr model structurally valid")
     return 0
 

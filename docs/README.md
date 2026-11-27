@@ -42,7 +42,9 @@ It is the authoritative description; the Mermaid blocks are a projection of it.
 Check everything with:
 
 ```sh
-python3 tools/check_diagrams.py
+python3 tools/check_diagrams.py            # local
+python3 tools/check_diagrams.py --strict   # CI: Mermaid must render
+python3 tools/check_diagrams.py --full     # CI with Java: DSL must compile too
 ```
 
 ## Decisions

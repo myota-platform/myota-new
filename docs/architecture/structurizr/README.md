@@ -68,7 +68,9 @@ That is duplication, and duplication drifts. Two things keep it honest:
    commit. A commit that updates one and not the other is incomplete.
 2. **`python3 tools/check_diagrams.py`** — renders every Mermaid block and
    structurally validates the DSL. It cannot prove the two agree; it proves each
-   is individually well-formed.
+   is individually well-formed. `--full` additionally requires the DSL to be
+   compiled, so it fails on a host without Java — run it in CI once Java is
+   available.
 
 The permanent fix is to generate the Mermaid from the DSL. That requires a Java
 runtime in CI, and it is the next step, not a current capability.

@@ -298,12 +298,16 @@ is **incomplete**, regardless of whether the code works.
 - **Run the check before committing:**
 
   ```sh
-  python3 tools/check_diagrams.py
+  python3 tools/check_diagrams.py            # local: report gaps, fail on defects
+  python3 tools/check_diagrams.py --strict   # CI gate: Mermaid must be rendered
+  python3 tools/check_diagrams.py --full     # also require the DSL to be compiled
   ```
 
   It renders every Mermaid block, validates the DSL structurally, and states
-  plainly what it could not verify (the DSL is not compiled without a Java
-  runtime).
+  plainly what it could not verify. `--strict` fails if Mermaid could not be
+  rendered; `--full` additionally fails if the DSL could not be compiled, which
+  needs a Java runtime. Use `--strict` as the CI gate, and `--full` wherever Java
+  is available.
 
 ### Why this is a rule and not a preference
 
