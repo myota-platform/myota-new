@@ -64,27 +64,43 @@ most important rule in this repository.
 
 ## 3. Communication between services via pubsub
 
-- Asynchronous integration goes through NATS JetStream. The broker is the
-  integration fabric, not an implementation detail of one service.
+Pub/sub semantics, **no message broker**. There is no NATS, no Redis, no
+RabbitMQ, no Kafka. The durable log is the outbox; consumers pull from it.
+
+- **Publish after commit only.** The event is written to the owning database's
+  `ops.outbox_event` in the same transaction as the domain change. A relay
+  publishes it afterwards. Nothing is acked before the domain transaction commits.
+- **Consumers pull.** A service exposes `GET /internal/events?after=<seq>`; a
+  consuming service pulls with a durable cursor in its own
+  `ops.consumer_checkpoint` and converts events into `ops.job` rows. The producer
+  never pushes.
+- **The job id is the event id**, and the insert is `ON CONFLICT DO NOTHING`.
+  That single rule is the entire de-duplication story: at-least-once delivery
+  with idempotent application.
+- **Ordering is per subject.** `partition = hash(subject) % PARTITIONS`; each
+  partition is consumed in `seq` order. Cross-aggregate ordering is not promised
+  and nothing depends on it.
+- **Retention has two rails**: a 14-day ceiling and an ack floor reported by live
+  consumers. The producer never trims past a consumer that still needs events.
+  Lag is a metric (`event_lag_seconds`), not a queue depth.
+- Event payloads are versioned schemas under `contracts/events/` (CloudEvents 1.0
+  subset: `id`, `type`, `source`, `subject`, `time`, `datacontenttype`, `data`).
+  Schema changes get the same review as API changes.
 - **Synchronous HTTP between services is not used to compose a user response.**
   The gateway fans out only when one screen genuinely needs two domains, and it
   calls at most two services.
-- Event payloads are versioned schemas under `contracts/events/`
-  (CloudEvents 1.0 subset: `id`, `type`, `source`, `subject`, `time`,
-  `datacontenttype`, `data`). Schema changes get the same review as API changes.
-- Publishers write to a durable stream; consumers use durable pull consumers with
-  explicit ack, a max-delivery bound, and a dead-letter path.
-- **At-least-once delivery is assumed.** Every consumer is idempotent by
-  `(consumer, event_id)`.
-- Publish-after-commit only: the event is written to the owning database's outbox
-  in the same transaction as the domain change. The relay publishes after commit.
-  Nothing is acked before the domain transaction commits.
+
+Adding a broker back requires an ADR. If event volume passes ~10⁶/day, or a
+consumer must survive a multi-day outage without a resync, that ADR is justified —
+Redis Streams first. See [ADR-0004](docs/decisions/0004-drop-message-broker.md)
+and [messaging.md](docs/architecture/messaging.md).
 
 ## 4. Job persistence external
 
 - No job state lives only in process memory.
-- Work that must survive a restart is persisted before it is acked: a `ops.job`
-  row in the owning database, then a JetStream message, then a worker claim.
+- Work that must survive a restart is persisted before it is acked: an
+  `ops.job` row in the owning database, then a worker claim. There is no queue
+  server; `FOR UPDATE SKIP LOCKED` is the claim.
 - One job table with a `kind` discriminator: `import.preprocess`, `import.fetch`,
   `entity.enrich`, `entity.delete`, `notification.send`, `award.evaluate`,
   `account.retention`. Do not add a per-feature queue table.
@@ -129,8 +145,7 @@ tools/           repo scripts and code generation
 - Six deployable units — `gateway`, `core`, `geodata`, `activity`, `admin-web`,
   `participant-web` — running as twelve workloads: each domain service is
   `-api`, `-worker`, and `-relay` from one image, plus the gateway and the two
-  front ends. Scaling is in `docs/architecture/README.md`. The relay runs as
-  exactly one leader per database, elected by a Postgres advisory lock.
+  front ends. Replica ranges are in `docs/architecture/README.md`.
 
 ### Secrets — Sealed Secrets is prohibited
 
@@ -186,6 +201,40 @@ See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
   ordering dependencies, no reliance on wall-clock sleeps.
 - CI gates on the full suite; a red test is never bypassed to ship.
 
+## 9. Horizontal scaling is a correctness property
+
+**Any replica must serve any request at any moment, and killing any replica at
+any moment must be invisible.** This applies to every workload, including both
+front ends. A change that introduces local state, session affinity, or a
+per-replica timer is a bug, not a trade-off.
+
+The rules that make it true:
+
+| Concern | Rule |
+| --- | --- |
+| Session state | In Postgres. Never in process memory, never in a cookie the server cannot verify. |
+| Affinity | None anywhere. Do not configure `sessionAffinity` on a Service. |
+| Migrations | A pre-deploy `Job` under an advisory lock. A replica never migrates; it verifies the schema version and refuses to start if behind. |
+| Scheduled work | `ops.job` with `UNIQUE (kind, scheduled_for)`. Never a timer in a container. |
+| Outbox relay | Partition-leased: claim a partition with `FOR UPDATE SKIP LOCKED`, publish that partition in `seq` order. Up to `PARTITIONS` relay replicas. Never "one leader". |
+| Event puller | Same partition lease. Duplicates are harmless because the job id is the event id. |
+| Rate limiting | Traefik middleware at the single ingress. **Never in the gateway** — in-process counters multiply the limit by the replica count. |
+| Uploads | Presigned S3 URLs. File bytes must never traverse an API replica. |
+| Caches | Local, TTL-bounded, never authoritative. No cross-replica invalidation protocol. |
+| Real-time | Polling with a cursor or `ETag`. No WebSocket, no SSE, no connection pinned to a replica. |
+| DB connections | PgBouncer in transaction mode per database. Application pools are bounded per replica, not per replica count. |
+
+Front ends are static trees: content-hashed asset filenames, `immutable` cache
+headers on `/assets/*`, `no-cache` on `index.html`, no server-side rendering, no
+database client. They scale on network throughput alone.
+
+Before you declare a change done, answer: *what happens if I run three of these?*
+If the answer is "the limit triples", "we migrate three times", "the job runs
+three times", or "one replica has the state", the change is incomplete.
+
+Full contract: [scaling.md](docs/architecture/scaling.md),
+[ADR-0005](docs/decisions/0005-horizontal-scaling.md).
+
 ---
 
 ## Findings from rebuilding this design
@@ -220,6 +269,21 @@ Those belong to `activity`. A fresh baseline prevents this.
 **Two import states had no writer.** `UPLOAD_PENDING` and
 `COMPLETED_WITH_ERRORS` were declared in the type and could only be reached by a
 direct database update. Errors are a count plus error rows, not a state.
+
+**A message broker duplicated the outbox.** NATS JetStream sat in front of a
+durable log the system already had. It cost a stateful server, a PVC, ~250 lines
+of client glue, and five restart-recovery test suites — for guarantees the outbox
+plus an idempotent job insert already provided. Removed. The one thing it uniquely
+gave (decoupling producer availability from consumer progress) is stated openly in
+[ADR-0004](docs/decisions/0004-drop-message-broker.md), along with the triggers
+that would justify bringing a broker back.
+
+**Three things could not scale past one replica.** The relay was "exactly one
+leader per database" — a throughput ceiling and a publication gap on restart. The
+gateway rate-limited in memory, so N replicas meant N× the limit. Uploads were
+proxied through the API, making its memory proportional to file size. All three
+are fixed by rule 9, and the connection wall (600 connections needed at 20
+replicas, 100 available) is closed by PgBouncer.
 
 **The contract was declared but never served.** Four `openapi.yaml` files existed
 and nothing exposed them — there was no Swagger UI anywhere in the deployment.

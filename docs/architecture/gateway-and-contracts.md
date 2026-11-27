@@ -78,12 +78,18 @@ The gateway does exactly these, and nothing else:
 | Trace propagation | create root span, forward `traceparent` |
 | Body limit | 2 MiB for JSON routes; uploads go direct to the import endpoints with their own limit |
 | CORS | explicit allowlist, credentials allowed only for the two web origins |
-| Rate limit | per-IP on auth routes, per-session elsewhere |
+| Request counting | **Not here.** Traefik owns rate limiting — a counter in a replica multiplies the limit by the replica count. |
 | Problem responses | normalise upstream 5xx into `problem+json` |
 | Health aggregation | `/readyz` reports upstream reachability |
 
 It does **not**: aggregate responses from several services, hold business rules,
-cache domain data, or terminate TLS (Traefik does that).
+cache domain data, count requests (Traefik does that), or terminate TLS (Traefik
+does that too).
+
+CORS is the exception worth explaining: it stays in the gateway because it is
+stateless configuration, not a counter. Two replicas answering CORS identically is
+correct; two replicas each counting to 100 is not. Anything that accumulates state
+across requests — rate limits, circuit breakers, retry budgets — lives in Traefik.
 
 ## The playground
 

@@ -82,7 +82,9 @@ where an operator feels latency, waiting on a run.
 
 - Database migrations are declarative and diff-based (Atlas) or plain SQL
   (dbmate); the language does not change that.
-- The event contract is JSON over NATS regardless of producer language.
+- The event contract is JSON read over an internal HTTP feed, regardless of
+  producer language. Every language above already ships an HTTP client and a
+  Postgres driver, so no broker-specific client library is needed.
 - Observability is OpenTelemetry, so traces cross language boundaries.
 
 ## Decision rule going forward

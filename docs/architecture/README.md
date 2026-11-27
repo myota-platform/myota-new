@@ -11,6 +11,8 @@ clutter that accumulated around it. The reasoning for each removal is in
 
 ![System context](system-context.svg)
 
+Scaling model: [scaling.svg](scaling.svg) — see [scaling.md](scaling.md).
+
 ## Shape of the system
 
 Six deployable units — four backend codebases plus two static front ends:
@@ -67,10 +69,19 @@ and consistency come from the event log, not from the database engine.
 
 ## Integration
 
-Services integrate asynchronously through **NATS JetStream**. Synchronous HTTP
-between services is not used to compose a user response; the gateway fans out
-only when a single screen genuinely needs two domains, and it calls at most two
-services.
+Services integrate asynchronously through **a durable event log in Postgres**, not
+a message broker. Every service writes its committed events to its own outbox in
+the same transaction as the domain change; consumers read them through an internal
+HTTP feed with durable per-partition cursors. Work that needs competing consumers
+uses a job table with `FOR UPDATE SKIP LOCKED` rather than a queue server.
+
+Synchronous HTTP between services is not used to compose a user response; the
+gateway fans out only when a single screen genuinely needs two domains, and it
+calls at most two services.
+
+There is no NATS, no Redis, no RabbitMQ. The reasoning — including what it costs —
+is in [ADR-0004](../decisions/0004-drop-message-broker.md) and
+[messaging.md](messaging.md).
 
 ### Event contract
 
@@ -93,10 +104,16 @@ registry:
 
 ### Delivery rules
 
-Every consumer assumes **at-least-once** delivery and is idempotent by
-`(consumer, event_id)`. Every producer writes the event to its own outbox in the
-same transaction as the domain change, and a single relay per database publishes
-after commit. Nothing is acked before the domain transaction commits.
+Every consumer assumes **at-least-once** delivery. The job id *is* the event id and
+the insert is `ON CONFLICT DO NOTHING`, so a duplicate is a no-op rather than a
+deduplication problem.
+
+Ordering is per subject: `partition = hash(subject) % PARTITIONS`, and each
+partition is consumed in `seq` order. Cross-aggregate ordering is not promised.
+
+Retention is bounded by two rails — a 14-day ceiling and an ack floor reported by
+live consumers — so the producer never trims past a consumer that is still
+working. Lag is a metric, not a queue depth. See [messaging.md](messaging.md).
 
 ## The gateway owns the contracts
 
@@ -170,12 +187,23 @@ See [geodata-imports.md](geodata-imports.md).
 Namespace `myota`, Fleet workspace `myota`, on the local K3s cluster.
 
 ```
-gateway            2 replicas
-core-api           2   core-worker    2   core-relay      1
-geodata-api        2   geodata-worker  2   geodata-relay   1
-activity-api       2   activity-worker 2   activity-relay  1
-admin-web          2   participant-web 2
+gateway            2–10   stateless; Traefik owns rate limiting and retries
+core-api           2–20   core-worker    2–20   core-relay     1–32
+geodata-api        2–20   geodata-worker  2–20   geodata-relay  1–32
+activity-api       2–20   activity-worker 2–20   activity-relay 1–32
+admin-web          2–10   participant-web 2–20
 ```
+
+**Every workload is horizontally scalable with no session affinity.** Any replica
+serves any request; killing one is invisible. The mechanisms — partition-leased
+relays, idempotent consumers, a pre-deploy migration Job, schedule uniqueness,
+PgBouncer for connection budgeting, presigned uploads that keep file bytes off the
+API — are the contract in [scaling.md](scaling.md) and
+[ADR-0005](../decisions/0005-horizontal-scaling.md).
+
+The front ends are static trees with content-hashed assets and immutable cache
+headers, so they consume no database connections and scale on network throughput
+alone.
 
 Configuration comes from ConfigMaps; secrets from SOPS-encrypted files applied
 by an operator workflow. Sealed Secrets is not used — see
@@ -189,3 +217,4 @@ Deliberately not carried forward:
 - The public-registration-disabled response shape from the legacy API.
 - Cases where the same concept exists in more than one service.
 - Any synchronous service-to-service dependency in a user request path.
+- Any message broker. The outbox is the log; consumers pull from it.

@@ -12,6 +12,8 @@ read in this order.
 | [architecture/data-model.md](architecture/data-model.md) | Every table, grouped by the database that owns it. |
 | [architecture/geodata-imports.md](architecture/geodata-imports.md) | The import pipeline end to end, five stages and five states. |
 | [architecture/gateway-and-contracts.md](architecture/gateway-and-contracts.md) | Why the gateway holds the contract and serves the playground. |
+| [architecture/messaging.md](architecture/messaging.md) | Inter-service messaging without a broker: cursors, partitions, retention, failure modes. |
+| [architecture/scaling.md](architecture/scaling.md) | The horizontal-scaling contract: what breaks at N replicas and what prevents it. |
 | [architecture/auth-model.md](architecture/auth-model.md) | Separate admin and participant logins, and how the audience is enforced. |
 | [architecture/secrets-and-config.md](architecture/secrets-and-config.md) | SOPS + age. Why Sealed Secrets is not used. |
 | [architecture/technology.md](architecture/technology.md) | Language and framework per service, with the trade-off stated. |
@@ -22,6 +24,7 @@ read in this order.
 | --- | --- |
 | [architecture/system-context.svg](architecture/system-context.svg) | Clients → gateway → services → databases, with integration infrastructure. |
 | [architecture/erd.svg](architecture/erd.svg) | Entity relationships across the three databases, including cross-database ids. |
+| [architecture/scaling.svg](architecture/scaling.svg) | The replica fan-out and what makes each tier safe to run at N replicas. |
 
 Both are hand-written SVG: no build step, no external assets, readable in a diff.
 
@@ -32,6 +35,8 @@ Both are hand-written SVG: no build step, no external assets, readable in a diff
 | [0001](decisions/0001-service-boundaries-follow-databases.md) | Service boundaries follow the databases. Identity and Programmes merge into `core`. |
 | [0002](decisions/0002-language-per-service.md) | Language and framework per service, with Go-everywhere as the default. |
 | [0003](decisions/0003-no-sealed-secrets.md) | No Sealed Secrets; SOPS with age instead. |
+| [0004](decisions/0004-drop-message-broker.md) | Remove the message broker; the outbox is the event log. |
+| [0005](decisions/0005-horizontal-scaling.md) | Every workload is horizontally scalable. |
 
 An ADR is required when a rule in [AGENTS.md](../AGENTS.md) needs to be broken.
 

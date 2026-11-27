@@ -18,15 +18,32 @@ three.
 
 ### Stage 1 — Upload
 
-An administrator creates an upload session and streams the file to S3 in parts.
-The API never holds the whole file in memory.
+The API **mints presigned URLs**; the browser uploads file bytes directly to
+object storage. The API never carries the bytes and never holds the file in
+memory.
 
 ```
-POST   /v1/imports                    { sourceId, programmeId, filename, size, checksum }
-POST   /v1/imports/{id}/parts/{n}     binary part + X-Part-SHA256
-POST   /v1/imports/{id}/complete      → creates import_run, stage=upload, status=queued
-DELETE /v1/imports/{id}               abort
+POST   /v1/imports                 { sourceId, programmeId, filename, size, checksum }
+     → 201 { uploadId, parts: [{ partNumber, url, expiresAt }] }
+
+PUT    {presigned url}             browser → S3 directly (not through the cluster)
+     → ETag per part
+
+POST   /v1/imports/{id}/complete   { parts: [{ partNumber, etag }] }
+     → API verifies size + checksum against the session, then enqueues the job
+DELETE /v1/imports/{id}            abort
 ```
+
+This is a scaling decision as much as a performance one: proxying a 1 GiB file
+through `geodata-api` would make the API's memory and bandwidth proportional to
+file size rather than to request count, so adding replicas would not make one
+upload faster. With presigned URLs the API's cost per upload is a few hundred
+bytes of JSON regardless of file size.
+
+The bucket policy scopes the presigned URL to `imports/{uploadId}/`, so a client
+cannot write outside its own session prefix. The completion call is the trust
+boundary: size and checksum are verified there, and the run is rejected if they
+do not match the session.
 
 Limits, stated once and enforced in one place:
 
@@ -153,19 +170,20 @@ capability.
 ```
 import_run (queued)
      │
-     ├── outbox_event: geodata.import.queued.v1     ← same transaction
-     │
-     └── JetStream stream GEODATA_WORK
-              durable: geodata-import
+     └── ops.job (kind='import.preprocess')   ← same transaction, no broker
                    │
-                   └── geodata-worker (N replicas)
+                   └── claimed by geodata-worker (N replicas)
+                       SELECT … FOR UPDATE SKIP LOCKED
 ```
 
-One stream, one durable, one work type for imports. The legacy system had four
-durables on one stream (`preprocess`, `promotion`, `entity-delete`,
-`location-enrichment`) and separate code paths for each. Here all four are job
-types on the `ops.job` table, dispatched through the same consumer, distinguished
-by a `kind` column:
+There is no stream and no durable consumer. The job row is written in the same
+transaction that creates the import run, and workers claim it with `SKIP LOCKED`,
+so N replicas take disjoint work and a crashed replica's lease simply expires.
+
+The legacy system had four durable consumers on one JetStream stream
+(`preprocess`, `promotion`, `entity-delete`, `location-enrichment`) with separate
+code paths for each. Here all four are job kinds on `ops.job`, dispatched through
+the same claim loop and distinguished by a `kind` column:
 
 | Job kind | Trigger | Typical duration |
 | --- | --- | --- |
@@ -187,8 +205,8 @@ discovered:
 | Concurrent imports per replica | 1 | A single import already saturates a core |
 | Batch size | 500 features | Bounds memory at ~40 MB per batch |
 | Memory ceiling | 1.5 GiB | Kubernetes limit; the worker sheds batches and checkpoints before hitting it |
-| Heartbeat | every 30 s | Lease is 300 s |
-| Max deliveries | 5 | Then dead-letter with the source object preserved |
+| Lease renewal | every 30 s | Lease is 300 s; an expired lease is reclaimable by any replica |
+| Max attempts | 5 | Then `state='dead'` with the source object preserved |
 
 Reprocessing is safe: candidates are keyed by `(run_id, source_feature_id)`, so a
 retried batch upserts rather than duplicates.

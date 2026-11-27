@@ -62,7 +62,7 @@ def text(x, y, s, size=12, weight=400, fill=INK, anchor="start", family=None,
 # --------------------------------------------------------------------------
 
 def system_context() -> str:
-    W, H = 1180, 760
+    W, H = 1180, 806
     o: list[str] = []
 
     o.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
@@ -72,8 +72,8 @@ def system_context() -> str:
     o.append('<desc id="ctxDesc">Two browser applications reach one API gateway over '
              'HTTPS. The gateway serves the composed OpenAPI contract and the playground, '
              'and routes to three domain services. Each service owns exactly one PostgreSQL '
-             'database. Services exchange facts through NATS JetStream and share an '
-             'S3-compatible object store.</desc>')
+             'database. Services exchange events through their own outbox tables, read '
+             'by peers over an internal feed; there is no message broker.</desc>')
 
     o.append(f'''<defs>
     <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5"
@@ -122,10 +122,10 @@ def system_context() -> str:
         "Routing · edge audience checks",
         "Holds the contract set",
         "Serves /docs playground",
-        "Rate limit · CORS · request id",
+        "CORS · request id · routing",
     ]):
         o.append(text(318, 167 + i * 19, line, 11.5, 400, "#2c4a3a"))
-    o.append(text(318, 253, "stateless · no domain logic", 10.5, 600, MUTED))
+    o.append(text(318, 253, "stateless · limits live in Traefik", 10.5, 600, MUTED))
 
     # ---- services ----------------------------------------------------------
     label(560, 108, "Domain services", MUTED)
@@ -175,17 +175,22 @@ def system_context() -> str:
         o.append(text(848, y + 88, "one owner · no shared access", 10.5, 400, FAINT))
 
     # ---- infrastructure ----------------------------------------------------
-    label(40, 592, "Shared infrastructure", MUTED)
+    label(40, 592, "No broker · shared infrastructure only", MUTED)
     infra = [
-        ("NATS JetStream", ["durable streams", "at-least-once"], 560),
-        ("S3-compatible store", ["uploads · avatars", "certificates"], 758),
-        ("SMTP relay", ["consumed by core", "only"], 956),
+        ("Event feed", ["outbox + cursors", "services pull"], 560),
+        ("S3-compatible store", ["uploads go direct", "presigned URLs"], 758),
+        ("PgBouncer", ["transaction mode", "one per database"], 956),
     ]
     for name, lines, x in infra:
         box(x, 596, 176, 74, "#fbfcfb", BORDER, 1.2, 9, dash="5 4")
         o.append(text(x + 14, 620, name, 12.5, 650))
         for i, line in enumerate(lines):
             o.append(text(x + 14, 638 + i * 15, line, 10.5, 400, FAINT))
+
+    # SMTP sits under core
+    box(560, 684, 176, 46, "#fbfcfb", BORDER, 1.2, 9, dash="5 4")
+    o.append(text(574, 703, "SMTP relay", 12.5, 650))
+    o.append(text(574, 719, "consumed by core only", 10.5, 400, FAINT))
 
     # ---- arrows ------------------------------------------------------------
     def arrow(d, colour=ACCENT, marker="arwA", w=1.8, dash=None):
@@ -219,14 +224,14 @@ def system_context() -> str:
     o.append(text(798, svc_y[0] + 58, "SQL", 9.5, 650, FAINT, anchor="end"))
     o.append(text(798, svc_y[1] + 58, "SQL", 9.5, 650, FAINT, anchor="end"))
     o.append(text(798, svc_y[2] + 58, "SQL", 9.5, 650, FAINT, anchor="end"))
-    o.append(text(620, 570, "events", 9.5, 650, FAINT))
+    o.append(text(620, 570, "events (pull)", 9.5, 650, FAINT))
 
     # ---- boundary rules ----------------------------------------------------
-    box(40, 700, 1100, 38, SURFACE, "#dfe3df", 1.1, 8)
-    o.append(text(58, 724,
+    box(40, 750, 1100, 38, SURFACE, "#dfe3df", 1.1, 8)
+    o.append(text(58, 774,
                   "One database per service · cross-service references are opaque ids, "
-                  "never foreign keys · the gateway holds and serves the contract · "
-                  "admin and participant sessions are distinct audiences.",
+                  "never foreign keys · the outbox is the event log · every workload "
+                  "runs at N replicas with no session affinity.",
                   11, 500, MUTED))
 
     o.append("</svg>")
@@ -422,9 +427,148 @@ def erd() -> str:
     return "\n".join(o)
 
 
+# --------------------------------------------------------------------------
+# Scaling model
+# --------------------------------------------------------------------------
+
+def scaling() -> str:
+    W, H = 1180, 690
+    o: list[str] = []
+
+    o.append(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" '
+             f'width="{W}" height="{H}" role="img" aria-labelledby="scTitle scDesc" '
+             f'font-family="{FONT}">')
+    o.append('<title id="scTitle">MyOTA horizontal scaling model</title>')
+    o.append('<desc id="scDesc">Requests pass through a single Traefik ingress that owns '
+             'rate limiting, then to any of N gateway replicas, then to any of N API, '
+             'worker or relay replicas. Replicas share no local state: sessions are in '
+             'Postgres, work is claimed with SKIP LOCKED, the relay leases partitions, and '
+             'connections pass through PgBouncer.</desc>')
+
+    defs = (
+        '<defs>\n'
+        '    <marker id="sarw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5"\n'
+        '            markerHeight="6.5" orient="auto-start-reverse">\n'
+        f'      <path d="M0 0 L10 5 L0 10 z" fill="{MUTED}"/>\n'
+        '    </marker>\n'
+        '  </defs>'
+    )
+    o.append(defs)
+    o.append(f'  <rect width="{W}" height="{H}" fill="{PAGE}"/>')
+    o.append(text(40, 42, "MyOTA — horizontal scaling", 19, 700))
+    o.append(text(40, 63, "Every tier is N replicas. No tier holds local state, so any "
+                          "replica serves any request and losing one is invisible.",
+                  12, 400, MUTED))
+
+    def box(x, y, w, h, fill=SURFACE, stroke=BORDER, sw=1.3, rx=9, dash=None):
+        d = f' stroke-dasharray="{dash}"' if dash else ""
+        o.append(f'  <rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{rx}" '
+                 f'fill="{fill}" stroke="{stroke}" stroke-width="{sw}"{d}/>')
+
+    def arrow(x1, y1, x2, y2):
+        o.append(f'  <path d="M{x1} {y1} L{x2} {y2}" fill="none" stroke="{MUTED}" '
+                 f'stroke-width="1.4" marker-end="url(#sarw)"/>')
+
+    def tier(y, label, note=""):
+        o.append(text(40, y + 15, label.upper(), 10.5, 700, MUTED, letter="0.09em"))
+        if note:
+            o.append(text(40, y + 30, note, 9.5, 400, FAINT))
+
+    RX = [300, 470, 640]
+    RW, RH = 150, 46
+
+    tier(96, "Clients")
+    box(300, 96, 320, 40)
+    o.append(text(316, 122, "Admin console  ·  Participant app", 12, 550))
+
+    tier(176, "Ingress", "one layer, global counters")
+    box(300, 176, 320, 52, ACCENT_SOFT, ACCENT, 1.6)
+    o.append(text(316, 198, "Traefik", 13, 700, ACCENT))
+    o.append(text(316, 216, "rateLimit · circuitBreaker · retry · inFlightReq", 10, 400, "#2c4a3a"))
+
+    tier(268, "Gateway", "stateless · contracts embedded")
+    for i, x in enumerate(RX):
+        box(x, 268, RW, RH)
+        o.append(text(x + 12, 288, f"gateway-{i + 1}", 11.5, 650, family=MONO))
+        o.append(text(x + 12, 304, "no state · no DB", 9.5, 400, FAINT))
+    o.append(text(RX[2] + RW + 16, 296, "… N", 11, 600, FAINT))
+
+    tier(360, "Services", "api · worker · relay from one image")
+    groups = [("api", "sessions in Postgres", ACCENT),
+              ("worker", "claims with SKIP LOCKED", ACT),
+              ("relay", "leases partitions", GEO)]
+    for (name, note, colour), x in zip(groups, RX):
+        box(x, 360, RW, 84)
+        o.append(f'  <rect x="{x}" y="360" width="4" height="84" rx="2" fill="{colour}"/>')
+        o.append(text(x + 14, 382, f"{name} ×N", 12.5, 700, colour, family=MONO))
+        o.append(text(x + 14, 400, note, 9.5, 400, MUTED))
+        o.append(text(x + 14, 416, "kill any replica", 9.5, 400, FAINT))
+        o.append(text(x + 14, 432, "→ lease expires", 9.5, 400, FAINT))
+    o.append(text(RX[2] + RW + 16, 402, "… N", 11, 600, FAINT))
+
+    tier(486, "Connection pool", "connections are the first wall")
+    box(300, 486, 490, 52, "#fbfcfb", BORDER, 1.3, 9, dash="5 4")
+    o.append(text(316, 508, "PgBouncer · transaction mode · one per database", 12, 650))
+    o.append(text(316, 526, "20 replicas × 20 client connections → 25 server connections", 10, 400, MUTED))
+
+    tier(580, "Data", "one owner per database")
+    dbs = [("myota_core", ACCENT), ("myota_geo", GEO), ("myota_activity", ACT)]
+    for (name, colour), x in zip(dbs, RX):
+        box(x, 580, RW, 46)
+        o.append(f'  <rect x="{x}" y="580" width="4" height="46" rx="2" fill="{colour}"/>')
+        o.append(text(x + 14, 608, name, 12, 700, family=MONO))
+
+    o.append(text(830, 96, "FRONT ENDS", 10.5, 700, MUTED, letter="0.09em"))
+    box(830, 108, 310, 116)
+    o.append(text(846, 132, "admin-web · participant-web ×N", 12.5, 700))
+    for i, line in enumerate([
+        "static file tree · nginx",
+        "content-hashed assets, immutable cache",
+        "no session · no database client",
+        "scales on network throughput alone",
+    ]):
+        o.append(text(846, 154 + i * 17, line, 10, 400, MUTED))
+
+    o.append(text(830, 268, "WHAT MAKES A TIER SAFE", 10.5, 700, MUTED, letter="0.09em"))
+    box(830, 280, 310, 258, "#fbfcfb", BORDER, 1.2, 9, dash="5 4")
+    for i, (k, v) in enumerate([
+        ("Sessions", "Postgres, never memory"),
+        ("Rate limits", "Traefik, never in-process"),
+        ("Migrations", "pre-deploy Job + advisory lock"),
+        ("Scheduled work", "ops.job UNIQUE (kind, bucket)"),
+        ("Job claiming", "FOR UPDATE SKIP LOCKED"),
+        ("Relay", "partition lease, not one leader"),
+        ("Uploads", "presigned S3, off the API"),
+        ("Real-time", "cursor polling, no WebSocket"),
+        ("Affinity", "none, anywhere"),
+    ]):
+        o.append(text(846, 306 + i * 26, k, 10.5, 650))
+        o.append(text(846, 320 + i * 26, v, 10, 400, MUTED))
+
+    arrow(460, 136, 460, 172)
+    for x in RX:
+        arrow(460, 228, x + RW / 2, 264)
+    for x in RX:
+        arrow(x + RW / 2, 314, x + RW / 2, 356)
+    for x in RX:
+        arrow(x + RW / 2, 444, x + RW / 2, 482)
+    for x in RX:
+        arrow(x + RW / 2, 538, x + RW / 2, 576)
+
+    o.append(f'  <path d="M620 136 C 700 136, 760 150, 826 156" fill="none" '
+             f'stroke="{MUTED}" stroke-width="1.4" stroke-dasharray="5 4" '
+             f'marker-end="url(#sarw)"/>')
+    o.append(text(690, 132, "static assets", 9.5, 600, FAINT))
+
+    o.append("</svg>")
+    return "\n".join(o)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    for name, render in (("system-context.svg", system_context), ("erd.svg", erd)):
+    for name, render in (("system-context.svg", system_context),
+                         ("erd.svg", erd),
+                         ("scaling.svg", scaling)):
         path = OUT / name
         path.write_text(render(), encoding="utf-8")
         print(f"wrote {path.relative_to(ROOT)} ({path.stat().st_size} bytes)")

@@ -206,27 +206,32 @@
           <section class="card">
             <div class="card-head"><h3>Service health</h3></div>
             <div class="card-body stack">
-              <div class="row"><span class="small">core</span><span class="spacer"></span><span class="xs faint mono">18 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
-              <div class="row"><span class="small">geodata</span><span class="spacer"></span><span class="xs faint mono">34 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
-              <div class="row"><span class="small">activity</span><span class="spacer"></span><span class="xs faint mono">21 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
-              <div class="row"><span class="small">gateway</span><span class="spacer"></span><span class="xs faint mono">4 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">core</span><span class="xs faint">3 rep</span><span class="spacer"></span><span class="xs faint mono">18 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">geodata</span><span class="xs faint">4 rep</span><span class="spacer"></span><span class="xs faint mono">34 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">activity</span><span class="xs faint">2 rep</span><span class="spacer"></span><span class="xs faint mono">21 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">gateway</span><span class="xs faint">3 rep</span><span class="spacer"></span><span class="xs faint mono">4 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
+              <div class="row"><span class="small">web</span><span class="xs faint">2 rep</span><span class="spacer"></span><span class="xs faint mono">2 ms</span><span class="badge badge--ok"><span class="dot"></span>Healthy</span></div>
             </div>
           </section>
 
           <section class="card">
-            <div class="card-head"><h3>Queue depth</h3></div>
+            <div class="card-head"><h3>Job queue</h3><div class="spacer"></div><span class="xs faint">ops.job</span></div>
             <div class="card-body stack">
               <div>
-                <div class="row xs"><span>geodata · import</span><span class="spacer"></span><span class="muted mono">3 / 4</span></div>
-                <div class="progress progress--warn" style="margin-top:6px" role="img" aria-label="Import queue 75 percent"><span style="width:75%"></span></div>
+                <div class="row xs"><span>geodata · import.preprocess</span><span class="spacer"></span><span class="muted mono">3 queued</span></div>
+                <div class="progress progress--warn" style="margin-top:6px" role="img" aria-label="3 of 4 import jobs claimed"><span style="width:75%"></span></div>
               </div>
               <div>
-                <div class="row xs"><span>geodata · enrich</span><span class="spacer"></span><span class="muted mono">12</span></div>
-                <div class="progress" style="margin-top:6px" role="img" aria-label="Enrichment queue 24 percent"><span style="width:24%"></span></div>
+                <div class="row xs"><span>geodata · entity.enrich</span><span class="spacer"></span><span class="muted mono">12 queued</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="12 enrichment jobs queued"><span style="width:24%"></span></div>
               </div>
               <div>
-                <div class="row xs"><span>activity · award</span><span class="spacer"></span><span class="muted mono">41</span></div>
-                <div class="progress" style="margin-top:6px" role="img" aria-label="Award queue 41 percent"><span style="width:41%"></span></div>
+                <div class="row xs"><span>activity · award.evaluate</span><span class="spacer"></span><span class="muted mono">41 queued</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="41 award jobs queued"><span style="width:41%"></span></div>
+              </div>
+              <div>
+                <div class="row xs"><span>core · notification.send</span><span class="spacer"></span><span class="muted mono">6 queued</span></div>
+                <div class="progress" style="margin-top:6px" role="img" aria-label="6 notification jobs queued"><span style="width:6%"></span></div>
               </div>
             </div>
           </section>

@@ -34,6 +34,32 @@ containers. What disappears is three separate repositories' worth of duplicated
 retry, outbox, and dead-letter code, twelve CI pipelines, and twelve deployment
 artifacts to keep in step.
 
+## The message broker: removed
+
+| Removed | Why |
+| --- | --- |
+| NATS JetStream server, streams, durable consumers | The outbox was already a durable log. The broker was a second one in front of the first, and the outbox row was not marked published until the broker accepted it — so a broker outage stalled publication of an event that was already safe in Postgres. |
+| `~250` lines of JetStream client glue across 24 files | Replaced by one pull endpoint per service and a cursor advance. |
+| 5 restart-recovery test suites | They existed to prove the broker would not lose or duplicate work. Duplicates are now structurally impossible to matter (job id = event id) and loss is impossible (the row is the log). |
+| Stream and durable lifecycle management | No streams to create, no durables to prune, no `max_deliver`/`ack_wait` to tune. |
+| An 8 GiB PVC for JetStream state | Gone with the server. |
+
+What the broker uniquely provided — decoupling producer *availability* from
+consumer progress — is a real loss, stated in
+[ADR-0004](../decisions/0004-drop-message-broker.md) with the conditions that
+would justify reintroducing one.
+
+## Scaling fixes
+
+| Was | Now |
+| --- | --- |
+| Relay: exactly one leader per database, by advisory lock | Partition-leased; up to `PARTITIONS` relay replicas, ordering preserved |
+| Gateway rate limits in process memory | Traefik middleware at the single ingress |
+| Upload bytes proxied through `geodata-api` | Presigned S3 URLs; the API never carries file bytes |
+| Migrations from replica startup | Pre-deploy `Job` under an advisory lock; replicas verify and refuse to start if behind |
+| Cron loops inside API containers | `ops.job` with `UNIQUE (kind, scheduled_for)` |
+| One Postgres connection pool per replica, unbounded | PgBouncer in transaction mode per database |
+
 ## Duplication removed
 
 ### The operational quartet was copied three times
@@ -91,9 +117,10 @@ source feature id.
 `geodata_import_processing_queue` held queue rows with `status`, `attempt_count`,
 `lease_until`, `heartbeat_at` — a work queue implemented as a domain table, next
 to the real work queue in JetStream, and a second real one in `activity_job`.
+Three queue mechanisms, each with its own lease and retry semantics.
 
-Now: `ops.job` with a `kind` discriminator. One lease mechanism, one retry policy,
-one dead-letter path, one redrive tool.
+Now: `ops.job` with a `kind` discriminator, and no queue server at all. One lease
+mechanism, one retry policy, one dead-letter path, one redrive tool.
 
 ## States removed
 

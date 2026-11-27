@@ -40,7 +40,9 @@ Start at [**docs/**](docs/README.md).
 ```
 
 Three services, three databases, one gateway. A service owns its database
-exclusively; nothing else connects to it.
+exclusively; nothing else connects to it. Services exchange events through their
+own outbox tables — there is no message broker. Every workload scales
+horizontally: add a replica, no coordination, no affinity.
 
 ## Layout
 
@@ -60,19 +62,24 @@ The non-negotiable engineering rules are in [`AGENTS.md`](AGENTS.md):
 
 - API First — OpenAPI 3.1, with the gateway serving `/docs` and `/openapi.json`
 - Microservices — one service per database, each owning its schema
-- Pub/sub between services — NATS JetStream, at-least-once, idempotent consumers
+- Pub/sub between services — a durable event log in Postgres, no broker;
+  at-least-once, idempotent consumers
 - Job persistence external to the process
 - Monorepo
 - Deployment on the local K3s cluster — namespace `myota`, Fleet workspace `myota`
 - No Sealed Secrets — SOPS with age
 - Separate admin and participant logins, enforced by session audience
 - Test-driven development
+- **Horizontal scaling is a correctness property** — every workload, including
+  both front ends, runs at N replicas with no session affinity
 
 ## Documentation
 
 - [docs/README.md](docs/README.md) — index of everything
 - [docs/architecture/README.md](docs/architecture/README.md) — the design
 - [docs/architecture/consolidation.md](docs/architecture/consolidation.md) — what was removed and why
+- [docs/architecture/messaging.md](docs/architecture/messaging.md) — messaging without a broker
+- [docs/architecture/scaling.md](docs/architecture/scaling.md) — the horizontal-scaling contract
 - [docs/ui/index.html](docs/ui/index.html) — eight UI mockups (open in a browser)
 - [docs/decisions/](docs/decisions/) — ADRs
 

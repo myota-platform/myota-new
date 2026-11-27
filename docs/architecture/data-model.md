@@ -18,9 +18,31 @@ across databases.**
   named state machine; rows are physically deleted only by retention jobs.
 - Cross-database references are opaque `uuid` columns **without** foreign keys.
   They are documented as `→ ext:<service>`.
-- Every database has the same operational schema in `ops`:
-  `ops.outbox_event`, `ops.idempotency_record`, `ops.consumer_checkpoint`,
-  `ops.dead_letter`, `ops.job`.
+- Every database has the same operational schema in `ops`. There is no message
+  broker, so the log and the queue are here:
+
+### `ops` — present in all three databases
+
+| Table | Purpose | Key columns |
+| --- | --- | --- |
+| `ops.outbox_event` | The event log. Written in the domain transaction. | `seq bigserial`, `id uuid unique`, `type`, `subject`, `partition`, `payload jsonb`, `created_at` |
+| `ops.event_ack` | Consumers report their position so the producer can trim safely. | `consumer`, `source`, `last_acked_seq`, `reported_at` |
+| `ops.consumer_checkpoint` | This service's read position in a **producer's** log. | `consumer`, `source`, `partition`, `last_seq`, `lease_owner`, `lease_until` |
+| `ops.job` | Work with competing consumers. | `id uuid`, `kind`, `payload jsonb`, `state`, `attempt`, `lease_until`, `available_at`, `scheduled_for` |
+| `ops.idempotency_record` | Request-level idempotency for mutating API calls. | `scope`, `key`, `request_hash`, `response jsonb`, `expires_at` |
+| `ops.dead_letter` | Terminal failures for both jobs and events. | `id`, `source_table`, `ref_id`, `reason`, `payload jsonb` |
+
+Indexes that matter:
+
+```sql
+CREATE INDEX ON ops.job (state, available_at) WHERE state = 'queued';
+CREATE UNIQUE INDEX ON ops.job (kind, scheduled_for) WHERE scheduled_for IS NOT NULL;
+CREATE INDEX ON ops.outbox_event (partition, seq);
+CREATE INDEX ON ops.outbox_event (created_at);
+```
+
+`ops.outbox_event.seq` is monotonic per database but **not contiguous** — retention
+trims rows, so consumers treat it as a cursor and never as a count.
 
 ## `myota_core` — owned by `core`
 
@@ -38,7 +60,7 @@ This is the only database the gateway may ask `core` about.
 | `email_verification_token` | `token_hash` PK, `account_id`, `expires_at`, `used_at` | |
 | `auth_session` | `id`, `account_id`, `audience`, `refresh_token_hash`, `access_jti`, `expires_at`, `revoked_at`, `user_agent`, `remote_addr` | **`audience ∈ (participant, admin)`** — the column that keeps the two logins separate. |
 | `auth_revocation` | `jti` PK, `expires_at`, `revoked_at` | Denylist for access tokens. |
-| `login_rate_limit` | `key_hash` PK, `window_started_at`, `request_count` | |
+| `login_rate_limit` | `key_hash` PK, `window_started_at`, `request_count` | Per-account lockout. Not the same thing as edge rate limiting (Traefik): this counter must be global and authoritative, so it lives in the database. |
 | `security_event` | `id`, `account_id`, `event_type`, `payload jsonb`, `occurred_at` | Append-only audit of auth events. |
 
 ### Callsigns and roles

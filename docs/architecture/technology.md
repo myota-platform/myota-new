@@ -129,18 +129,29 @@ that class of problem entirely.
 
 ## Messaging
 
+No broker. The outbox is the log; the job table is the queue.
+
 | Concern | Choice |
 | --- | --- |
-| Broker | NATS JetStream (unchanged) |
-| Client | `async-nats` (Rust) · `nats.go` (Go) |
-| Event envelope | CloudEvents 1.0 subset, JSON |
-| Schema registry | `contracts/events/`, validated in CI |
-| Consumer pattern | Durable pull consumer, explicit ack, max-deliver, DLQ |
+| Transport | HTTP `GET /internal/events?after=<seq>` between services |
+| Log | `ops.outbox_event` in each producer's own database |
+| Cursor | `ops.consumer_checkpoint`, leased per partition |
+| Work queue | `ops.job`, claimed with `FOR UPDATE SKIP LOCKED` |
+| Event envelope | CloudEvents 1.0 subset, JSON, in `contracts/events/` |
+| Ordering | `partition = hash(subject) % PARTITIONS`, applied in `seq` order |
+| Duplicate handling | job id = event id, `ON CONFLICT DO NOTHING` |
+| Retention | 14-day ceiling and an ack floor reported by live consumers |
 
 The relay is part of each service binary, not a separate application. It reads
-`ops.outbox_event` in batches with `FOR UPDATE SKIP LOCKED`, publishes with
-`Nats-Msg-Id` set to the event id, and marks rows published. One leader per
-database, elected by a Postgres advisory lock.
+`ops.outbox_event` in batches, leases a partition, and publishes that partition's
+events in `seq` order. Up to `PARTITIONS` relay replicas run concurrently, so there
+is no single-leader ceiling.
+
+Every language choice above ships an HTTP client and a Postgres driver, so this
+removes a dependency rather than adding one: no `async-nats`, no `nats.go`, no
+second connection type, no broker-specific error handling.
+
+Why this over JetStream, and what it costs: [ADR-0004](../decisions/0004-drop-message-broker.md).
 
 ## Observability
 
@@ -167,6 +178,9 @@ the default is stdout logs plus `/metrics`.
 | Java + Quarkus native | Fast startup, but the native-image build cost is not repaid at this scale. |
 | Kubernetes service mesh (Istio/Linkerd) | The gateway plus three services does not need mTLS mesh complexity on a single-node K3s cluster. |
 | Sealed Secrets | Explicitly excluded — see [secrets-and-config.md](secrets-and-config.md). |
+| NATS JetStream | Removed. The outbox is already a durable log; the broker was a second one in front of it. See [ADR-0004](../decisions/0004-drop-message-broker.md). |
+| Redis / Redis Streams | Would be the first choice if a broker became necessary, but adds a stateful server for a job Postgres already handles. |
+| Service mesh (Istio/Linkerd) | Three services on one node do not need mTLS mesh complexity. |
 
 ## Decision record
 
