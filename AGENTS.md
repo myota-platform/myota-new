@@ -235,6 +235,29 @@ Do not "simplify" this into one cookie with a role check. Do not path-scope the
 cookies and call it separation: path scoping is enforced by the browser, and a
 non-browser client ignores it.
 
+### Two user-administration sections, never one
+
+The console has **two** account-management areas, because they fail differently:
+
+| | Admins | Participants |
+| --- | --- | --- |
+| Scope | `identity.admins.manage` | `identity.participants.manage` |
+| Route | `/v1/admin/identity/admins` | `/v1/admin/identity/participants` |
+| Risk | privilege escalation | support error at volume |
+| Actor MFA | required, re-auth ≤ 5 min | not required |
+| Role grants | yes | **no** — by construction |
+
+- **Do not merge them into one "Users" screen.** A merged list gives an operator
+  a single action surface for two activities with different failure modes, and
+  makes the escalation path indistinguishable from the support path.
+- **You cannot grant a role you do not hold.** Check `granted ⊆ actor_scopes` at
+  write time; "has the manage scope" alone is equivalent to root.
+- **You cannot remove your own last admin role.**
+- **Callsign verification lives only in the participant section.** It is a support
+  action, not an authority grant.
+- **Deactivation is reversible; hard deletion is a retention job**, never a button
+  in either section.
+
 See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
 
 ## 8. Test-driven development
@@ -385,6 +408,10 @@ is **incomplete**, regardless of whether the code works.
   node tools/render_mockups.mjs          # writes docs/ui/renders/*.png
   node tools/render_mockups.mjs --check  # fails if a render is stale
   ```
+
+  The chosen direction is `docs/ui/styles/04-organic/` — every screen in both
+  applications lives there. Adding a screen means adding it to `SHOTS` in the
+  render script, or its image will not exist and `--check` will not notice.
 
   A screenshot taken by hand drifts the moment someone edits the CSS. Use the
   script or the images are wrong.

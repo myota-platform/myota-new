@@ -146,6 +146,75 @@ This closes a real hole from the legacy system: the conflation read and resolve
 endpoints required only a valid bearer token, not the `geodata.review` scope they
 were documented to need.
 
+## Two administration surfaces, not one
+
+Managing an **admin** and managing a **participant** are different jobs with
+different risk, different volume, and different people doing them. They are two
+sections in the console, two scopes, and two sets of endpoints.
+
+| | Admin accounts | Participant accounts |
+| --- | --- | --- |
+| Section | **Admins** | **Participants** |
+| Scope | `identity.admins.manage` | `identity.participants.manage` |
+| Why | granting authority is a privilege-escalation surface | day-to-day support at volume |
+| Base route | `/v1/admin/identity/admins` | `/v1/admin/identity/participants` |
+| Changes authority | yes — grants and revokes roles | no |
+| Requires MFA on the actor | **yes, and re-auth within 5 min** | no |
+| Audit level | every field change, with before/after | action log |
+| Typical volume | tens | thousands |
+
+### Why the split is not cosmetic
+
+The two activities fail differently. An admin-management mistake is an escalation:
+someone gains authority they should not have, and the damage is invisible until it
+is used. A participant-management mistake is a support error: a callsign marked
+verified that was not, an account deactivated by the wrong row. Those need
+different guard rails, and a single "Users" screen gives neither.
+
+It also matches how the scopes were already granted in the legacy system —
+`identity.admin` for the user-and-access screen, `identity.participants.manage`
+for the participant-only screen — which the previous implementation honoured in
+its navigation and this redesign had collapsed. Restoring it.
+
+### Rules for admin management
+
+- **You cannot grant a role you do not hold yourself.** The scope check is
+  `granted ⊆ actor_scopes`, evaluated at write time, not merely "has
+  `identity.admins.manage`". Without this, the scope is equivalent to root.
+- **You cannot remove your own last admin role**, so a console cannot be locked
+  out by one click.
+- **Re-authentication is required within five minutes** for any role change,
+  MFA reset, or account suspension — a stolen session cannot be used to escalate.
+- **Every change records actor, target, field, before and after**, in
+  `security_event`, and appears in the admin's own audit view.
+- **MFA state is visible and actionable**: enrolled, not enrolled, or reset. An
+  admin without a confirmed second factor cannot sign in, so the screen must show
+  who is blocked rather than leaving it to be discovered.
+- **Active sessions are listed and revocable per session**, not just "log out
+  everywhere". A suspicious session is identifiable by user agent and address.
+
+### Rules for participant management
+
+- **Callsign verification is the main job.** Evidence is reviewed, approved, or
+  rejected, and the decision is attributed.
+- **Registration state is visible**: `pending`, `active`, `closed`, plus whether
+  the address is verified and whether mail has bounced. This is what turns "I
+  never got the email" into a five-second answer.
+- **Deactivation is reversible; deletion is not offered here.** Closing an account
+  keeps the activation history intact and detaches references. A hard delete is a
+  retention job, not a support button.
+- **No role grants.** This scope cannot escalate anyone, by construction — the
+  endpoints for role assignment are admin-surface only.
+- **Paged and filterable from the start.** Thousands of rows, so the list is
+  cursor-paged, searchable by callsign or address, and filterable by state.
+
+### What the two sections share
+
+Everything below the surface: the same `account` table, the same session,
+cryptography and rate limiting, and the same audit log. The split is in
+authorization and interface, not in data — which is why it costs two scopes and
+two navigation entries rather than a second identity system.
+
 ## Session lifecycle
 
 ```

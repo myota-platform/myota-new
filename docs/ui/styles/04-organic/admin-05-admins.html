@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admins · MyOTA — Organic</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  tr.me td { background: var(--sage-soft); }
+  .mfa-ok { color: #4d6b4a; }
+  .mfa-missing { color: var(--clay); font-weight: 650; }
+  .scope-list { display: flex; flex-wrap: wrap; gap: 5px; }
+  .scope {
+    font-family: var(--num); font-size: 11px; padding: 2px 8px;
+    border-radius: 6px; background: var(--sand-2); color: var(--ink-2);
+  }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <span class="brand"><span class="leaf" aria-hidden="true">M</span>MyOTA</span>
+    <nav aria-label="Main">
+      <a href="admin-01-operations.html">Operations</a>
+      <a href="admin-02-geodata-review.html">Geodata</a>
+      <a href="admin-04-programmes-awards.html">Programmes</a>
+      <a href="admin-05-admins.html" aria-current="page">Admins</a>
+      <a href="admin-06-participants.html">Participants</a>
+    </nav>
+    <span class="who"><span class="face" aria-hidden="true">VK</span>Volker</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="hero" style="padding:30px 36px">
+    <span class="tagline">Admins · identity.admins.manage</span>
+    <h1 style="font-size:30px">Six people can change what others are allowed to do.</h1>
+    <p class="lede" style="margin:0">
+      Granting authority is the one action in this console that can escalate
+      privilege. Every change here needs a second factor and re-authentication
+      within five minutes, and cannot grant a scope the actor does not hold.
+    </p>
+  </section>
+
+  <div class="card" style="margin-bottom:18px;border-left:4px solid var(--ochre)">
+    <div class="card-body" style="padding:16px 22px;display:flex;gap:12px;align-items:flex-start">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linejoin="round" style="color:#9a6a12;flex:0 0 18px;margin-top:2px" aria-hidden="true">
+        <path d="M12 4 21 19H3z"/><path d="M12 10v4"/><path d="M12 17v.5"/>
+      </svg>
+      <div style="font-size:13.5px;color:var(--ink-2)">
+        <strong style="color:var(--ink)">One admin has no second factor enrolled</strong> —
+        <a href="#" style="font-weight:620">Marta R.</a> cannot sign in until it is set
+        up. <span class="tiny">Detected 2 hours ago.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Admin accounts</h2>
+      <span class="grow"></span>
+      <span class="pill-count">6 admins</span>
+      <button class="go" style="margin-left:10px">Invite admin</button>
+    </div>
+    <div class="card-body" style="padding:14px 22px 6px">
+      <div class="search" style="margin:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>
+        </svg>
+        <input type="search" placeholder="Name, address or role" aria-label="Search admins">
+        <select class="sel" style="width:auto" aria-label="Role">
+          <option>All roles</option><option>Administrator</option>
+          <option>Programme admin</option><option>Geodata reviewer</option>
+          <option>Support</option>
+        </select>
+      </div>
+    </div>
+    <div class="scrollx">
+    <table class="tight">
+      <thead>
+        <tr>
+          <th scope="col">Person</th>
+          <th scope="col">Roles</th>
+          <th scope="col">Second factor</th>
+          <th scope="col" class="hide-sm">Last sign-in</th>
+          <th scope="col">State</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="me">
+          <td>
+            <strong>Volker K.</strong> <span class="chip" style="font-size:10px;padding:1px 7px">you</span>
+            <div class="tiny">volker@ea7klk.es</div>
+          </td>
+          <td>
+            <div class="scope-list">
+              <span class="scope">administrator</span>
+            </div>
+          </td>
+          <td class="mfa-ok">TOTP · 12 Aug</td>
+          <td class="tiny hide-sm">today 08:12</td>
+          <td><span class="chip-status s-ok"><i></i>Active</span></td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Marta R.</strong>
+            <div class="tiny">marta@ea7klk.es</div>
+          </td>
+          <td>
+            <div class="scope-list">
+              <span class="scope">programme admin</span>
+              <span class="scope">coastal</span>
+              <span class="scope">summits</span>
+            </div>
+          </td>
+          <td class="mfa-missing">not enrolled</td>
+          <td class="tiny hide-sm">6 days ago</td>
+          <td><span class="chip-status s-bad"><i></i>Blocked</span></td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Ana G.</strong>
+            <div class="tiny">ana@ea7klk.es</div>
+          </td>
+          <td>
+            <div class="scope-list">
+              <span class="scope">geodata reviewer</span>
+              <span class="scope">pota</span>
+            </div>
+          </td>
+          <td class="mfa-ok">webauthn · 3 Sep</td>
+          <td class="tiny hide-sm">yesterday 17:40</td>
+          <td><span class="chip-status s-ok"><i></i>Active</span></td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Piet V.</strong>
+            <div class="tiny">piet@ea7klk.es</div>
+          </td>
+          <td>
+            <div class="scope-list">
+              <span class="scope">support</span>
+            </div>
+          </td>
+          <td class="mfa-ok">TOTP · 21 Jun</td>
+          <td class="tiny hide-sm">today 06:02</td>
+          <td><span class="chip-status s-ok"><i></i>Active</span></td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Lena S.</strong>
+            <div class="tiny">lena@ea7klk.es</div>
+          </td>
+          <td>
+            <div class="scope-list">
+              <span class="scope">geodata reviewer</span>
+              <span class="scope">wetlands</span>
+            </div>
+          </td>
+          <td class="mfa-ok">TOTP · 2 Feb</td>
+          <td class="tiny hide-sm">12 days ago</td>
+          <td><span class="chip-status s-run"><i></i>Idle</span></td>
+        </tr>
+        <tr>
+          <td>
+            <strong>Tom B.</strong>
+            <div class="tiny">tom@ea7klk.es</div>
+          </td>
+          <td>
+            <div class="scope-list">
+              <span class="scope">programme admin</span>
+              <span class="scope">pota</span>
+            </div>
+          </td>
+          <td class="mfa-ok">webauthn · 14 Oct</td>
+          <td class="tiny hide-sm">3 days ago</td>
+          <td><span class="chip-status s-wait"><i></i>Suspended</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  <div class="split split--narrow" style="margin-top:20px">
+
+    <section class="card">
+      <div class="card-head"><h2>Roles and what they carry</h2></div>
+      <div class="scrollx">
+        <table>
+        <thead>
+          <tr><th scope="col">Role</th><th scope="col">Scopes</th><th scope="col">Held by</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Administrator</strong></td>
+            <td><div class="scope-list">
+              <span class="scope">identity.admins.manage</span>
+              <span class="scope">identity.participants.manage</span>
+              <span class="scope">programme.admin</span>
+            </div></td>
+            <td class="num">1</td>
+          </tr>
+          <tr>
+            <td><strong>Programme admin</strong></td>
+            <td><div class="scope-list">
+              <span class="scope">programme.admin</span>
+              <span class="scope">awards.admin</span>
+            </div></td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td><strong>Geodata reviewer</strong></td>
+            <td><div class="scope-list"><span class="scope">geodata.review</span></div></td>
+            <td class="num">2</td>
+          </tr>
+          <tr>
+            <td><strong>Support</strong></td>
+            <td><div class="scope-list">
+              <span class="scope">identity.participants.manage</span>
+            </div></td>
+            <td class="num">1</td>
+          </tr>
+        </tbody>
+        </table>
+      </div>
+      <div class="card-body" style="padding-top:0">
+        <p class="tiny" style="margin:0">
+          A role is a named bundle of scopes. You cannot grant a role that carries a
+          scope you do not hold yourself — the check is on the scopes, not the name.
+        </p>
+      </div>
+    </section>
+
+    <div class="stack">
+      <section class="card">
+        <div class="card-head"><h2>Recent changes</h2></div>
+        <div class="card-body">
+          <div class="note bad">
+            <span class="ico" aria-hidden="true">!</span>
+            <div class="tx"><span class="when">2 h ago · Volker</span>
+              Role <strong>programme admin</strong> granted to Marta R. for
+              <strong>coastal</strong>.</div>
+          </div>
+          <div class="note warn">
+            <span class="ico" aria-hidden="true">~</span>
+            <div class="tx"><span class="when">Yesterday · Volker</span>
+              Tom B. suspended pending a review of access.</div>
+          </div>
+          <div class="note info">
+            <span class="ico" aria-hidden="true">◆</span>
+            <div class="tx"><span class="when">3 Sep · Volker</span>
+              Ana G. enrolled a WebAuthn passkey.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Active sessions</h2><span class="grow"></span><span class="pill-count">4</span></div>
+        <div class="card-body" style="display:grid;gap:12px">
+          <div class="row" style="align-items:flex-start">
+            <div>
+              <div style="font-size:13.5px;font-weight:620">Volker · this device</div>
+              <div class="tiny">Firefox on Linux · 84.120.11.4 · started 08:12</div>
+            </div>
+            <span class="grow"></span>
+            <span class="chip-status s-ok"><i></i>Current</span>
+          </div>
+          <div class="row" style="align-items:flex-start">
+            <div>
+              <div style="font-size:13.5px;font-weight:620">Volker · phone</div>
+              <div class="tiny">Safari on iOS · 84.120.11.9 · started yesterday</div>
+            </div>
+            <span class="grow"></span>
+            <button class="btn-soft btn-line" style="padding:6px 14px;font-size:12.5px">Revoke</button>
+          </div>
+          <div class="row" style="align-items:flex-start">
+            <div>
+              <div style="font-size:13.5px;font-weight:620">Piet · office</div>
+              <div class="tiny">Chrome on Windows · 91.44.7.2 · started 06:02</div>
+            </div>
+            <span class="grow"></span>
+            <button class="btn-soft btn-line" style="padding:6px 14px;font-size:12.5px">Revoke</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <section class="card" style="margin-top:20px">
+    <div class="card-head"><h2>What this section cannot do</h2></div>
+    <div class="card-body">
+      <ul style="margin:0;padding-left:20px;font-size:13.5px;color:var(--ink-2);display:grid;gap:8px">
+        <li><strong>Verify a callsign.</strong> That is a support action and lives in
+          <a href="admin-06-participants.html" style="font-weight:620">Participants</a>.</li>
+        <li><strong>Delete an account.</strong> Deactivation is reversible; hard
+          deletion is a retention job, not a button.</li>
+        <li><strong>Remove its own last administrator role.</strong> The console
+          cannot lock itself out.</li>
+        <li><strong>Grant a scope the actor does not hold.</strong> Rejected at write
+          time, whatever the interface allowed.</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

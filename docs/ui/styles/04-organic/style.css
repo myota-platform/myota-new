@@ -151,6 +151,11 @@ h1 em { font-style: normal; color: var(--clay); }
   font-size: 12px; font-weight: 600; padding: 3px 11px; border-radius: 999px;
 }
 
+/* Wide tables scroll inside their card rather than being clipped by the card's
+   rounded corners. Clipping hides real content and looks like a rendering bug. */
+.scrollx { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.scrollx > table { min-width: 100%; }
+
 /* ---------- table --------------------------------------------------------- */
 
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -159,7 +164,7 @@ th {
   text-transform: uppercase; letter-spacing: .05em;
   padding: 10px 24px; white-space: nowrap;
 }
-td { padding: 13px 24px; border-top: 1px solid var(--line); }
+td { padding: 13px 24px; border-top: 1px solid var(--line); vertical-align: middle; }
 tbody tr:hover td { background: #fdf8f0; }
 td.num { text-align: right; font-family: var(--num); font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink-2); }
 td.id { font-family: var(--num); font-size: 12.5px; color: var(--ink-2); }
@@ -285,20 +290,44 @@ td.id { font-family: var(--num); font-size: 12.5px; color: var(--ink-2); }
   table { font-size: 13px; }
 }
 
-/* Below 760 the nav was hidden, which left no way to move between screens.
-   It becomes a scrollable pill row under the brand instead. */
-@media (max-width: 760px) {
+/* Five nav items no longer fit beside the brand below ~900px, so the nav wraps
+   to its own line and scrolls. It used to be hidden entirely, which left no way
+   to move between screens on a phone. */
+@media (max-width: 900px) {
   .hdr-in { flex-wrap: wrap; gap: 10px; padding: 12px 14px; }
   .hdr .who { margin-left: auto; }
+  /* Wrap rather than scroll: five sections scroll out of view, and a hidden
+     active item is worse than a two-line nav. */
   .hdr nav {
-    order: 3; width: 100%; overflow-x: auto; gap: 6px;
+    order: 3; width: 100%; flex-wrap: wrap; gap: 5px;
     margin-left: 0; padding-bottom: 2px;
-    scrollbar-width: none;
   }
-  .hdr nav::-webkit-scrollbar { display: none; }
-  .hdr nav a { flex: 0 0 auto; font-size: 13px; padding: 7px 14px; }
+  .hdr nav a { flex: 0 0 auto; font-size: 12.5px; padding: 6px 11px; }
 }
+
 @media (max-width: 560px) {
+  /* A wide table cannot show three columns on a phone without horizontal
+     scrolling, and scrolling hides the state that matters most. Each row
+     becomes a small block instead: the operator on its own line, then the two
+     badges beneath. */
+  .tight { display: block; }
+  .tight thead { display: none; }
+  .tight tbody, .tight tr { display: block; }
+  .tight tr {
+    display: grid; grid-template-columns: 1fr auto; gap: 6px 10px;
+    padding: 13px 18px; border-top: 1px solid var(--line);
+    align-items: center;
+  }
+  .tight td { display: block; padding: 0; border: 0; }
+  /* .tight td is more specific than .hide-sm, so the hidden columns need the
+     stronger selector or they reappear in the stacked layout */
+  .tight td.hide-sm, .tight th.hide-sm { display: none; }
+  .tight td:first-child { grid-column: 1 / -1; }
+  .tight .av { width: 28px; height: 28px; flex-basis: 28px; border-radius: 9px; font-size: 11px; }
+  .tight .row-acct { gap: 9px; }
+  .tight .row-acct .tiny { font-size: 11px; }
+  .hdr nav { gap: 4px; }
+  .hdr nav a { font-size: 12px; padding: 6px 9px; }
   .hdr { padding: 14px 14px 0; }
   .hdr-in { padding: 10px 12px; border-radius: var(--r); }
   .page { padding: 22px 14px 60px; }

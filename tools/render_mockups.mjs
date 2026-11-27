@@ -47,6 +47,7 @@ const SHOTS = [
 
   // 04-organic is the chosen direction: every screen in both apps
   ...['admin-01-operations', 'admin-02-geodata-review', 'admin-03-import-run', 'admin-04-programmes-awards',
+      'admin-05-admins', 'admin-06-participants',
       'participant-01-discover', 'participant-02-map', 'participant-03-activation', 'participant-04-awards',
       'participant-05-check-email', 'participant-06-reset-password'].map(name => ({
     file: `styles/04-organic/${name}.html`,
@@ -55,6 +56,7 @@ const SHOTS = [
   })),
   // responsive proof on the two hardest screens
   { file: 'styles/04-organic/admin-02-geodata-review.html', out: 'styles/04-organic/renders/admin-02-geodata-review-mobile', w: 390, h: 844, full: true },
+  { file: 'styles/04-organic/admin-06-participants.html',   out: 'styles/04-organic/renders/admin-06-participants-mobile',   w: 390, h: 844, full: true },
   { file: 'styles/04-organic/participant-02-map.html',      out: 'styles/04-organic/renders/participant-02-map-mobile',      w: 390, h: 844, full: true },
   { file: 'styles/04-organic/participant-03-activation.html', out: 'styles/04-organic/renders/participant-03-activation-mobile', w: 390, h: 844, full: true },
 

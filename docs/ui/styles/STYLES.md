@@ -101,6 +101,21 @@ both applications, plus the two auth screens.
 
 ![Organic programmes](04-organic/renders/admin-04-programmes-awards.png)
 
+**[Admins](04-organic/admin-05-admins.html)** — `identity.admins.manage`
+
+![Organic admins](04-organic/renders/admin-05-admins.png)
+
+**[Participants](04-organic/admin-06-participants.html)** — `identity.participants.manage`
+
+![Organic participants](04-organic/renders/admin-06-participants.png)
+
+User administration is **two sections, not one**. Managing an admin grants
+authority and is a privilege-escalation surface — it needs a second factor and
+re-authentication, and cannot grant a scope the actor does not hold. Managing a
+participant is support work at volume: callsign evidence, registration state,
+reachability. A single "Users" screen would give one action surface to two
+activities that fail differently.
+
 ### Participant
 
 **[Discover](04-organic/participant-01-discover.html)**
@@ -138,7 +153,7 @@ screens where a narrow layout is hardest to get right:
   <img src="04-organic/renders/admin-02-geodata-review-mobile.png" alt="Organic review on a phone" width="270">
 </p>
 
-Directory: [`04-organic/`](04-organic/) — ten pages, one stylesheet, one
+Directory: [`04-organic/`](04-organic/) — twelve pages, one stylesheet, one
 `renders/` folder.
 
 ---

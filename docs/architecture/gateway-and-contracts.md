@@ -48,6 +48,8 @@ GET  /metrics                 Prometheus
 
 /v1/auth/**            → core       (participant audience)
 /v1/admin/auth/**      → core       (admin audience)
+/v1/admin/identity/admins/**       → core  (admin audience, scope identity.admins.manage)
+/v1/admin/identity/participants/** → core  (admin audience, scope identity.participants.manage)
 /v1/admin/**           → core | geodata | activity  (admin audience)
 /v1/me/**              → core
 /v1/accounts/**        → core

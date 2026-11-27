@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Participants · MyOTA — Organic</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .row-acct { display: flex; align-items: center; gap: 13px; }
+  .row-acct .who2 { min-width: 0; }
+  .row-acct .tiny { white-space: nowrap; }
+  .av {
+    width: 34px; height: 34px; border-radius: 11px; flex: 0 0 34px;
+    background: var(--sand-2); color: var(--ink-2);
+    display: grid; place-items: center; font-size: 12px; font-weight: 700;
+  }
+  .av.warn { background: #f6e2d6; color: var(--clay); }
+  .tight th, .tight td { padding-left: 14px; padding-right: 14px; }
+  .tight th:first-child, .tight td:first-child { padding-left: 22px; }
+  .tight th:last-child, .tight td:last-child { padding-right: 22px; }
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-in">
+    <span class="brand"><span class="leaf" aria-hidden="true">M</span>MyOTA</span>
+    <nav aria-label="Main">
+      <a href="admin-01-operations.html">Operations</a>
+      <a href="admin-02-geodata-review.html">Geodata</a>
+      <a href="admin-04-programmes-awards.html">Programmes</a>
+      <a href="admin-05-admins.html">Admins</a>
+      <a href="admin-06-participants.html" aria-current="page">Participants</a>
+    </nav>
+    <span class="who"><span class="face" aria-hidden="true">VK</span>Volker</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <section class="hero" style="padding:30px 36px">
+    <span class="tagline">Participants · identity.participants.manage</span>
+    <h1 style="font-size:30px">1 284 operators, and what each of them needs.</h1>
+    <p class="lede" style="margin:0">
+      Support work, not authority. Callsign evidence, registration state, and
+      whether mail reaches them. This section cannot grant a role — that lives in
+      Admins.
+    </p>
+  </section>
+
+  <section class="kpis" style="margin-bottom:18px">
+    <div class="card kpi tint-good"><div class="k">Active</div><div class="v">1 284</div></div>
+    <div class="card kpi"><div class="k">Awaiting verification</div><div class="v">38</div></div>
+    <div class="card kpi tint-warn"><div class="k">Unreachable address</div><div class="v">14</div></div>
+    <div class="card kpi"><div class="k">Callsigns to review</div><div class="v">9</div></div>
+  </section>
+
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-body" style="padding:16px 22px;display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <div class="search" style="flex:1 1 280px;margin:0">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/>
+        </svg>
+        <input type="search" placeholder="Callsign, name or address" aria-label="Search participants">
+      </div>
+      <select class="sel" style="width:auto" aria-label="State">
+        <option>All states</option><option>Active</option>
+        <option>Awaiting verification</option><option>Address unreachable</option>
+        <option>Closed</option>
+      </select>
+      <select class="sel" style="width:auto" aria-label="Programme">
+        <option>All programmes</option><option>POTA-compatible</option>
+        <option>Coastal Lights</option><option>Summits</option>
+      </select>
+      <span class="grow"></span>
+      <button class="btn-soft btn-line">Export CSV</button>
+    </div>
+  </div>
+
+  <div class="split split--narrow">
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Participant accounts</h2>
+        <span class="grow"></span>
+        <span class="pill-count">1 284 · page 1 of 26</span>
+      </div>
+      <div class="scrollx">
+    <table class="tight">
+        <thead>
+          <tr>
+            <th scope="col">Operator</th>
+            <th scope="col">Callsign</th>
+            <th scope="col" class="hide-sm">Activations</th>
+            <th scope="col">State</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>
+              <div class="row-acct">
+                <span class="av" aria-hidden="true">EA</span>
+                <div>
+                  <strong>EA7KLK</strong>
+                  <div class="tiny">Volker K. · since 2026-02</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="chip-status s-ok"><i></i>Verified</span></td>
+            <td class="num hide-sm">18</td>
+            <td><span class="chip-status s-ok"><i></i>Active</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-acct">
+                <span class="av" aria-hidden="true">DL</span>
+                <div>
+                  <strong>DL1ABC</strong>
+                  <div class="tiny">Anna B. · since 2026-03</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="chip-status s-ok"><i></i>Verified</span></td>
+            <td class="num hide-sm">31</td>
+            <td><span class="chip-status s-ok"><i></i>Active</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-acct">
+                <span class="av warn" aria-hidden="true">F4</span>
+                <div>
+                  <strong>F4HOF</strong>
+                  <div class="tiny">Marc D. · since 2026-11</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="chip-status s-run"><i></i>Evidence in</span></td>
+            <td class="num hide-sm">0</td>
+            <td><span class="chip-status s-run"><i></i>Awaiting</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-acct">
+                <span class="av warn" aria-hidden="true">PA</span>
+                <div>
+                  <strong>PA3XYZ</strong>
+                  <div class="tiny">Sanne V. · since 2025-11</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="chip-status s-ok"><i></i>Verified</span></td>
+            <td class="num hide-sm">42</td>
+            <td><span class="chip-status s-bad"><i></i>Unreachable</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-acct">
+                <span class="av" aria-hidden="true">G4</span>
+                <div>
+                  <strong>G4XYZ</strong>
+                  <div class="tiny">Neil P. · since 2026-06</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="chip-status s-ok"><i></i>Verified</span></td>
+            <td class="num hide-sm">7</td>
+            <td><span class="chip-status s-ok"><i></i>Active</span></td>
+          </tr>
+          <tr>
+            <td>
+              <div class="row-acct">
+                <span class="av" aria-hidden="true">ON</span>
+                <div>
+                  <strong>ON4ABC</strong>
+                  <div class="tiny">Lieve M. · since 2024-09</div>
+                </div>
+              </div>
+            </td>
+            <td><span class="chip-status s-ok"><i></i>Verified</span></td>
+            <td class="num hide-sm">64</td>
+            <td><span class="chip-status s-wait"><i></i>Closed</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+      <div class="card-body" style="padding-top:0;display:flex;align-items:center">
+        <span class="tiny">Showing 6 of 1 284 · cursor-paged</span>
+        <span class="grow"></span>
+        <button class="btn-soft btn-line" style="padding:7px 16px;font-size:13px">Next page</button>
+      </div>
+    </section>
+
+    <div class="stack">
+
+      <section class="card">
+        <div class="card-head"><h2>F4HOF · callsign evidence</h2><span class="grow"></span><span class="chip-status s-run"><i></i>Pending</span></div>
+        <div class="card-body">
+          <dl class="dl">
+            <dt>Callsign</dt><dd class="mono">F4HOF</dd>
+            <dt>Submitted</dt><dd>2 days ago</dd>
+            <dt>Evidence</dt><dd>Licence document (PDF)</dd>
+            <dt>Checksum</dt><dd class="mono tiny">7c1a…9b02</dd>
+            <dt>Programme</dt><dd>POTA-compatible</dd>
+          </dl>
+          <div class="row" style="margin-top:16px">
+            <button class="btn-soft btn-danger">Reject</button>
+            <button class="btn-soft btn-line">Needs better evidence</button>
+            <span class="grow"></span>
+            <button class="go">Verify callsign</button>
+          </div>
+          <p class="tiny" style="margin:14px 0 0">
+            Verifying attributes the decision to you and notifies the operator.
+            A rejection states the reason; both appear in the audit log.
+          </p>
+        </div>
+      </section>
+
+      <section class="card" style="background:#f7e9e3">
+        <div class="card-body" style="padding:18px 22px">
+          <div class="row" style="margin-bottom:6px">
+            <span class="chip alert">Unreachable</span>
+            <strong style="font-size:14px">PA3XYZ · address bounced</strong>
+          </div>
+          <p class="tiny" style="margin:0 0 12px;color:var(--ink-2);font-size:13px">
+            Three hard bounces since 12 November. The account is still usable, but
+            no mail reaches it — including a password reset.
+          </p>
+          <div class="row">
+            <button class="btn-soft">Contact by other means</button>
+            <button class="btn-soft btn-line">Release suppression</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>What this section cannot do</h2></div>
+        <div class="card-body">
+          <ul style="margin:0;padding-left:20px;font-size:13.5px;color:var(--ink-2);display:grid;gap:8px">
+            <li><strong>Grant a role.</strong> There is no endpoint for it under this
+              scope, so it cannot be reached even by a crafted request.</li>
+            <li><strong>Delete an account.</strong> Closing is reversible and keeps the
+              activation history; deletion is a retention job.</li>
+            <li><strong>Change an address silently.</strong> An admin edit marks the
+              address unverified and sends a confirmation.</li>
+          </ul>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+</main>
+
+</body>
+</html>

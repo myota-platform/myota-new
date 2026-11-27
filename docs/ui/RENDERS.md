@@ -1,4 +1,10 @@
-# UI mockups
+# UI mockups — functional baseline
+
+> **Superseded visually.** These screens established the information architecture
+> and are still useful as a reference for what each screen contains, but the
+> design direction was chosen later and taken to completion in
+> [`styles/04-organic/`](styles/STYLES.md) — twelve pages, both colour schemes,
+> three viewports. Do not add new screens here; add them there.
 
 Static renders of the ten interface screens. These are images because GitHub
 shows HTML as source rather than rendering it — the interactive versions are the
