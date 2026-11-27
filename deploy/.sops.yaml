@@ -12,6 +12,10 @@
 # This does not make Fleet able to apply secrets: secrets are decrypted and applied by
 # hand (ADR-0003). A GitRepo that can decrypt is a GitRepo that can leak.
 creation_rules:
-  - path_regex: "deploy/myota/secrets/.*\\.sops\\.yaml$"
+  # Matched against the path relative to this file's directory, so `deploy/` is
+  # already stripped. Accepting both forms costs nothing and removes a trap: a rule
+  # that silently matches nothing fails with "no matching creation rules found",
+  # which reads like a config problem rather than a path problem.
+  - path_regex: "(^|.*/)myota/secrets/.*\\.sops\\.yaml$"
     encrypted_regex: "^(data|stringData)$"
     age: "age1cvpkdlz2uysxef3vf4q4zca9trcjdcy3u2dfmy4wfaeqssnsxalqp5u9h2"

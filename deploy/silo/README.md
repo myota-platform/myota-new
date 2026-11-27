@@ -22,6 +22,32 @@ Silo is shared: `bminfo` and `spainip-loki` are tenants on the same server. Ever
 below is scoped to Myota's own buckets, and no step requires — or grants — access to
 anyone else's.
 
+## Two hostnames, and the mistake that looks like success
+
+| Host | Serves | Use for |
+| --- | --- | --- |
+| `https://silo-api.spainip.es` | the S3 API | `mcli` — buckets, policies, users, lifecycle |
+| `https://silo.spainip.es` | the console (a single-page app) | a browser |
+| `http://silo.silo.svc.cluster.local:9000` | the S3 API, in-cluster only | `mcli` run *inside* the pod |
+
+**The console answers HTTP 200 with an HTML page for every path, including
+`PUT /<bucket>`.** An S3 client pointed at it reads the 200 as success and the HTML as a
+malformed XML body, so:
+
+- `mcli mb` prints `Bucket created successfully` for a bucket that was never created;
+- `mcli ilm` reports that `GetLifecycle` is unsupported for the `filesystem` backend,
+  which is false — lifecycle works, as a probe against a scratch bucket confirmed;
+- `mcli alias set` fails with `XML syntax error on line 35`, and every `mcli admin`
+  command afterwards says `No valid configuration found`.
+
+All three happened on the first real run of this runbook, from a script pointed at the
+console host. The first is the dangerous one: it is a success message for work that did
+not happen.
+
+`python3 tools/provision_silo.py --print` therefore emits a preflight that refuses to run
+unless the endpoint returns `application/xml`, and `--endpoint` rejects the console
+outright.
+
 ## What gets created
 
 | Environment | Bucket | Retention |
@@ -49,12 +75,16 @@ The commands are generated from `inventory.yaml` so the runbook cannot drift fro
 inventory:
 
 ```sh
-python3 tools/provision_silo.py --print
+python3 tools/provision_silo.py --print > /tmp/provision.sh
 ```
 
-That emits `mcli mb`, `mcli ilm add`, `mcli admin policy create`, `mcli admin user add`
-and `mcli admin policy attach`, grouped by environment. Run it as a Silo administrator
-with the two secret variables set:
+That emits a `set -euo pipefail` script with a preflight, then `mcli mb`, `mcli ilm add`,
+`mcli admin policy create`, `mcli admin user add` and `mcli admin policy attach`, grouped
+by environment. The endpoint defaults to the public API host; `--in-cluster` emits the
+ClusterIP form for running inside the pod, and `--endpoint` overrides both.
+
+Run it as a Silo administrator with the two secret variables set, from the repository root
+(the policy files are read by relative path):
 
 ```sh
 read -r -s -p "secret for myota-test: " MYOTA_TEST_S3_SECRET; echo
@@ -97,15 +127,35 @@ mcli ilm ls myota-test-imports           # one rule, 30 days
 Expected after provisioning: 6 buckets and 2 users reported as `exists`, and one
 lifecycle rule on each `*-imports` bucket.
 
-A useful negative test that the policy is not too broad — as the Myota user, not as
-root:
+### Verifying the policy is not too broad
+
+As the Myota user, not as root. This is the check that matters — an attached policy proves
+nothing until a request is refused.
 
 ```sh
-mcli alias set probe http://127.0.0.1:9000 myota-test "$MYOTA_TEST_S3_SECRET"
-mcli ls probe                            # must FAIL: no s3:ListAllMyBuckets
-mcli ls probe/myota-prod-imports         # must FAIL: another environment's bucket
-mcli ls probe/bminfo-raw                 # must FAIL: another tenant
-mcli ls probe/myota-test-imports         # must succeed
+mcli alias set probe http://127.0.0.1:9000 myota-test           # inside the pod
+# or: mcli alias set probe https://silo-api.spainip.es myota-test   # from a host
+#     (enter the secret from the SOPS file when prompted)
+
+mcli ls probe                     # only myota-test-{content,imports,records}
+mcli ls probe/myota-prod-imports  # Access Denied
+mcli ls probe/bminfo-raw          # Access Denied
+mcli stat probe/bminfo-raw        # Object does not exist
+mcli ls probe/myota-test-imports  # succeeds
+```
+
+The first is worth understanding: `mcli ls ALIAS` calls `ListBuckets`, and Silo returns the
+*buckets the caller can access* rather than refusing outright. So the assertion is not "it
+fails" but "it lists exactly three buckets, none of them another tenant's" — which is the
+stronger property anyway. There is no `s3:ListAllMyBuckets` in the policy, so the result
+cannot include anything Myota does not own.
+
+The certificate rule is the other one worth checking by hand, because it protects the one
+irreplaceable class of bytes:
+
+```sh
+echo probe | mcli pipe probe/myota-test-records/certificates/probe   # allowed
+mcli rm probe/myota-test-records/certificates/probe                  # Access Denied
 ```
 
 ## Step 3 — put the secret in the cluster

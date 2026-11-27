@@ -10,14 +10,22 @@ tenant store: `bminfo` and `spainip-loki` already live in it. That shapes the wh
 design below — Myota is one tenant among several, holds no administrative access,
 and must not be able to see or disturb anyone else's buckets.
 
-## Two endpoints, and why it matters
+## Three hostnames, and why it matters
 
 ```
 in-cluster   http://silo.silo.svc.cluster.local:9000     the services talk here
-public       https://silo-api.spainip.es                  the browser talks here
+public API   https://silo-api.spainip.es                  the browser talks here
+console      https://silo.spainip.es                      a browser UI, never an S3 client
 ```
 
-Both point at the same server. The distinction is not cosmetic: **a presigned URL
+The console is listed because it is a trap rather than because it is part of the design.
+It is a single-page app that answers **HTTP 200 with an HTML document for every path**,
+including `PUT /<bucket>`. An S3 client pointed at it reads the 200 as success and the
+HTML as malformed XML, so it reports buckets as created that were never created, and
+reports that lifecycle is unsupported when it works. `tools/provision_silo.py` refuses the
+console host outright and the generated script preflights the endpoint's content type.
+
+Both real endpoints point at the same server. The distinction is not cosmetic: **a presigned URL
 is signed over its `Host`.** Signing against the in-cluster address produces a URL
 whose signature no browser can satisfy, because `silo.silo.svc.cluster.local` is a
 ClusterIP that does not resolve outside the cluster.
@@ -334,20 +342,24 @@ tenants' buckets, and access is presigned with short expiry.
 | Accidental deletion of certificates | the credential has no `s3:DeleteObject` on `records/certificates/*` |
 | Cross-environment writes | bucket names carry the environment; separate credentials; separate namespaces |
 | Personal data in object keys | keys are ids; filenames and media types live in the database |
-| Enumerating other tenants | no `s3:ListAllMyBuckets` in the policy |
+| Enumerating other tenants | no `s3:ListAllMyBuckets`; `ListBuckets` therefore returns only Myota's three (verified) |
 
 ## Verification
 
 ```sh
-python3 tools/provision_silo.py --check          # read-only; what exists vs what is documented
-mcli ls myota-test-imports                        # after provisioning
-mcli admin user info myota-test                   # the policy attached
-mcli ilm ls myota-test-imports                    # the expiry rule
+python3 tools/provision_silo.py --check    # inventory, policies and this document agree
+python3 tools/provision_silo.py --live     # read-only comparison with the running server
+mcli ls myota-test-imports                 # an object listing as the Myota user
+mcli admin user info myota-test            # the policy attached
+mcli ilm ls myota-test-imports             # the 30-day expiry rule
 ```
 
-The provisioning tool is idempotent and defaults to `--check`. Nothing in this
-document has been applied to the live server: the buckets, users and policies
-described here do not exist yet, and creating them is `deploy/silo/README.md`.
+**Applied on 2026-11-27.** Six buckets, two users, two policies and two lifecycle rules
+exist on the server, verified as each unprivileged user: `myota-test` enumerates only its
+own three buckets, cannot reach `myota-prod-imports` or `bminfo-raw`, can write and delete
+an import object, and **cannot delete a certificate**. The credential secrets are
+`deploy/myota/secrets/s3-credentials.myota-{test,prod}.sops.yaml`, encrypted to the
+cluster's age recipient; they are applied to their namespaces once F6 creates them.
 
 See [secrets-and-config.md](secrets-and-config.md) for the secret/store split,
 [geodata-imports.md](geodata-imports.md) for the pipeline that uses `imports/`, and

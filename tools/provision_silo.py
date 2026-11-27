@@ -68,6 +68,31 @@ WRITE_ONLY_PREFIXES = {
 }
 
 
+# The guard that makes the console-host mistake impossible rather than documented.
+#
+# Silo's console is a single-page app: it answers HTTP 200 with an HTML document for
+# *every* path, including `PUT /<bucket>`. An S3 client pointed at it therefore reads a
+# 200 as success and the HTML as a malformed XML body — so `mcli mb` prints "Bucket
+# created successfully" for a bucket that was never created, and `mcli ilm` reports a
+# backend that does not support lifecycle. Both happened on the first real run of this
+# script, against https://silo.spainip.es.
+PREFLIGHT_TEMPLATE = """\
+# Preflight: refuse to run against anything that is not an S3 API.
+content_type=$(curl -sS -o /dev/null -w '%{content_type}' "$SILO_ENDPOINT/" || true)
+case "$content_type" in
+  application/xml*) : ;;
+  *)
+    echo "ERROR: $SILO_ENDPOINT answered content-type '$content_type', not S3 XML." >&2
+    echo "" >&2
+    echo "       The Silo console serves HTML with HTTP 200 for every path, so an S3" >&2
+    echo "       client pointed at it reports success for buckets it never created." >&2
+    echo "       Use the API host instead: {api}" >&2
+    exit 1
+    ;;
+esac
+"""
+
+
 class Problem(Exception):
     """A check failed. Carries every message found, not the first."""
 
@@ -209,6 +234,64 @@ def check_policy_covers_inventory(inventory: dict, environment: str) -> list[str
     return problems
 
 
+def check_secret_files(inventory: dict) -> list[str]:
+    """Every declared secret file exists, is encrypted, and matches the SOPS rule.
+
+    The last one is not pedantic. This repository's `deploy/.sops.yaml` matches paths
+    *relative to the config file's directory*, so a rule written as
+    `deploy/myota/secrets/...` matches nothing and `sops --encrypt` fails with
+    "no matching creation rules found" — which reads like a broken config rather than a
+    broken path. That happened once; it is a check now.
+    """
+    problems: list[str] = []
+    sops_config = REPO_ROOT / "deploy" / ".sops.yaml"
+    if not sops_config.exists():
+        return [f"{sops_config.relative_to(REPO_ROOT)} does not exist"]
+
+    config = yaml.safe_load(sops_config.read_text(encoding="utf-8"))
+    rules = config.get("creation_rules") or []
+    if not rules:
+        return ["deploy/.sops.yaml declares no creation rules"]
+
+    for environment, settings in inventory["environments"].items():
+        path = REPO_ROOT / settings["secret_file"]
+        shown = path.relative_to(REPO_ROOT)
+
+        if not path.exists():
+            problems.append(f"{shown} does not exist; every environment needs its own credential file")
+            continue
+        text = path.read_text(encoding="utf-8")
+        if "ENC[" not in text:
+            problems.append(f"{shown} contains no `ENC[` value, so it is not encrypted")
+        if "sops:" not in text:
+            problems.append(f"{shown} has no sops metadata block")
+
+        # Only the config-relative path, because that is what sops matches against: it
+        # resolves `path_regex` against the file's path *relative to the directory
+        # holding `.sops.yaml`. Testing the full repository path too would accept a rule
+        # written as `deploy/myota/secrets/...`, which sops rejects — the check would
+        # pass while the command still failed, which is worse than no check.
+        relative_to_deploy = str(shown).removeprefix("deploy/")
+        matched = False
+        for rule in rules:
+            pattern = rule.get("path_regex")
+            if not pattern:
+                continue
+            if re.search(pattern, relative_to_deploy):
+                matched = True
+                if not rule.get("age") and not rule.get("pgp"):
+                    problems.append(
+                        f"deploy/.sops.yaml: the rule matching {shown} has no recipient"
+                    )
+        if not matched:
+            problems.append(
+                f"deploy/.sops.yaml has no creation rule matching {relative_to_deploy} "
+                f"(the path as sops sees it, relative to deploy/); "
+                f"`sops --encrypt` would fail with 'no matching creation rules found'"
+            )
+    return problems
+
+
 def check_documentation(inventory: dict) -> list[str]:
     """The document names every bucket, user and policy the inventory declares."""
     problems: list[str] = []
@@ -235,46 +318,84 @@ def check_documentation(inventory: dict) -> list[str]:
     return problems
 
 
-def print_commands(inventory: dict) -> str:
-    """The exact commands, in order, for one environment.
+def print_commands(inventory: dict, endpoint: str, in_cluster: bool) -> str:
+    """The exact commands, in order, for both environments.
 
-    Kept as a generator rather than prose in the README so the runbook and the
-    inventory cannot disagree. The access key and secret are read from the
-    environment at run time and are never printed.
+    Generated rather than written as prose so the runbook and the inventory cannot
+    disagree, and so the endpoint is a parameter rather than something an operator edits
+    by hand — which is how the first run of this script was pointed at the console.
     """
     server = inventory["server"]
     alias = server["alias"]
+    region = server["region"]
+    api = server["signing_endpoint"]
+
+    preflight = PREFLIGHT_TEMPLATE.replace("{api}", api)
+
     lines = [
-        "# Generated by tools/provision_silo.py --print. Run as a Silo administrator.",
+        "#!/usr/bin/env bash",
+        "# Generated by tools/provision_silo.py --print.",
+        "set -euo pipefail",
+        "",
         "# Two kinds of credential appear below and they are not interchangeable:",
         "#   SILO_ADMIN_*          the administrator running these commands",
         "#   MYOTA_<ENV>_S3_SECRET the secret for the user being created",
         "# In Silo a user's name is its access key, so only the secret is supplied here.",
-        f'mcli alias set {alias} {server["endpoint"]} "$SILO_ADMIN_ACCESS_KEY" "$SILO_ADMIN_SECRET_KEY"',
+        "",
+        'SILO_ENDPOINT="${SILO_ENDPOINT:-' + endpoint + '}"',
+        "",
+        preflight,
+        "",
+        'mcli alias set ' + alias + ' "$SILO_ENDPOINT" "$SILO_ADMIN_ACCESS_KEY" "$SILO_ADMIN_SECRET_KEY"',
     ]
+
     for environment, settings in inventory["environments"].items():
-        lines.append("")
-        lines.append(f"# ---- {environment} ({settings['namespace']}) ----")
+        lines += ["", "# ---- " + environment + " (" + settings["namespace"] + ") ----"]
         for bucket in settings["buckets"]:
-            lines.append(
-                f"mcli mb --ignore-existing --region {server['region']} {alias}/{bucket['name']}"
-            )
+            lines.append("mcli mb --ignore-existing --region " + region + " " + alias + "/" + bucket["name"])
             if bucket.get("retain_days"):
                 lines.append(
-                    f"mcli ilm add --expire-days {bucket['retain_days']} {alias}/{bucket['name']}"
+                    "mcli ilm add --expire-days " + str(bucket["retain_days"]) + " " + alias + "/" + bucket["name"]
                 )
         lines.append(
-            f"mcli admin policy create {alias} {settings['policy']} "
-            f"deploy/silo/policies/{settings['policy']}.json"
+            "mcli admin policy create " + alias + " " + settings["policy"]
+            + " deploy/silo/policies/" + settings["policy"] + ".json"
         )
         lines.append(
-            f'mcli admin user add {alias} {settings["user"]} '
-            f'"$MYOTA_{environment.upper()}_S3_SECRET"'
+            "mcli admin user add " + alias + " " + settings["user"]
+            + ' "$MYOTA_' + environment.upper() + '_S3_SECRET"'
         )
         lines.append(
-            f"mcli admin policy attach {alias} {settings['policy']} --user {settings['user']}"
+            "mcli admin policy attach " + alias + " " + settings["policy"]
+            + " --user " + settings["user"]
         )
+
     return "\n".join(lines)
+
+
+def resolve_endpoint(inventory: dict, requested: str | None, in_cluster: bool) -> str:
+    """Picks the endpoint the printed script should target.
+
+    Defaults to the public API host, because this is run from a workstation or the
+    cluster node — nowhere the in-cluster ClusterIP resolves. `--in-cluster` exists for
+    the case where the commands run inside the Silo pod.
+
+    A request for the console is refused rather than silently accepted: it is the one
+    mistake that looks like success.
+    """
+    server = inventory["server"]
+    console = server.get("console_endpoint", "").rstrip("/")
+    chosen = requested or (server["endpoint"] if in_cluster else server["signing_endpoint"])
+
+    if console and chosen.rstrip("/") == console:
+        raise Problem([
+            f"{chosen} is the Silo *console*, not the S3 API.",
+            "It answers HTTP 200 with an HTML page for every path, so mcli reports "
+            "buckets as created that were never created.",
+            f"Use {server['signing_endpoint']} (public API) or "
+            f"{server['endpoint']} (in-cluster, only resolvable inside the cluster).",
+        ])
+    return chosen
 
 
 def check_offline(inventory: dict) -> list[str]:
@@ -284,6 +405,7 @@ def check_offline(inventory: dict) -> list[str]:
             inventory["environments"][environment]["policy"])))
         problems.extend(check_policy_covers_inventory(inventory, environment))
     problems.extend(check_documentation(inventory))
+    problems.extend(check_secret_files(inventory))
     return problems
 
 
@@ -331,13 +453,23 @@ def main() -> int:
     action = parser.add_mutually_exclusive_group(required=True)
     action.add_argument("--check", action="store_true", help="offline validation of inventory, policies and docs")
     action.add_argument("--print", action="store_true", help="emit the mcli commands that provision this")
+    parser.add_argument(
+        "--endpoint",
+        help="S3 API endpoint for the printed commands (default: the public API host)",
+    )
+    parser.add_argument(
+        "--in-cluster",
+        action="store_true",
+        help="print commands for http://silo.silo.svc.cluster.local:9000, for running inside the pod",
+    )
     action.add_argument("--live", action="store_true", help="read-only comparison with the running server")
     args = parser.parse_args()
 
     try:
         inventory = load_inventory()
         if args.print:
-            print(print_commands(inventory))
+            endpoint = resolve_endpoint(inventory, args.endpoint, args.in_cluster)
+            print(print_commands(inventory, endpoint, args.in_cluster))
             return 0
         problems = check_offline(inventory)
         if args.live:

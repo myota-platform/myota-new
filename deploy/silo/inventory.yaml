@@ -13,6 +13,12 @@ server:
   # minting presigned URLs, which must be signed for a host the browser can reach.
   endpoint: http://silo.silo.svc.cluster.local:9000
   signing_endpoint: https://silo-api.spainip.es
+  # The console. It serves an HTML single-page app with HTTP 200 for *every* path,
+  # including PUT /<bucket>. An S3 client pointed here reads the 200 as success and
+  # the HTML as a malformed XML body, so `mb` reports "created" for buckets that were
+  # never created and `ilm` reports a backend that does not support lifecycle.
+  # `--print` refuses to emit an endpoint that is this one.
+  console_endpoint: https://silo.spainip.es
   # SigV4 requires a region. Silo ignores the value, but a client that omits it or
   # disagrees with the server's default gets SignatureDoesNotMatch.
   region: us-east-1
