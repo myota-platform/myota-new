@@ -49,15 +49,20 @@ def fail(message: str) -> None:
 
 
 def service_directories() -> dict[str, Path]:
-    """Services that have a Dockerfile, keyed by the name their image would use.
+    """Services that have a Dockerfile, keyed by the name their image uses.
 
-    The image name is `myota-new-<key>`, and the key is the directory name: `apps/gateway`
-    publishes `myota-new-gateway`. One rule, so the mapping never has to be looked up.
+    `apps/<name>` publishes `myota-new-<name>`; `web/<name>` publishes
+    `myota-new-<name>-web`, which is the convention `_web.yml`'s callers use and what the
+    pinned digest in the values file says. The mapping is explicit rather than implied by
+    the directory name, because `web/admin` publishing `myota-new-admin` would be a second
+    name for one thing — and the check below would then report a pin for a service that
+    does not exist.
     """
     services: dict[str, Path] = {}
-    for base in ("apps", "web"):
-        for dockerfile in sorted((REPOSITORY_ROOT / base).glob("*/Dockerfile")):
-            services[dockerfile.parent.name] = dockerfile
+    for dockerfile in sorted((REPOSITORY_ROOT / "apps").glob("*/Dockerfile")):
+        services[dockerfile.parent.name] = dockerfile
+    for dockerfile in sorted((REPOSITORY_ROOT / "web").glob("*/Dockerfile")):
+        services[f"{dockerfile.parent.name}-web"] = dockerfile
     return services
 
 
