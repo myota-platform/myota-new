@@ -23,6 +23,11 @@ What it asserts, and why each one is a rule rather than a preference:
   migrations    a Job exists, it takes an advisory lock, and it runs the SQL in one
                 transaction. A migration set split across transactions leaves a database
                 neither at the old schema nor the new one.
+  api surface   the gateway is reachable on both hosts for `/v1` **and** for its own
+                surface — `/openapi.json`, `/docs`, `/event-schemas`. An API-first project
+                whose playground is unreachable from its own hostname is a contract nobody
+                can try; the first deploy shipped exactly that, with `/openapi.json`
+                returning the front end's 404.
   no secrets    no Secret is templated. Credentials are applied out of band from
                 `secrets/*.sops.yaml` (ADR-0003); a chart that can create a Secret is a
                 chart that has a password in its values.
@@ -60,15 +65,20 @@ class Problem(Exception):
         self.messages = messages
 
 
-def render() -> list[dict]:
+def render(values_file: Path | None = None) -> list[dict]:
+    """Render the chart, optionally with an environment's values on top.
+
+    The default render is the chart's own defaults, where every application service is
+    off — the database-only shape F5 verified. The *deployed* shape comes from the test
+    environment's values file, and some assertions (the API routes, the workloads) only
+    exist there. Rendering both means an assertion cannot pass by rendering nothing.
+    """
     if shutil.which("helm") is None:
         raise Problem(["helm is not on PATH; the chart cannot be rendered"])
-    result = subprocess.run(
-        ["helm", "template", RELEASE, str(CHART), "--namespace", NAMESPACE],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
+    command = ["helm", "template", RELEASE, str(CHART), "--namespace", NAMESPACE]
+    if values_file is not None:
+        command += ["--values", str(values_file)]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=120)
     if result.returncode != 0:
         raise Problem([f"helm template failed: {result.stderr.strip()[:600]}"])
     return [doc for doc in yaml.safe_load_all(result.stdout) if doc]
@@ -256,6 +266,51 @@ def check(objects: list[dict]) -> list[str]:
                 problems.append(f"Job {name_of(job)}: runner script is missing {required} ({why})")
         if not command:
             problems.append(f"Job {name_of(job)} runs no explicit command")
+
+    # ── the API surface is reachable ────────────────────────────────────────────
+    #
+    # The gateway serves more than `/v1`: `/openapi.json` is the composed contract and
+    # `/docs` is the playground. Both were unreachable on the deployed hostnames because
+    # the route matched only `/v1`, so the front end answered its own 404 — an API-first
+    # project whose contract cannot be fetched from its own host.
+    #
+    # Checked against a second render, with the test environment's values: the chart's
+    # defaults have no gateway, so a check against them would pass by finding nothing.
+    deployed_values = REPO_ROOT / "deploy" / "fleet" / "myota-test" / "values.yaml"
+    if deployed_values.is_file():
+        try:
+            deployed = render(deployed_values)
+        except Problem as problem:
+            problems.extend(problem.messages)
+            deployed = []
+
+        api_routes = [
+            route
+            for route in by_kind(deployed, "IngressRoute")
+            if any(
+                service.get("name") == "gateway"
+                for rule in route.get("spec", {}).get("routes", [])
+                for service in rule.get("services", [])
+            )
+        ]
+        if not api_routes:
+            problems.append(
+                "the deployed values route nothing to the gateway; the API and the playground "
+                "would be unreachable from the hostnames that document them"
+            )
+
+        required = ("PathPrefix(`/v1`)", "Path(`/openapi.json`)", "PathPrefix(`/docs`)")
+        for route in api_routes:
+            name = route["metadata"]["name"]
+            matches = " ".join(
+                rule.get("match", "") for rule in route.get("spec", {}).get("routes", [])
+            )
+            for fragment in required:
+                if fragment not in matches:
+                    problems.append(
+                        f"{name}: the gateway route does not match {fragment}; the contract "
+                        f"and the playground would be served by the front end's 404"
+                    )
 
     # ── no secrets in the chart ─────────────────────────────────────────────────
     if by_kind(objects, "Secret"):

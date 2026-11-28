@@ -27,8 +27,9 @@ owns.
 | `POST` | `/v1/admin/auth/mfa/enrol` | start a TOTP enrolment |
 | `POST` | `/v1/admin/auth/mfa/enrol/confirm` | confirm it with a code |
 | `GET` | `/internal/auth/jwks` | the public keys the gateway verifies tokens with |
+| `GET` | `/internal/healthz` | liveness — the operation the gateway aggregates |
 | `GET` | `/internal/openapi.json` | this service's contract, for `compose_contracts --fetch` |
-| `GET` | `/healthz`, `/readyz` | liveness; readiness also checks the database |
+| `GET` | `/healthz`, `/readyz` | the kubelet's probes; readiness also checks the database |
 
 The contract is `contracts/core.openapi.yaml`; it is the source of truth, and the
 document served at `/internal/openapi.json` is generated from it by

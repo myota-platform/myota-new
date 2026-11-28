@@ -188,8 +188,17 @@ api:
   enabled: false
   service: gateway
   port: 8080
-  pathPrefix: /v1
   priority: 100
+  # The paths that belong to the gateway rather than to the front end. `/v1` is the API;
+  # the rest is the gateway's own surface — the composed contract, the Scalar playground
+  # and the event-schema index — which an API-first project has to publish somewhere.
+  # Without these the playground is unreachable from the hostname that documents it.
+  pathPrefixes:
+    - /v1
+    - /docs
+    - /event-schemas
+  exactPaths:
+    - /openapi.json
 
 web:
   placeholder:

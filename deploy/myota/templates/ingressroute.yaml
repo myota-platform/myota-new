@@ -83,7 +83,18 @@ spec:
     - kind: Rule
       # Higher than the front end's 10: `/v1/**` is the API and `/` is the app.
       priority: {{ $.Values.api.priority }}
-      match: Host(`{{ $host }}`) && PathPrefix(`{{ $.Values.api.pathPrefix }}`)
+      {{- $api := $.Values.api }}
+      {{- $rules := list }}
+      {{- range $api.pathPrefixes }}
+      {{- $rules = append $rules (printf "PathPrefix(`%s`)" .) }}
+      {{- end }}
+      {{- range $api.exactPaths }}
+      {{- $rules = append $rules (printf "Path(`%s`)" .) }}
+      {{- end }}
+      # One rule with an OR of the paths the gateway owns, rather than one IngressRoute
+      # per path: they share a Service, a certificate and a priority, and splitting them
+      # would be three objects to keep in step.
+      match: Host(`{{ $host }}`) && ({{ join " || " $rules }})
       services:
         - name: {{ $.Values.api.service }}
           port: {{ $.Values.api.port }}
