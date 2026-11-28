@@ -127,7 +127,11 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
         geodata -> activity "Publishes entity published and retired facts" "Events, pulled"
         activity -> core "Publishes award issued and activation closed facts" "Events, pulled"
 
-        geodata -> core "Checks scopes for review actions" "HTTPS, 2s timeout"
+        // The one authorisation decision. Every service asks `core`, with a 60-second
+        // service token from the client-credentials exchange; the answer is recomputed
+        // from the open grants rather than read from the caller's token.
+        geodata -> core "Asks whether an account may review or import (POST /internal/authorize)" "HTTPS, 2s timeout, 60 s service token"
+        activity -> core "Asks whether an account may manage awards (POST /internal/authorize)" "HTTPS, 2s timeout, 60 s service token"
         activity -> geodata "Reads entity geometry when an activation closes" "HTTPS, 2s timeout"
         geodata -> activity "Reads deletion impact before retiring an entity" "HTTPS, 2s timeout"
 
@@ -145,6 +149,8 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
                     infrastructureNode pgbouncer "Transaction-mode pooler, one instance per database. Replicas hold pools of 20; the pooler presents 25 server connections regardless of replica count." "PgBouncer"
                     infrastructureNode fleetConfig "Non-secret configuration, reconciled from Git by Fleet. A change is a pull request; a rollback is a revert." "Kubernetes ConfigMap"
                     infrastructureNode sopsSecrets "SOPS-encrypted secrets under deploy/myota/secrets. Applied by an operator step, never reconciled, because an automated sync that can decrypt is an automated sync that can leak." "SOPS + age"
+                    infrastructureNode signingSecret "myota-core-signing: the Ed25519 seed that signs access and service tokens, and the AES-256-GCM key that encrypts TOTP seeds at rest. Read only by core; the gateway fetches the public half as a JWKS." "Kubernetes Secret"
+                    infrastructureNode serviceClients "myota-core-service-clients: one credential per calling service, exchanged for a 60-second service token. Absent means no service may call an internal endpoint." "Kubernetes Secret"
 
                     containerInstance gateway
                     containerInstance core
@@ -215,11 +221,46 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
             core -> smtp "Sends account-welcome.v1"
         }
 
+        // An administrator signs in. The password buys a challenge; only a second
+        // factor buys a session, and the gateway refuses the session's audience on any
+        // route that did not issue it.
+        dynamic myota "AdminSignIn" "An administrator signs in with a password and a TOTP code." {
+            administrator -> adminWeb "Enters address and password"
+            adminWeb -> gateway "POST /v1/admin/auth/login"
+            gateway -> core "Verifies the password, finds a confirmed factor, issues a challenge"
+            core -> coreDb "Writes mfa_challenge, the failed-attempt count, the audit row"
+            administrator -> adminWeb "Enters the six-digit code"
+            adminWeb -> gateway "POST /v1/admin/auth/mfa/challenge"
+            gateway -> core "Consumes the challenge and creates the session"
+            core -> coreDb "Commits auth_session with audience=admin and the access token id"
+            adminWeb -> gateway "Stores no token; the browser holds the __Host-myota_admin_sid cookie"
+            administrator -> adminWeb "Lands on the console with an administrator session"
+        }
+
+        // One service asking whether an account may do something.
+        dynamic myota "AuthorizeDecision" "geodata asks core whether an account may review an entity." {
+            geodata -> core "POST /internal/token with its own credential"
+            core -> coreDb "Compares the credential and records nothing: the token is stateless"
+            geodata -> core "POST /internal/authorize with the account, scope and programme"
+            core -> coreDb "Re-reads the open grants and the session"
+            core -> geodata "200 {allowed, effectiveScopes} — a refusal is an answer, not an error"
+        }
+
         // The messaging path, to make the absence of a broker explicit.
         dynamic myota "EventDelivery" "How a fact reaches another service without a broker." {
             core -> coreDb "Writes the fact to ops.outbox_event in the domain transaction"
             activity -> core "Pulls GET /internal/events?after=<seq>"
             activity -> activityDb "Inserts an idempotent ops.job and advances the cursor"
+        }
+
+        // A role change and what it invalidates.
+        dynamic myota "RoleChange" "An administrator grants a role, and the consumer learns." {
+            administrator -> adminWeb "Grants a role from the Admins section"
+            adminWeb -> gateway "POST /v1/admin/identity/admins/{id}/roles"
+            gateway -> core "Forwards with the administrator session"
+            core -> coreDb "Checks scopes ⊆ actor_scopes, writes account_role and the outbox event"
+            geodata -> core "Pulls the role-changed event on its next cycle"
+            geodata -> core "Asks again; the cached decision is no longer used"
         }
 
         deployment myota "Local K3s" "LocalK3s" "Deployment on the local K3s cluster." {

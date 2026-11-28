@@ -35,15 +35,19 @@ flowchart LR
     end
 
     log[("event log<br/>ops.outbox_event<br/>each service pulls")]
+    keys[("core signing keys<br/>JWKS → gateway")]
 
     admin -->|HTTPS| gateway
     participant -->|HTTPS| gateway
     gateway --> core
     gateway --> geodata
     gateway --> activity
+    core --- keys
     core -.- log
     geodata -.- log
     activity -.- log
+    geodata -.->|"may this account?"<br/>/internal/authorize| core
+    activity -.->|"may this account?"<br/>/internal/authorize| core
     core --> pooler
     geodata --> pooler
     activity --> pooler

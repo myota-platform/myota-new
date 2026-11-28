@@ -17,10 +17,15 @@ server and by the gateway.
 ## Two login surfaces
 
 ```
-POST /v1/auth/login          participant login  → audience=participant
-POST /v1/auth/register       participant registration
-POST /v1/admin/auth/login    admin login        → audience=admin, MFA required
+POST /v1/auth/login              participant login  → audience=participant
+POST /v1/auth/register           participant registration
+POST /v1/admin/auth/login        admin login        → a challenge, never a session
+POST /v1/admin/auth/mfa/challenge   answers it      → audience=admin, MFA required
+POST /v1/admin/auth/reauth       proves freshness for a destructive change
 ```
+
+`login` has exactly two shapes: `{status: mfa_required, challengeId, methods}` or a
+refusal. There is no session without a second factor and no flag that relaxes it.
 
 | Aspect | Participant | Admin |
 | --- | --- | --- |
@@ -60,7 +65,11 @@ sequenceDiagram
 
     Op->>Gate: POST /v1/admin/auth/login
     Gate->>Core: forward
-    Core->>Core: verify password AND a confirmed second factor
+    Core->>Core: verify the password, find a confirmed factor
+    Core-->>Op: {status: mfa_required, challengeId}
+    Op->>Gate: POST /v1/admin/auth/mfa/challenge
+    Gate->>Core: forward
+    Core->>Core: consume the challenge, create the session
     Core-->>Op: __Host-myota_admin_sid, audience=admin
 
     Op->>Gate: GET /v1/admin/identity/participants
@@ -72,6 +81,49 @@ sequenceDiagram
     Op->>Gate: GET /v1/admin/identity/participants, audience=participant
     Gate-->>Op: 401 wrong-audience, never a redirect
 ```
+
+## Re-authentication
+
+A role change, an MFA reset or an account suspension requires proof that the person
+holding the session is still the person who signed in — within five minutes. Without it a
+stolen session is enough to grant the attacker a role of their own, which is escalation
+that leaves no trace until it is used.
+
+```
+POST /v1/admin/auth/reauth  {password, code}  →  {sessionId, freshUntil}
+```
+
+The grant is bound to the **session**, not to the token: a stolen access token cannot
+manufacture freshness, because it cannot answer the password and the code. Freshness is a
+`timestamptz` on `auth_session`, so it is one update rather than a new store, and it dies
+with the session.
+
+Every mutating administrator endpoint calls `require_fresh`, which answers
+`403 about:blank#reauth-required` — not `401`, because the caller is authenticated and the
+problem is that the proof is stale.
+
+## Asking `core` on behalf of a service
+
+`geodata` and `activity` do not read roles. They call:
+
+```
+POST /internal/token      {service, secret}  → 60-second token, audience=service
+POST /internal/authorize  {accountId, scope, programmeId?, sessionId?}
+                                             → {allowed, effectiveScopes[], reason?}
+```
+
+The decision is recomputed from the open grants on every call. Deliberately **not** from
+the `scp` claim in the caller's access token: that is a snapshot up to ten minutes old, and
+answering from it would please a revoked administrator until the token expired. Passing
+`sessionId` makes a revoked session a refusal even for an account holding every scope.
+
+A refusal is `200 {allowed: false, reason}` — the question was answerable. The reasons are
+`scope_not_held`, `session_revoked`, `account_not_active` and `account_not_found`.
+
+`/internal/**` is not published: the operations carry `x-internal`, the composer leaves
+them out of the public document, and the gateway's route table is generated from that
+document — so the prefixes do not exist there at all. A gateway test asserts it, and a
+service token would be refused there anyway: the gateway accepts exactly two audiences.
 
 ## Token shape
 
@@ -271,4 +323,5 @@ of a long-lived shared secret.
 | CSRF against cookie-auth endpoints | SameSite=Lax + double-submit token on state-changing routes |
 | Credential stuffing | per-account lockout + breached-password check + rate limit |
 | Token replay after logout | `auth_revocation` checked on admin routes, short access lifetime elsewhere |
-| Privilege escalation through a role change | role changes publish `core.role.changed.v1`; cached scopes are invalidated by session id |
+| Privilege escalation through a role change | `granted ⊆ actor_scopes` at write time; freshness within 5 min; `core.role.changed.v1` invalidates cached scopes by session id |
+| Stolen administrator session used to escalate | re-authentication within five minutes for a grant, an MFA reset or a suspension |

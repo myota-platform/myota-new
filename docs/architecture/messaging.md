@@ -331,6 +331,12 @@ logic, and a table would be a second place to keep in sync.
 | `geodata` | `core` | `programme.published`, `programme.archived`, `account.closed` |
 | `core` | `geodata` | `import.completed` (admin notification) |
 | `core` | `activity` | `award.issued` (notification), `activation.closed` (optional) |
+| `geodata` | `core` | `role.changed` — drops any cached authorisation decision for the listed sessions |
+| `activity` | `core` | `role.changed` — the same |
+
+`core.role.changed.v1` is the event that makes a cache safe to keep: it names the account
+and its open session ids, so a consumer that asked `/internal/authorize` once can drop the
+answer instead of waiting for its own TTL.
 
 Unsubscribed types are ignored by the puller and never become jobs.
 
