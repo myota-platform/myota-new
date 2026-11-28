@@ -103,43 +103,25 @@ async fn provision_admin(arguments: &[String]) -> Result<(), Box<dyn Error>> {
     initialise_tracing();
     let config = Config::from_env()?;
 
-    let mut email = None;
-    let mut display_name = None;
-    let mut password: Option<String> = None;
-    let mut index = 0;
+    let flags = bootstrap::parse_provision_args(arguments)?;
 
-    while index < arguments.len() {
-        let flag = arguments[index].as_str();
-        let value = arguments
-            .get(index + 1)
-            .ok_or_else(|| format!("{flag} needs a value"))?;
-        match flag {
-            "--email" => email = Some(value.clone()),
-            "--name" => display_name = Some(value.clone()),
-            "--password-stdin" => {
-                // From stdin rather than argv: an argument is visible in `ps` and in
-                // a shell history.
-                let mut buffer = String::new();
-                std::io::stdin().read_to_string(&mut buffer)?;
-                password = Some(buffer.trim_end_matches(['\n', '\r']).to_string());
-                index += 1;
-                continue;
-            }
-            "--password" => password = Some(value.clone()),
-            other => return Err(format!("{other:?} is not a flag this command takes").into()),
+    let password = match flags.password {
+        // From stdin rather than argv: an argument is visible in `ps` and in a shell
+        // history, and this is a credential.
+        bootstrap::PasswordSource::Stdin => {
+            let mut buffer = String::new();
+            std::io::stdin().read_to_string(&mut buffer)?;
+            buffer.trim_end_matches(['\n', '\r']).to_string()
         }
-        index += 2;
-    }
-
-    let email = email.ok_or("--email is required")?;
-    let display_name = display_name.unwrap_or_else(|| "Administrator".to_string());
-    let password = password.ok_or("--password-stdin or --password is required")?;
+        bootstrap::PasswordSource::Literal(value) => value,
+    };
 
     let pool = db::connect(&config.database_url).await?;
     let provisioned =
-        bootstrap::provision_admin(&pool, &config, &email, &display_name, &password).await?;
+        bootstrap::provision_admin(&pool, &config, &flags.email, &flags.display_name, &password)
+            .await?;
 
-    print!("{}", bootstrap::render(&provisioned, &email));
+    print!("{}", bootstrap::render(&provisioned, &flags.email));
     Ok(())
 }
 

@@ -31,6 +31,67 @@ use crate::{password, secretbox, totp};
 /// The role a provisioned administrator gets until A2 defines the catalogue.
 pub const BOOTSTRAP_ROLE: &str = "platform_admin";
 
+/// The flags `provision-admin` accepts, after parsing.
+#[derive(Debug, PartialEq, Eq)]
+pub struct ProvisionArgs {
+    /// The address the administrator signs in with.
+    pub email: String,
+    /// The name shown in the console.
+    pub display_name: String,
+    /// Where the password comes from.
+    pub password: PasswordSource,
+}
+
+/// How the password was supplied.
+#[derive(Debug, PartialEq, Eq)]
+pub enum PasswordSource {
+    /// `--password`, for a script that already holds it in a variable.
+    Literal(String),
+    /// `--password-stdin`, read from standard input so it never appears in `ps`.
+    Stdin,
+}
+
+/// Parses the flags of `provision-admin`.
+///
+/// A pure function, so the flag handling is tested without spawning a process. It
+/// exists because the first version required a value after `--password-stdin`,
+/// which rejected the exact invocation the README documents.
+pub fn parse_provision_args(arguments: &[String]) -> Result<ProvisionArgs, String> {
+    let mut email: Option<String> = None;
+    let mut display_name: Option<String> = None;
+    let mut password: Option<PasswordSource> = None;
+    let mut index = 0;
+
+    while index < arguments.len() {
+        let flag = arguments[index].as_str();
+
+        // A flag with no value is matched before the next argument is read.
+        if flag == "--password-stdin" {
+            password = Some(PasswordSource::Stdin);
+            index += 1;
+            continue;
+        }
+
+        let value = arguments
+            .get(index + 1)
+            .ok_or_else(|| format!("{flag} needs a value"))?
+            .clone();
+        match flag {
+            "--email" => email = Some(value),
+            "--name" => display_name = Some(value),
+            "--password" => password = Some(PasswordSource::Literal(value)),
+            other => return Err(format!("{other:?} is not a flag this command takes")),
+        }
+        index += 2;
+    }
+
+    Ok(ProvisionArgs {
+        email: email.ok_or("--email is required")?,
+        display_name: display_name.unwrap_or_else(|| "Administrator".to_string()),
+        password: password.ok_or("--password-stdin or --password is required")?,
+    })
+}
+
 /// What a successful provisioning produced.
 pub struct Provisioned {
     /// The account.
@@ -284,4 +345,87 @@ pub fn render(provisioned: &Provisioned, email: &str) -> String {
          database: the seed is stored encrypted and the codes are stored hashed.\n",
     );
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn arguments(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn password_stdin_needs_no_value() {
+        // The invocation the README documents. The first version of this parser
+        // required a value after the flag and rejected it.
+        let parsed = parse_provision_args(&arguments(&[
+            "--email",
+            "admin@example.org",
+            "--name",
+            "Administrator",
+            "--password-stdin",
+        ]))
+        .expect("parses");
+        assert_eq!(parsed.email, "admin@example.org");
+        assert_eq!(parsed.display_name, "Administrator");
+        assert_eq!(parsed.password, PasswordSource::Stdin);
+    }
+
+    #[test]
+    fn a_literal_password_is_accepted() {
+        let parsed = parse_provision_args(&arguments(&[
+            "--email",
+            "a@b.c",
+            "--password",
+            "a long passphrase",
+        ]))
+        .expect("parses");
+        assert_eq!(
+            parsed.password,
+            PasswordSource::Literal("a long passphrase".to_string())
+        );
+        assert_eq!(
+            parsed.display_name, "Administrator",
+            "the name has a default"
+        );
+    }
+
+    #[test]
+    fn flags_may_come_in_any_order() {
+        let parsed = parse_provision_args(&arguments(&[
+            "--password-stdin",
+            "--name",
+            "Someone",
+            "--email",
+            "someone@example.org",
+        ]))
+        .expect("parses");
+        assert_eq!(parsed.email, "someone@example.org");
+        assert_eq!(parsed.display_name, "Someone");
+    }
+
+    #[test]
+    fn a_missing_email_is_refused_by_name() {
+        let error = parse_provision_args(&arguments(&["--password-stdin"])).expect_err("refused");
+        assert!(error.contains("--email"), "{error}");
+    }
+
+    #[test]
+    fn a_missing_password_is_refused_by_name() {
+        let error = parse_provision_args(&arguments(&["--email", "a@b.c"])).expect_err("refused");
+        assert!(error.contains("--password"), "{error}");
+    }
+
+    #[test]
+    fn an_unknown_flag_is_refused() {
+        let error = parse_provision_args(&arguments(&["--promote", "yes"])).expect_err("refused");
+        assert!(error.contains("not a flag"), "{error}");
+    }
+
+    #[test]
+    fn a_flag_without_its_value_is_refused() {
+        let error = parse_provision_args(&arguments(&["--email"])).expect_err("refused");
+        assert!(error.contains("needs a value"), "{error}");
+    }
 }
