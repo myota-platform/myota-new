@@ -12,10 +12,15 @@ namespace:
   name: myota-test
 
 web:
-  # The participant app is still the nginx placeholder that proves the hostname until P2
-  # replaces it. The admin console became a real application in A3; it is switched on in
-  # the commit after the first image was published, because the chart refuses to render a
-  # real front end without a digest.
+  # The admin console is a real application as of A3: `images.admin-web` is the digest CI
+  # published, and flipping `placeholder` is what deploys it. The Service name and port do
+  # not change, so the IngressRoute and its certificate are untouched.
+  #
+  # The participant app is still the nginx placeholder that proves its hostname until P2
+  # replaces it.
+  apps:
+    admin-web:
+      placeholder: false
   ingress:
     enabled: true
     hosts:

@@ -58,6 +58,12 @@ EXPECTED_POOL_SIZE = 25
 EXPECTED_POOL_MODE = "transaction"
 PVC_MIN_GIB, PVC_MAX_GIB = 10, 20
 
+# Front ends that are real applications rather than the placeholder page. A3 ships the
+# admin console; P2 adds `participant-web`. Kept as a list because "is it built yet" is a
+# fact about the project, not something the chart can infer — and a chart that silently
+# renders the placeholder forever is the failure this catches.
+REAL_FRONT_ENDS = ("admin-web",)
+
 
 class Problem(Exception):
     def __init__(self, messages: list[str]):
@@ -282,6 +288,7 @@ def check(objects: list[dict]) -> list[str]:
     # defaults have no gateway, so a check against them would pass by finding nothing.
     deployed_values = REPO_ROOT / "deploy" / "fleet" / "myota-test" / "values.yaml"
     if deployed_values.is_file():
+        deployed_values_document = yaml.safe_load(deployed_values.read_text()) or {}
         try:
             deployed = render(deployed_values)
         except Problem as problem:
@@ -302,6 +309,28 @@ def check(objects: list[dict]) -> list[str]:
                 "the deployed values route nothing to the gateway; the API and the playground "
                 "would be unreachable from the hostnames that document them"
             )
+
+        deployed_web = (deployed_values_document or {}).get("web", {}).get("apps", {})
+        for app in REAL_FRONT_ENDS:
+            settings = deployed_web.get(app) or {}
+            if settings.get("placeholder", True):
+                problems.append(
+                    f"{app} is a real front end but the deployed values still render the "
+                    f"placeholder; set web.apps.{app}.placeholder: false"
+                )
+
+        # Every image **this project publishes** must be a digest. The rule is stated
+        # against the registry prefix rather than against "is a front end", because a
+        # placeholder legitimately runs `nginx:1.27-alpine` (a version tag, pinned by the
+        # chart) while `myota-new-*` must never be a tag — a tag moves, and a front end
+        # that changes without a commit is a deployment nobody reviewed.
+        for deployment in by_kind(deployed, "Deployment"):
+            image = deployment["spec"]["template"]["spec"]["containers"][0].get("image", "")
+            if "/myota-new-" in image and "@sha256:" not in image:
+                problems.append(
+                    f"{name_of(deployment)}: image {image!r} is not a digest; every image "
+                    f"this project publishes is pinned"
+                )
 
         required = ("PathPrefix(`/v1`)", "Path(`/openapi.json`)", "PathPrefix(`/docs`)")
         for route in api_routes:
