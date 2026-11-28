@@ -1,0 +1,110 @@
+{{- /*
+A real front end: a static tree in nginx, serving the SPA fallback.
+
+Same shape as the placeholder it replaces — a Deployment, a Service on 8080, the same
+name — so the IngressRoute, the certificate and the DNS record are already proven and
+nothing about them changes when the application lands. What differs is the image: the
+built console from `images.<name>`, a digest written by CI.
+
+`try_files $uri /index.html` is inside the image's own `nginx.conf`, not here: the
+console's routing is a property of the console, and a ConfigMap copy would be a second
+place to change it.
+*/ -}}
+{{- range $name, $web := .Values.web.apps }}
+{{- if not $web.placeholder }}
+{{- $image := index $.Values.images $name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "myota.labels" $ | nindent 4 }}
+    myota.web: {{ $name }}
+spec:
+  replicas: {{ $web.replicas }}
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $name }}
+        {{- include "myota.labels" $ | nindent 8 }}
+        myota.web: {{ $name }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: {{ required (printf "images.%s is required for a real front end" $name) $image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          # nginx in the official image writes its pid and temporary files under /tmp and
+          # /var/run; giving them emptyDir volumes is what lets the root filesystem stay
+          # read-only.
+          volumeMounts:
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $.Values.web.app.resources | nindent 12 }}
+      volumes:
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "myota.labels" $ | nindent 4 }}
+    myota.web: {{ $name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ $name }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+{{- end }}
+{{- end }}

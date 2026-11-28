@@ -70,9 +70,12 @@ def main(argv: list[str]) -> int:
 
     files = source_files(app)
     if not files:
-        print(f"::error::{argv[1]} has no source files to check")
-        return 1
-
+        # A directory with a README and nothing else is a front end whose chunk has not
+        # run. `_web.yml` makes the same distinction for the build, and reporting it as a
+        # defect here would fail the gate for work that has not been scheduled yet —
+        # while a directory with source that it cannot parse is still a defect below.
+        print(f"note: {argv[1]} has no source files yet — nothing to check against the design system")
+        return 0
     problems: list[str] = []
 
     # 1. at least one source file must reference the shared token file

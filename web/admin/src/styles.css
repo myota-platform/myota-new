@@ -1,0 +1,190 @@
+/* The console's stylesheet.
+ *
+ * The design system is `docs/ui/styles/04-organic/style.css` — the same file the mockups
+ * are drawn with, imported rather than copied. A copy would drift the first time a token
+ * changed, and the mockups are supposed to be what the console looks like.
+ *
+ * What is added below is only what an application needs and a static mockup does not:
+ * a skip link, focus visibility, and the layout for views that fetch.
+ */
+@import '../../../docs/ui/styles/04-organic/style.css';
+
+/* That import pulls in `libs/ui-tokens/tokens.css` itself, so the palette has exactly one
+   definition in the repository and this app cannot drift from the mockups. */
+
+/* ---- accessibility scaffolding ------------------------------------------------ */
+
+.skip {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--ink);
+  color: var(--sand);
+  padding: 12px 20px;
+  border-radius: 0 0 var(--r-ctl) 0;
+  font-weight: 600;
+  z-index: 100;
+}
+.skip:focus {
+  left: 0;
+}
+
+/* A visible focus ring on everything that can receive focus. The design system removes
+   the browser default with `outline: none` in two places; this puts it back, on the
+   accent, with an offset that survives the rounded corners. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--clay-ink);
+  outline-offset: 2px;
+}
+
+/* The design's small ink is 3.27:1 on the card, which is a caption colour, not a text
+   colour. Bumping it where it carries meaning rather than decoration. */
+.tiny {
+  color: var(--ink-2);
+}
+
+/* ---- application layout ------------------------------------------------------ */
+
+.page-narrow {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 22px 40px;
+}
+
+.stack > * + * {
+  margin-top: 16px;
+}
+
+.field {
+  display: block;
+  margin-bottom: 16px;
+}
+.field label {
+  display: block;
+  font-weight: 620;
+  font-size: 13.5px;
+  margin-bottom: 6px;
+}
+.field .hint {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  margin-top: 5px;
+}
+.field input {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-ctl);
+  padding: 11px 14px;
+}
+.field input:focus {
+  border-color: var(--clay-ink);
+}
+.field input[aria-invalid='true'] {
+  border-color: var(--clay-ink);
+  background: var(--clay-soft);
+}
+
+.btn {
+  font: inherit;
+  font-weight: 650;
+  border: none;
+  border-radius: 999px;
+  padding: 11px 22px;
+  background: var(--clay-ink);
+  color: #fff;
+  cursor: pointer;
+}
+.btn[disabled] {
+  opacity: 0.55;
+  cursor: progress;
+}
+.btn-ghost {
+  background: var(--sand-2);
+  color: var(--ink);
+}
+
+/* A problem the API returned, announced rather than merely displayed. */
+.alert {
+  border-radius: var(--r-ctl);
+  padding: 14px 18px;
+  background: var(--clay-soft);
+  color: #6d2f14;
+  font-size: 14px;
+  border-left: 4px solid var(--clay-ink);
+}
+
+.notice {
+  border-radius: var(--r-ctl);
+  padding: 14px 18px;
+  background: var(--sage-soft);
+  color: #2f4a2c;
+  font-size: 14px;
+  border-left: 4px solid var(--sage-ink);
+}
+
+/* A secret or a recovery code the operator has to copy: monospace, selectable, and
+   wide enough that a wrap cannot be mistaken for a character. */
+.code {
+  font-family: var(--num);
+  font-size: 13.5px;
+  background: var(--sand-2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  overflow-wrap: anywhere;
+}
+.code-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.code-list li {
+  font-family: var(--num);
+  font-size: 13px;
+  background: var(--sand-2);
+  border-radius: 8px;
+  padding: 7px 10px;
+}
+
+/* ---- loading and empty states ------------------------------------------------ */
+
+.skeleton {
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--sand-2), var(--card), var(--sand-2));
+  background-size: 200% 100%;
+  animation: sheen 1.4s linear infinite;
+}
+@keyframes sheen {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+.empty {
+  text-align: center;
+  padding: 34px 20px;
+  color: var(--ink-2);
+}
+.empty h2 {
+  font-size: 17px;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.empty p {
+  margin: 0 auto;
+  max-width: 46ch;
+  font-size: 14px;
+}

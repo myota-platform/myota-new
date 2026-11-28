@@ -5,9 +5,12 @@
   "scripts": {
     "check:ui": "node tools/check_ui.mjs",
     "render:mockups": "node tools/render_mockups.mjs",
-    "check:mockups": "node tools/render_mockups.mjs --check"
+    "check:mockups": "node tools/render_mockups.mjs --check",
+    "check:console": "npm --prefix web/admin run check"
   },
   "devDependencies": {
-    "playwright": "^1.65.1"
+    "playwright": "^1.65.1",
+    "axe-core": "^4.10.2",
+    "lighthouse": "^12.3.0"
   }
 }

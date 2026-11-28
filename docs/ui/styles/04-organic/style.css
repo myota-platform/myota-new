@@ -1,40 +1,13 @@
+@import '../../../../libs/ui-tokens/tokens.css';
+
 /* ==========================================================================
    Style 04 — Warm organic
    Sand paper, terracotta and sage, very large radii, shadows instead of
    borders. Humanist type with generous leading. Soft where the others are sharp.
    ========================================================================== */
 
-:root {
-  --sand: #f7f2e9;
-  --sand-2: #efe7d9;
-  --card: #fffdf9;
-  --ink: #342a20;
-  --ink-2: #6b5d4c;
-  --ink-3: #9a8b76;
-  --line: #e6dbca;
-
-  --clay: #c05f3c;
-  --clay-soft: #f6e3da;
-  --sage: #6f8f6b;
-  --sage-soft: #e3ecdf;
-  --ochre: #d09b3f;
-  --ochre-soft: #faedd6;
-  --plum: #8c5a6b;
-
-  --sans: ui-rounded, "SF Pro Rounded", "Segoe UI", -apple-system,
-          BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  --num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-
-  --r-ctl: 14px;   /* controls: inputs, selects, map chrome, notices */
-  --r-sm: 12px;
-  --r: 20px;
-  --r-lg: 28px;
-  --r-xl: 34px;
-
-  --sh-1: 0 1px 2px rgba(90, 70, 45, .05), 0 6px 18px -8px rgba(90, 70, 45, .12);
-  --sh-2: 0 2px 4px rgba(90, 70, 45, .06), 0 18px 44px -20px rgba(90, 70, 45, .22);
-  --sh-3: 0 4px 8px rgba(90, 70, 45, .07), 0 30px 60px -28px rgba(90, 70, 45, .28);
-}
+/* Everything below is layout and components. The tokens — palette, radii,
+   shadows, type — live in libs/ui-tokens/tokens.css. */
 
 * { box-sizing: border-box; }
 
@@ -74,7 +47,7 @@ a { color: inherit; text-decoration: none; }
   font-size: 14px; color: var(--ink-2); font-weight: 500;
 }
 .hdr nav a:hover { background: var(--sand-2); color: var(--ink); }
-.hdr nav a[aria-current] { background: var(--clay); color: #fff; box-shadow: 0 6px 16px -8px rgba(192,95,60,.9); }
+.hdr nav a[aria-current] { background: var(--clay-ink); color: #fff; box-shadow: 0 6px 16px -8px rgba(168,74,42,.9); }
 .hdr .who {
   margin-left: auto; display: flex; align-items: center; gap: 10px;
   padding: 5px 16px 5px 6px; border-radius: 999px; background: var(--sand-2);
@@ -240,7 +213,7 @@ td.id { font-family: var(--num); font-size: 12.5px; color: var(--ink-2); }
 .search input::placeholder { color: var(--ink-3); }
 .go {
   border: 0; cursor: pointer; font: inherit; font-size: 14px; font-weight: 650;
-  background: var(--clay); color: #fff; padding: 10px 24px; border-radius: 999px;
+  background: var(--clay-ink); color: #fff; padding: 10px 24px; border-radius: 999px;
   box-shadow: 0 8px 18px -10px rgba(192,95,60,.95);
 }
 
@@ -418,8 +391,8 @@ td.id { font-family: var(--num); font-size: 12.5px; color: var(--ink-2); }
   display: grid; place-items: center; font-size: 11px; font-weight: 700;
   background: var(--sand-2); color: var(--ink-3);
 }
-.stp.done .dot { background: var(--sage); color: #fff; }
-.stp.on .dot { background: var(--clay); color: #fff; box-shadow: 0 0 0 5px var(--clay-soft); }
+.stp.done .dot { background: var(--sage-ink); color: #fff; }
+.stp.on .dot { background: var(--clay-ink); color: #fff; box-shadow: 0 0 0 5px var(--clay-soft); }
 .stp .line { width: 2px; flex: 1; background: var(--line); min-height: 16px; border-radius: 2px; }
 .stp .body { padding: 2px 0 20px; }
 .stp .body b { display: block; font-size: 15px; font-weight: 650; }
@@ -428,9 +401,11 @@ td.id { font-family: var(--num); font-size: 12.5px; color: var(--ink-2); }
 /* ---------- forms --------------------------------------------------------- */
 
 .field { display: flex; flex-direction: column; gap: 6px; }
+/* Labels carry meaning, so they use the text colour (6.27:1) rather than the caption
+   colour (3.26:1). The uppercase treatment is the design; the contrast is not optional. */
 .field label {
   font-size: 11.5px; font-weight: 650; text-transform: uppercase;
-  letter-spacing: .05em; color: var(--ink-3);
+  letter-spacing: .05em; color: var(--ink-2);
 }
 .inp, .sel {
   font: inherit; font-size: 15px; padding: 10px 14px;

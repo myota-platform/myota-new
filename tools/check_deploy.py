@@ -149,7 +149,11 @@ def check(objects: list[dict]) -> list[str]:
                 f"{name}: max_connections={match.group(1)}, expected {EXPECTED_MAX_CONNECTIONS}"
             )
 
+    # Only the poolers. Every Deployment in the chart is not a pooler: the front ends are
+    # Deployments too, and treating them as poolers asked why nginx has no POOL_MODE.
     for name, deployment in deployments.items():
+        if not name.endswith("-pgbouncer"):
+            continue
         env = {
             entry["name"]: entry.get("value")
             for entry in deployment["spec"]["template"]["spec"]["containers"][0].get("env", [])

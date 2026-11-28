@@ -206,20 +206,38 @@ api:
     - /openapi.json
 
 web:
+  # One entry per front end. `placeholder: true` renders the nginx page that proves the
+  # hostname, the certificate and the route before the application exists; `false`
+  # renders the application's own image from `images.<name>`. Both keep the same Service
+  # name and port, so the IngressRoute and the certificate are proven once and never
+  # change when the real application lands.
+  apps:
+    participant-web:
+      title: Myota
+      chunk: P2
+      placeholder: true
+      replicas: 2
+    admin-web:
+      title: Myota administration
+      chunk: A3
+      # The chart's default is the placeholder: it renders with no images at all, which is
+      # the state F5's database-only check needs. An environment that has published the
+      # console flips this in its own values — see `deploy/fleet/myota-test/values.yaml`.
+      placeholder: true
+      replicas: 2
+  # The image the placeholders use. Real front ends come from `images.<name>`, written by
+  # CI with a digest.
   placeholder:
-    enabled: false
     image: nginx:1.27-alpine
-    replicas: 2
     resources:
       requests: {cpu: 10m, memory: 16Mi}
       limits: {memory: 64Mi}
-    apps:
-      participant-web:
-        title: Myota
-        chunk: P2
-      admin-web:
-        title: Myota administration
-        chunk: A3
+  # Resources for a real front end: nginx serving a static tree is small, and the limit
+  # exists so a runaway response cannot take the node.
+  app:
+    resources:
+      requests: {cpu: 20m, memory: 32Mi}
+      limits: {memory: 128Mi}
   ingress:
     enabled: false
     hosts:

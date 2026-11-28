@@ -15,8 +15,8 @@ The page lives in its own ConfigMap key rather than inline in the nginx config. 
 inside a `return 200 '...'` is a YAML quoting problem first and a readability problem second;
 a file served by `try_files` is neither.
 */ -}}
-{{- if .Values.web.placeholder.enabled }}
-{{- range $name, $web := .Values.web.placeholder.apps }}
+{{- range $name, $web := .Values.web.apps }}
+{{- if $web.placeholder }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -89,7 +89,7 @@ spec:
   # Two replicas from the first day, because the property being proven is that any replica
   # serves any request (ADR-0005). One replica lets a Service-level mistake — affinity, a
   # pinned pod — go unnoticed until the second is added.
-  replicas: {{ $.Values.web.placeholder.replicas }}
+  replicas: {{ $web.replicas }}
   selector:
     matchLabels:
       app.kubernetes.io/name: {{ $name }}

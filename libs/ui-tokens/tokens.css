@@ -1,0 +1,51 @@
+/* The shared design tokens.
+ *
+ * One file, imported by every front end and by the mockups, so the palette cannot drift
+ * between a screen that ships and a screen that was drawn. `tools/check_design_system.py`
+ * fails a front end that carries its own copy or overrides a value here.
+ *
+ * The direction is 04-Organic (ADR-0007): sand paper, terracotta and sage, very large
+ * radii, shadows instead of borders.
+ *
+ * Two shades per accent. The saturated one is for fills that carry no text; the darker
+ * one is for anything white sits on, because white on `--clay` is 4.25:1 and that fails
+ * the 4.5:1 floor at button sizes.
+ */
+
+:root {
+  --sand: #f7f2e9;
+  --sand-2: #efe7d9;
+  --card: #fffdf9;
+  --ink: #342a20;
+  --ink-2: #6b5d4c;
+  --ink-3: #9a8b76;
+  --line: #e6dbca;
+
+  /* Two shades per accent: the saturated one for fills that carry no text, and a
+     darker one wherever white text sits on top. White on #c05f3c is 4.25:1, which
+     fails the 4.5 floor for text under 18.66px; #a84a2a is 5.71:1. Same hue, same
+     feel, and a button label nobody has to squint at. */
+  --clay: #c05f3c;
+  --clay-ink: #a84a2a;
+  --clay-soft: #f6e3da;
+  --sage: #6f8f6b;
+  --sage-ink: #4d6a49;
+  --sage-soft: #e3ecdf;
+  --ochre: #d09b3f;
+  --ochre-soft: #faedd6;
+  --plum: #8c5a6b;
+
+  --sans: ui-rounded, "SF Pro Rounded", "Segoe UI", -apple-system,
+          BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --num: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --r-ctl: 14px;   /* controls: inputs, selects, map chrome, notices */
+  --r-sm: 12px;
+  --r: 20px;
+  --r-lg: 28px;
+  --r-xl: 34px;
+
+  --sh-1: 0 1px 2px rgba(90, 70, 45, .05), 0 6px 18px -8px rgba(90, 70, 45, .12);
+  --sh-2: 0 2px 4px rgba(90, 70, 45, .06), 0 18px 44px -20px rgba(90, 70, 45, .22);
+  --sh-3: 0 4px 8px rgba(90, 70, 45, .07), 0 30px 60px -28px rgba(90, 70, 45, .28);
+}

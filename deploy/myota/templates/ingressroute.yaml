@@ -23,12 +23,15 @@ Why this shape and not `kind: Ingress`:
 One route per host, not one route with two hosts: a certificate is per host, an error on one
 host should not take the other out, and the admin host is a separate audience by design.
 
+The same loop renders the front end's catch-all and the gateway's `/v1` rule for every
+host, so a new front end is one entry in `web.apps` and one hostname — not four objects.
+
 `helm.sh/resource-policy: keep` on both, matching the `aprs` routes: a route is cheap to
 recreate and expensive to lose silently during a rollback, because the hostname stops
 answering while the certificate stays in Traefik's store.
 */ -}}
 {{- if .Values.web.ingress.enabled }}
-{{- range $name, $web := .Values.web.placeholder.apps }}
+{{- range $name, $web := .Values.web.apps }}
 {{- $host := index $.Values.web.ingress.hosts $name }}
 {{- if not $host }}
 {{- fail (printf "web.ingress.hosts.%s is not set; every front end needs a hostname" $name) }}
@@ -62,7 +65,7 @@ spec:
 {{- end }}
 {{- end }}
 {{- if and .Values.web.ingress.enabled .Values.api.enabled }}
-{{- range $name, $web := .Values.web.placeholder.apps }}
+{{- range $name, $web := .Values.web.apps }}
 {{- $host := index $.Values.web.ingress.hosts $name }}
 {{- if $host }}
 ---

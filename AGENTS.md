@@ -263,18 +263,28 @@ and are now historical. See
 [ADR-0007](docs/decisions/0007-ui-direction-organic.md).
 
 ```
+libs/ui-tokens/tokens.css       the palette, radii, shadows and type — the one definition
 docs/ui/styles/04-organic/
-  style.css                     the design system — tokens, components, dark variant
+  style.css                     layout and components; imports the tokens
   admin-01…06-*.html            every admin screen
   participant-01…06-*.html      every participant screen
   renders/                      generated PNGs, committed so they are viewable
 ```
+
+The mockups and every front end **import** `libs/ui-tokens/tokens.css` rather than
+copying it, so a token change reaches the screens that ship and the screens that were
+drawn together. `tools/check_design_system.py` fails an app that carries its own
+palette or overrides a token.
 
 ### Rules
 
 - **New UI work starts from `04-organic/style.css`.** Do not extend the baseline
   in `docs/ui/`, and do not revive `01-editorial`, `02-brutalist` or `03-aurora`.
   They stay in the repository as the record of what was considered, not as a menu.
+- **Contrast is measured, not eyeballed.** Text is 4.5:1 against its surface, minimum;
+  white on an accent counts, and a saturated accent usually fails it (white on `--clay`
+  is 4.25:1, which is why filled controls use `--clay-ink`). `/login` in `web/admin`
+  scores 100 in Lighthouse accessibility and `make -C web/admin check` holds it there.
 - **The design system is the stylesheet, not a component library.** The custom
   properties at the top of `style.css` are the contract — colour, radius, shadow,
   spacing. A new component uses those tokens and never invents a literal value;

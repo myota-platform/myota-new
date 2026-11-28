@@ -55,7 +55,7 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
             geodata = container "geodata" "Spatial catalogue: entities and geometry, source adapters and imports, conflation, review, and provenance. PostGIS lives only here." "Rust 2024, Axum, SQLx, geozero"
             activity = container "activity" "Activations, QSOs and ADIF import, award definitions and issuance, statistics and leaderboards." "Go 1.24, Echo, pgx"
 
-            adminWeb = container "Admin Console" "Operator interface: imports and review, programmes and awards, identity administration." "Vue 3, Vite" "Static"
+            adminWeb = container "Admin Console" "Operator interface: sign-in with a second factor, imports and review, programmes and awards, identity administration. Holds no token in storage: the refresh credential is an HttpOnly cookie and the access token lives in memory." "Vue 3, Vite" "Static"
             participantWeb = container "Participant App" "Participant interface: discover, map, live activation, awards." "Svelte 5, Vite" "Static"
 
             coreDb = container "myota_core" "Accounts, sessions, roles, programmes, notifications, and the ops schema." "PostgreSQL 16" "Database"

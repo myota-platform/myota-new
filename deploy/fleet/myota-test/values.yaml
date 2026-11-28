@@ -12,11 +12,10 @@ namespace:
   name: myota-test
 
 web:
-  # Placeholder front ends: the route, the certificate and the Service contract, proven
-  # before any application exists. A3 replaces the admin image, P2 the participant one.
-  placeholder:
-    enabled: true
-    replicas: 2
+  # The participant app is still the nginx placeholder that proves the hostname until P2
+  # replaces it. The admin console became a real application in A3; it is switched on in
+  # the commit after the first image was published, because the chart refuses to render a
+  # real front end without a digest.
   ingress:
     enabled: true
     hosts:
