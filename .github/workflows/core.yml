@@ -88,5 +88,7 @@ jobs:
           cache-workspaces: apps/core
 
       - name: integration suite
+        # Both suites: the sign-in flow and the authority flow. They share a harness, and
+        # both need the committed baselines — including the seeded role catalogue.
         working-directory: apps/core
-        run: cargo test --test auth_flow
+        run: cargo test --test auth_flow --test authority_flow

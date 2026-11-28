@@ -63,6 +63,9 @@ pub enum TokenError {
     /// `exp` has passed.
     #[error("token: expired")]
     Expired,
+    /// A service token claims a lifetime longer than sixty seconds.
+    #[error("token: the lifetime exceeds the service token limit")]
+    LifetimeTooLong,
     /// A required claim is missing or the wrong type.
     #[error("token: a required claim is missing")]
     MissingClaim,
@@ -93,6 +96,36 @@ pub struct AccessClaims {
 pub const AUDIENCE_ADMIN: &str = "admin";
 /// The participant audience, issued by P1/P2's endpoints and refused here.
 pub const AUDIENCE_PARTICIPANT: &str = "participant";
+/// The service audience: a call between services, never a person.
+///
+/// The gateway accepts exactly two audiences — `admin` and `participant` — so a
+/// `service` token is refused there by construction. That is the second half of
+/// "internal endpoints are internal": the route table does not publish them, and the
+/// credential class would not pass the gateway if it did.
+pub const AUDIENCE_SERVICE: &str = "service";
+
+/// How long a service token lives.
+///
+/// Sixty seconds, per the architecture note: short enough that a leaked token is nearly
+/// worthless, long enough for one call. Enforced on both ends — [`TokenService::issue_service`]
+/// mints it, and [`TokenService::verify_service`] refuses anything that claims longer,
+/// because a token with a longer TTL is either a bug or an attempt.
+pub const SERVICE_TOKEN_TTL_SECONDS: i64 = 60;
+
+/// The claims a service token carries.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ServiceClaims {
+    /// Issuer, always [`TOKEN_ISSUER`].
+    pub iss: String,
+    /// Audience, always [`AUDIENCE_SERVICE`].
+    pub aud: String,
+    /// The calling service, e.g. `geodata`.
+    pub svc: String,
+    /// Issued at, Unix seconds.
+    pub iat: i64,
+    /// Expiry, Unix seconds.
+    pub exp: i64,
+}
 
 /// Signs and verifies access tokens.
 pub struct TokenService {
@@ -179,31 +212,82 @@ impl TokenService {
             exp: expires_at,
         };
 
+        (self.sign(&claims), expires_at)
+    }
+
+    /// Issues a service token for a calling service.
+    ///
+    /// `svc` is the caller's name, not a target: the token says *who is calling*, and
+    /// every internal endpoint decides for itself whether that caller may. A
+    /// per-target `aud` would need one audience value per service and would make a
+    /// token minted for `core` useless to `geodata`, which is not a property worth the
+    /// bookkeeping.
+    #[must_use]
+    pub fn issue_service(&self, service: &str) -> (String, i64) {
+        let issued_at = (self.now)();
+        let expires_at = issued_at + SERVICE_TOKEN_TTL_SECONDS;
+        let claims = ServiceClaims {
+            iss: TOKEN_ISSUER.to_string(),
+            aud: AUDIENCE_SERVICE.to_string(),
+            svc: service.to_string(),
+            iat: issued_at,
+            exp: expires_at,
+        };
+        (self.sign(&claims), expires_at)
+    }
+
+    /// Verifies a service token and returns the caller's name.
+    ///
+    /// Three checks beyond the signature, and the session path needs none of them:
+    /// the audience must be `service` (so a stolen administrator token is not a service
+    /// credential), the token must not have expired, and the **claimed lifetime** must
+    /// fit in sixty seconds. The last one matters because `exp` is signed: a token
+    /// minted with a week-long life would verify perfectly and defeat the point.
+    pub fn verify_service(&self, token: &str) -> Result<String, TokenError> {
+        let claims: ServiceClaims = self.verify_signed(token)?;
+
+        if claims.iss != TOKEN_ISSUER {
+            return Err(TokenError::WrongIssuer);
+        }
+        if claims.aud != AUDIENCE_SERVICE {
+            return Err(TokenError::WrongAudience);
+        }
+        let lifetime = claims.exp - claims.iat;
+        if lifetime <= 0 || lifetime > SERVICE_TOKEN_TTL_SECONDS {
+            return Err(TokenError::LifetimeTooLong);
+        }
+        if claims.exp <= (self.now)() {
+            return Err(TokenError::Expired);
+        }
+        if claims.svc.is_empty() {
+            return Err(TokenError::MissingClaim);
+        }
+        Ok(claims.svc)
+    }
+
+    /// Signs one claims object as a compact JWS.
+    ///
+    /// A struct of scalars cannot fail to serialise, and a signing failure would mean
+    /// the key is unusable — a process that cannot mint a token has nothing to serve.
+    fn sign<T: Serialize>(&self, claims: &T) -> String {
         let header = serde_json::json!({
             "alg": "EdDSA",
             "typ": "JWT",
             "kid": self.key_id,
         });
-        // A struct of scalars cannot fail to serialise, and a signing failure here
-        // would mean the key is unusable — a process that cannot mint a token has
-        // nothing to serve.
         let header_segment = B64.encode(serde_json::to_vec(&header).expect("header serialises"));
-        let payload_segment = B64.encode(serde_json::to_vec(&claims).expect("claims serialise"));
+        let payload_segment = B64.encode(serde_json::to_vec(claims).expect("claims serialise"));
         let signing_input = format!("{header_segment}.{payload_segment}");
         let signature = self.signing_key.sign(signing_input.as_bytes());
-
-        (
-            format!("{signing_input}.{}", B64.encode(signature.to_bytes())),
-            expires_at,
-        )
+        format!("{signing_input}.{}", B64.encode(signature.to_bytes()))
     }
 
-    /// Verifies a token and returns its claims.
+    /// Checks the header, the key id and the signature, and returns the typed claims.
     ///
-    /// The checks are ordered by cost and by what a failure means: the header
-    /// first (cheap, and it decides which key to use), then the signature (the only
-    /// check that makes the payload trustworthy), then the claims.
-    pub fn verify(&self, token: &str) -> Result<AccessClaims, TokenError> {
+    /// Split out so the two claim shapes share one verification and cannot drift: the
+    /// algorithm pinning and the signature check are the security-relevant part, and
+    /// they exist once.
+    fn verify_signed<T: serde::de::DeserializeOwned>(&self, token: &str) -> Result<T, TokenError> {
         let mut segments = token.split('.');
         let (Some(header_segment), Some(payload_segment), Some(signature_segment), None) = (
             segments.next(),
@@ -220,9 +304,6 @@ impl TokenService {
         let header: serde_json::Value =
             serde_json::from_slice(&header_bytes).map_err(|_| TokenError::Malformed)?;
         match header.get("alg").and_then(|value| value.as_str()) {
-            // Pinning the algorithm is not optional: accepting `none`, or an HMAC
-            // algorithm that reinterprets the public key as a shared secret, is the
-            // classic JWT forgery.
             Some("EdDSA") => {}
             Some(_) => return Err(TokenError::WrongAlgorithm),
             None => return Err(TokenError::Malformed),
@@ -246,8 +327,16 @@ impl TokenService {
         let payload_bytes = B64
             .decode(payload_segment)
             .map_err(|_| TokenError::Malformed)?;
-        let claims: AccessClaims =
-            serde_json::from_slice(&payload_bytes).map_err(|_| TokenError::MissingClaim)?;
+        serde_json::from_slice(&payload_bytes).map_err(|_| TokenError::MissingClaim)
+    }
+
+    /// Verifies a token and returns its claims.
+    ///
+    /// The checks are ordered by cost and by what a failure means: the header
+    /// first (cheap, and it decides which key to use), then the signature (the only
+    /// check that makes the payload trustworthy), then the claims.
+    pub fn verify(&self, token: &str) -> Result<AccessClaims, TokenError> {
+        let claims: AccessClaims = self.verify_signed(token)?;
 
         if claims.iss != TOKEN_ISSUER {
             return Err(TokenError::WrongIssuer);
@@ -255,9 +344,9 @@ impl TokenService {
         if claims.aud != AUDIENCE_ADMIN && claims.aud != AUDIENCE_PARTICIPANT {
             return Err(TokenError::WrongAudience);
         }
-        // No leeway in this direction: `core` is the issuer, so its own clock is
-        // the one the claim was written with. The gateway allows ten seconds for a
-        // token arriving from another pod; here there is nothing to allow for.
+        // No leeway in this direction: `core` is the issuer, so its own clock is the one
+        // the claim was written with. The gateway allows ten seconds for a token arriving
+        // from another pod; here there is nothing to allow for.
         if claims.exp <= (self.now)() {
             return Err(TokenError::Expired);
         }

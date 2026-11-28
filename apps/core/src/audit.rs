@@ -74,6 +74,14 @@ pub mod event {
     pub const MFA_ENROLMENT_STARTED: &str = "auth.mfa_enrolment_started";
     /// The factor was confirmed.
     pub const MFA_ENROLLED: &str = "auth.mfa_enrolled";
+    /// A role was granted.
+    pub const ROLE_GRANTED: &str = "authority.role_granted";
+    /// A role was revoked.
+    pub const ROLE_REVOKED: &str = "authority.role_revoked";
+    /// A role grant was refused because the actor did not hold one of its scopes.
+    pub const ROLE_GRANT_REFUSED: &str = "authority.role_grant_refused";
+    /// A revocation was refused because it was the actor's last administrator role.
+    pub const ROLE_REVOKE_REFUSED: &str = "authority.role_revoke_refused";
 }
 
 /// Writes one audit row.

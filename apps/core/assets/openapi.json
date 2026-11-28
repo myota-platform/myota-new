@@ -3153,6 +3153,73 @@
         }
       }
     },
+    "/v1/admin/identity/admins/{accountId}/scopes": {
+      "get": {
+        "operationId": "core.adminIdentity.readScopes",
+        "summary": "An administrator's effective scopes",
+        "description": "The union of the scopes from every open grant, plus the grants themselves.\nThis is the answer an interface needs to decide what to show, and the\nanswer `core` itself uses when it evaluates a request — the same function,\nso the console cannot offer a button the service would refuse.\n\nScope `identity.admins.manage`. Reading somebody else's authority is part of\nmanaging it, and a scope that only lets you read what you can already see is\nnot a control.\n",
+        "tags": [
+          "admin-identity"
+        ],
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The account's effective authority.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountScopes"
+                },
+                "example": {
+                  "accountId": "0f7d2b19-4c6e-4a83-b5d2-9e1c7a3f6b48",
+                  "scopes": [
+                    "geodata.review",
+                    "identity.participants.manage"
+                  ],
+                  "roles": [
+                    {
+                      "id": "4b8e2d51-9c7a-4f36-b1e0-6a3d8c5f2b97",
+                      "roleCode": "programme_reviewer",
+                      "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+                      "jurisdictionCode": "ES-AN",
+                      "grantedAt": "2026-11-27T12:40:00Z",
+                      "validTo": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "../shared/components.yaml#/components/responses/ProblemUnauthorized"
+          },
+          "403": {
+            "$ref": "../shared/components.yaml#/components/responses/ProblemForbidden"
+          },
+          "404": {
+            "$ref": "../shared/components.yaml#/components/responses/ProblemNotFound"
+          }
+        }
+      }
+    },
     "/v1/admin/identity/admins/{accountId}/roles": {
       "post": {
         "operationId": "core.adminIdentity.grantRole",
@@ -3224,7 +3291,36 @@
             "$ref": "../shared/components.yaml#/components/responses/ProblemUnauthorized"
           },
           "403": {
-            "$ref": "../shared/components.yaml#/components/responses/ProblemForbidden"
+            "description": "One of two refusals, both of which are the rule rather than a failure:\n\n- `about:blank#scope-not-held` — the role carries a scope the actor does\n  not hold. `detail` lists them. This is what stops\n  `identity.admins.manage` from being equivalent to root.\n- `about:blank#forbidden` — the actor lacks `identity.admins.manage`\n  entirely, so the route class refused before the body was read.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "../shared/components.yaml#/components/schemas/Problem"
+                },
+                "examples": {
+                  "scopeNotHeld": {
+                    "summary": "The actor cannot grant what they do not hold",
+                    "value": {
+                      "type": "about:blank#scope-not-held",
+                      "title": "Scope not held",
+                      "status": 403,
+                      "detail": "The role programme_admin carries identity.admins.manage, which this account does not hold.",
+                      "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                    }
+                  },
+                  "forbidden": {
+                    "summary": "The actor cannot manage administrators at all",
+                    "value": {
+                      "type": "about:blank#forbidden",
+                      "title": "Forbidden",
+                      "status": 403,
+                      "detail": "This account holds no role with an administrator scope.",
+                      "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "$ref": "../shared/components.yaml#/components/responses/ProblemNotFound"
@@ -3288,7 +3384,21 @@
             "$ref": "../shared/components.yaml#/components/responses/ProblemNotFound"
           },
           "409": {
-            "$ref": "../shared/components.yaml#/components/responses/ProblemConflict"
+            "description": "The revocation would leave the actor with no administrator role at all, so the console could be locked out with one click. `409` rather than `403` because the request is well formed and the actor *is* allowed to revoke grants; this particular removal is what the state forbids.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "../shared/components.yaml#/components/schemas/Problem"
+                },
+                "example": {
+                  "type": "about:blank#conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "This is your last administrator role. Grant another before revoking this one.",
+                  "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                }
+              }
+            }
           }
         }
       }
@@ -4840,6 +4950,167 @@
           }
         }
       }
+    },
+    "/internal/authorize": {
+      "post": {
+        "operationId": "core.internal.authorize",
+        "summary": "Decide whether an account may do something",
+        "description": "The one place an authorisation decision is made. `geodata` and `activity`\ncall this instead of reading roles themselves: a second implementation of\n\"may this account do X to programme Y\" is a second answer, and the two\ndisagree the first time a rule changes.\n\n**The decision is computed from the database, not from the caller's token.**\nAn access token carries the scopes it was minted with, which are a snapshot;\nusing that snapshot here would let a revoked administrator keep their\nauthority until the token expired. `/internal/authorize` therefore re-reads\nthe open grants, so a revocation is effective on the next call, and a\nrevoked session is refused outright.\n\nCaller authentication: a service token, `aud=service`, Ed25519-signed, at\nmost 60 seconds old, obtained from `POST /internal/token`. It is not a user\ncredential and the gateway refuses it — see the note on `/internal/token`.\n\nPublishing `core.role.changed.v1` on every grant and revocation, carrying the\naffected session ids, is what lets a consumer drop a cache it already holds.\n",
+        "tags": [
+          "core-internal"
+        ],
+        "x-internal": true,
+        "security": [
+          {
+            "serviceBearer": []
+          }
+        ],
+        "x-idempotency": "not-applicable",
+        "x-idempotency-reason": "A read of current state; POST carries a structured body.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuthorizationRequest"
+              },
+              "example": {
+                "accountId": "0f7d2b19-4c6e-4a83-b5d2-9e1c7a3f6b48",
+                "scope": "geodata.review",
+                "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+                "sessionId": "5a3e9c17-2d4b-4f68-8a0e-7c1b5d9f2e34"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The decision. A refusal is `200` with `allowed: false` — this is a question, not an action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthorizationDecision"
+                },
+                "examples": {
+                  "allowed": {
+                    "summary": "The account holds the scope",
+                    "value": {
+                      "allowed": true,
+                      "effectiveScopes": [
+                        "geodata.review",
+                        "identity.participants.manage"
+                      ]
+                    }
+                  },
+                  "scopeNotHeld": {
+                    "summary": "The scope is not held for that programme",
+                    "value": {
+                      "allowed": false,
+                      "effectiveScopes": [
+                        "identity.participants.manage"
+                      ],
+                      "reason": "scope_not_held"
+                    }
+                  },
+                  "sessionRevoked": {
+                    "summary": "The session the caller named is no longer open",
+                    "value": {
+                      "allowed": false,
+                      "effectiveScopes": [],
+                      "reason": "session_revoked"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "../shared/components.yaml#/components/responses/ProblemBadRequest"
+          },
+          "401": {
+            "description": "No service token, one that does not verify, or one older than its sixty-second lifetime. Type `about:blank#unauthorized`.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "../shared/components.yaml#/components/schemas/Problem"
+                },
+                "example": {
+                  "type": "about:blank#unauthorized",
+                  "title": "Not authenticated",
+                  "status": 401,
+                  "detail": "A service token is required for this route.",
+                  "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/token": {
+      "post": {
+        "operationId": "core.internal.serviceToken",
+        "summary": "Exchange a service credential for a short-lived token",
+        "description": "Client credentials, as `docs/architecture/auth-model.md` describes: a service\npresents its own secret and receives a token with `aud=service` that expires\nin sixty seconds.\n\n**Reachable only inside the cluster.** The gateway does not route any\n`/internal/**` path, so this endpoint is not part of the published API, and a\nservice token would be refused there anyway: the gateway accepts exactly two\naudiences and `service` is not one of them.\n\nSixty seconds is short enough that a leaked token is nearly worthless and\nlong enough to make a request. A caller that needs to make many calls in a\nrow should not hoard the token; it should ask again, which is two indexed\nqueries.\n\nWith no clients configured the endpoint refuses everything. That is the\ncorrect default: a service that was never given a credential cannot obtain\nauthority by asking politely.\n",
+        "tags": [
+          "core-internal"
+        ],
+        "x-internal": true,
+        "security": [],
+        "x-idempotency": "not-applicable",
+        "x-idempotency-reason": "Minting a token twice is two independent tokens, both valid.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceTokenRequest"
+              },
+              "example": {
+                "service": "geodata",
+                "secret": "a-long-random-string-from-the-service-secret"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A token for the next sixty seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceToken"
+                },
+                "example": {
+                  "accessToken": "eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9…",
+                  "expiresAt": "2026-11-28T16:45:01Z",
+                  "audience": "service"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "../shared/components.yaml#/components/responses/ProblemBadRequest"
+          },
+          "401": {
+            "description": "The service is unknown, or the secret is wrong. One answer for both, so this endpoint cannot be used to enumerate the services that exist.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "../shared/components.yaml#/components/schemas/Problem"
+                },
+                "example": {
+                  "type": "about:blank#unauthorized",
+                  "title": "Not authenticated",
+                  "status": 401,
+                  "detail": "The service name or secret is not correct.",
+                  "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -4855,6 +5126,140 @@
             "type": "boolean",
             "enum": [
               true
+            ]
+          }
+        }
+      },
+      "AccountScopes": {
+        "type": "object",
+        "description": "An account's effective authority: the union of the scopes from every open grant, and the grants those came from. The two are returned together because an interface needs both — the scopes to decide what to show, the grants to decide what can be revoked.",
+        "required": [
+          "accountId",
+          "scopes",
+          "roles"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Deduplicated union across open grants, sorted."
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleGrant"
+            }
+          }
+        }
+      },
+      "AuthorizationRequest": {
+        "type": "object",
+        "description": "A question about one account. `programmeId` narrows the answer to grants that are unscoped or scoped to that programme; without it, any open grant counts.",
+        "required": [
+          "accountId",
+          "scope"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scope": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+            "examples": [
+              "geodata.review"
+            ]
+          },
+          "programmeId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The programme the action concerns. A grant scoped to a different programme does not answer it."
+          },
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "When present, the session must still be open. A revoked session is a refusal regardless of the account's roles, which is what makes signing out mean something within the access token's lifetime."
+          }
+        }
+      },
+      "AuthorizationDecision": {
+        "type": "object",
+        "description": "The answer, with the account's whole effective scope set so a caller can cache one thing rather than asking per scope. A refusal is `200` with `allowed: false`: the question was answerable, and the answer is no.",
+        "required": [
+          "allowed",
+          "effectiveScopes"
+        ],
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "effectiveScopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Scopes the account holds for the requested programme, sorted. Empty on a refusal caused by the session or the account's state."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "scope_not_held",
+              "session_revoked",
+              "account_not_active",
+              "account_not_found"
+            ],
+            "description": "Present only when `allowed` is false."
+          }
+        }
+      },
+      "ServiceTokenRequest": {
+        "type": "object",
+        "required": [
+          "service",
+          "secret"
+        ],
+        "properties": {
+          "service": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "examples": [
+              "geodata"
+            ]
+          },
+          "secret": {
+            "type": "string",
+            "minLength": 32,
+            "description": "The credential provisioned for that service, presented in the body rather than a header so it never lands in an access log."
+          }
+        }
+      },
+      "ServiceToken": {
+        "type": "object",
+        "required": [
+          "accessToken",
+          "expiresAt",
+          "audience"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "description": "Ed25519-signed JWT with `aud=service` and a sixty-second lifetime."
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "service"
             ]
           }
         }

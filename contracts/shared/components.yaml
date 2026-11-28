@@ -320,6 +320,7 @@ components:
             - about:blank#mfa-required
             - about:blank#mfa-not-enrolled
             - about:blank#mfa-failed
+            - about:blank#scope-not-held
             - about:blank#not-found
             - about:blank#conflict
             - about:blank#revision-conflict

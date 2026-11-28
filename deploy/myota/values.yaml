@@ -158,6 +158,11 @@ services:
     # Holds `jwt-seed-base64` and `mfa-key-base64`. Applied by hand; a bundle that
     # could carry it would be a bundle that could leak it.
     signingSecretName: myota-core-signing
+    # Holds `clients.json`: a JSON object of service name to secret, for the
+    # client-credentials exchange at `/internal/token`. Optional, and absent means no
+    # service may call an internal endpoint — the endpoint refuses everything rather
+    # than trusting an unauthenticated caller.
+    serviceClientsSecretName: myota-core-service-clients
     resources:
       requests: {cpu: 50m, memory: 128Mi}
       limits: {memory: 512Mi}

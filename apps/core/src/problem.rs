@@ -33,6 +33,8 @@ pub enum ProblemType {
     MfaFailed,
     /// A valid credential belonging to the other audience.
     WrongAudience,
+    /// The actor does not hold a scope the request would confer on someone else.
+    ScopeNotHeld,
     /// Nothing at that address.
     NotFound,
     /// The operation conflicts with the current state.
@@ -57,6 +59,7 @@ impl ProblemType {
             Self::MfaNotEnrolled => "about:blank#mfa-not-enrolled",
             Self::MfaFailed => "about:blank#mfa-failed",
             Self::WrongAudience => "about:blank#wrong-audience",
+            Self::ScopeNotHeld => "about:blank#scope-not-held",
             Self::NotFound => "about:blank#not-found",
             Self::Conflict => "about:blank#conflict",
             // The contract's 410 example carries `about:blank#not-found`. Repeated
@@ -74,7 +77,7 @@ impl ProblemType {
         match self {
             Self::ValidationFailed => StatusCode::BAD_REQUEST,
             Self::Unauthorized | Self::MfaFailed | Self::WrongAudience => StatusCode::UNAUTHORIZED,
-            Self::Forbidden | Self::MfaNotEnrolled => StatusCode::FORBIDDEN,
+            Self::Forbidden | Self::MfaNotEnrolled | Self::ScopeNotHeld => StatusCode::FORBIDDEN,
             Self::NotFound => StatusCode::NOT_FOUND,
             Self::Conflict => StatusCode::CONFLICT,
             Self::Gone => StatusCode::GONE,
@@ -93,6 +96,7 @@ impl ProblemType {
             Self::MfaNotEnrolled => "Second factor not enrolled",
             Self::MfaFailed => "Second factor rejected",
             Self::WrongAudience => "Wrong audience for this route",
+            Self::ScopeNotHeld => "Scope not held",
             Self::NotFound => "Not found",
             Self::Conflict => "Conflict",
             Self::Gone => "Challenge expired",

@@ -69,6 +69,10 @@ data-encoding = "2"
 # backup that contains it is a backup that weakens every administrator account.
 aes-gcm = "0.10"
 
+# The transactional outbox, written once and mirrored in Go. A role change publishes
+# `core.role.changed.v1` inside the transaction that changes it.
+myota-ops = { path = "../../libs/ops/rust" }
+
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 

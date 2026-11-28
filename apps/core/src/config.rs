@@ -77,6 +77,18 @@ pub struct Config {
     pub lockout_threshold: i32,
     /// How long a locked account stays locked.
     pub lockout_duration: Duration,
+    /// Service credentials, by service name.
+    ///
+    /// A service that can present one of these gets a sixty-second token from
+    /// `/internal/token`. Empty means no service may call an internal endpoint, which is
+    /// the correct default: a caller that was never issued a credential cannot obtain
+    /// authority by asking for it.
+    ///
+    /// Held as plaintext because they arrive in an environment variable from a Secret
+    /// either way, and the comparison is constant-time. Hashing them here would protect
+    /// nothing a `kubectl describe pod` does not already reveal to anyone who can read
+    /// the pod.
+    pub service_clients: std::collections::BTreeMap<String, String>,
     /// Whether to take the client address from `X-Forwarded-For`. True behind the
     /// gateway, false when the service is addressed directly — otherwise a caller
     /// could choose its own rate-limit bucket by inventing a header.
@@ -97,6 +109,10 @@ impl std::fmt::Debug for Config {
             .field("refresh_idle", &self.refresh_idle)
             .field("refresh_absolute", &self.refresh_absolute)
             .field("trust_forwarded_for", &self.trust_forwarded_for)
+            .field(
+                "service_clients",
+                &self.service_clients.keys().collect::<Vec<_>>(),
+            )
             .finish()
     }
 }
@@ -145,6 +161,7 @@ impl Config {
                 DEFAULT_LOCKOUT_THRESHOLD,
             )?,
             lockout_duration: seconds(&lookup, "CORE_LOCKOUT_SECONDS", DEFAULT_LOCKOUT_DURATION)?,
+            service_clients: service_clients(&lookup)?,
             trust_forwarded_for: boolean(&lookup, "CORE_TRUST_FORWARDED_FOR", true)?,
         })
     }
@@ -211,6 +228,48 @@ fn required(lookup: &impl Fn(&str) -> Option<String>, name: &str) -> Result<Stri
         Some(value) if !value.trim().is_empty() => Ok(value),
         _ => Err(ConfigError(format!("{name} is not set"))),
     }
+}
+
+/// Reads `CORE_SERVICE_CLIENTS`: a JSON object of service name to secret.
+///
+/// A JSON object rather than one variable per service because the set is deployment
+/// data, not a schema: adding a service should not need a code change, and a malformed
+/// value should stop the process rather than silently authorising nobody.
+fn service_clients(
+    lookup: &impl Fn(&str) -> Option<String>,
+) -> Result<std::collections::BTreeMap<String, String>, ConfigError> {
+    let Some(raw) = lookup("CORE_SERVICE_CLIENTS").filter(|value| !value.trim().is_empty()) else {
+        return Ok(std::collections::BTreeMap::new());
+    };
+
+    let parsed: std::collections::BTreeMap<String, String> =
+        serde_json::from_str(&raw).map_err(|error| {
+            ConfigError(format!(
+                "CORE_SERVICE_CLIENTS is not a JSON object: {error}"
+            ))
+        })?;
+
+    for (service, secret) in &parsed {
+        if service.is_empty()
+            || !service
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
+            return Err(ConfigError(format!(
+                "CORE_SERVICE_CLIENTS names {service:?}, which is not a lowercase service name"
+            )));
+        }
+        // 32 characters is the shortest a secret of this kind should be: it is compared
+        // for equality, and a short one is guessable by a caller who can reach the
+        // endpoint at all.
+        if secret.len() < 32 {
+            return Err(ConfigError(format!(
+                "CORE_SERVICE_CLIENTS gives {service} a secret shorter than 32 characters"
+            )));
+        }
+    }
+
+    Ok(parsed)
 }
 
 fn boolean(
@@ -408,6 +467,48 @@ mod tests {
         map.insert("CORE_ACCESS_TTL_SECONDS".into(), "0".into());
         let error = Config::from_lookup(lookup(map)).expect_err("refused");
         assert!(error.to_string().contains("positive"), "{error}");
+    }
+
+    #[test]
+    fn service_clients_parse_and_are_redacted_in_debug() {
+        let mut map = base();
+        map.insert(
+            "CORE_SERVICE_CLIENTS".into(),
+            r#"{"geodata":"a-secret-at-least-thirty-two-chars-long"}"#.into(),
+        );
+        let config = Config::from_lookup(lookup(map)).expect("valid");
+        assert_eq!(
+            config.service_clients.get("geodata").map(String::as_str),
+            Some("a-secret-at-least-thirty-two-chars-long")
+        );
+        let rendered = format!("{config:?}");
+        assert!(rendered.contains("geodata"), "{rendered}");
+        assert!(!rendered.contains("a-secret-at-least"), "{rendered}");
+    }
+
+    #[test]
+    fn a_short_service_secret_is_refused() {
+        let mut map = base();
+        map.insert(
+            "CORE_SERVICE_CLIENTS".into(),
+            r#"{"geodata":"short"}"#.into(),
+        );
+        let error = Config::from_lookup(lookup(map)).expect_err("refused");
+        assert!(error.to_string().contains("32 characters"), "{error}");
+    }
+
+    #[test]
+    fn malformed_service_clients_are_refused_rather_than_ignored() {
+        let mut map = base();
+        map.insert("CORE_SERVICE_CLIENTS".into(), "geodata=secret".into());
+        let error = Config::from_lookup(lookup(map)).expect_err("refused");
+        assert!(error.to_string().contains("JSON object"), "{error}");
+    }
+
+    #[test]
+    fn no_service_clients_configured_is_a_valid_empty_set() {
+        let config = Config::from_lookup(lookup(base())).expect("valid");
+        assert!(config.service_clients.is_empty());
     }
 
     #[test]

@@ -26,6 +26,11 @@ owns.
 | `POST` | `/v1/admin/auth/logout` | revoke it |
 | `POST` | `/v1/admin/auth/mfa/enrol` | start a TOTP enrolment |
 | `POST` | `/v1/admin/auth/mfa/enrol/confirm` | confirm it with a code |
+| `GET` | `/v1/admin/identity/admins/{id}/scopes` | the account's effective scopes and grants |
+| `POST` | `/v1/admin/identity/admins/{id}/roles` | grant a role, enforcing `granted ⊆ actor_scopes` |
+| `DELETE` | `/v1/admin/identity/admins/{id}/roles/{grantId}` | revoke it, refusing the actor's last one |
+| `POST` | `/internal/token` | client credentials → a sixty-second service token |
+| `POST` | `/internal/authorize` | *may this account do X to programme Y?* — the one decision |
 | `GET` | `/internal/auth/jwks` | the public keys the gateway verifies tokens with |
 | `GET` | `/internal/healthz` | liveness — the operation the gateway aggregates |
 | `GET` | `/internal/openapi.json` | this service's contract, for `compose_contracts --fetch` |
@@ -85,6 +90,44 @@ In the cluster the same values arrive from two Secrets: `myota-core-db-credentia
 with `statement_cache_capacity(0)` — pgBouncer in transaction mode does not keep a
 prepared statement between transactions.
 
+## Authority
+
+The role catalogue is seeded by the baseline — `platform_admin`, `programme_admin`,
+`programme_reviewer`, `support`, `auditor` — and a role's scopes are `text[]` on
+`role_definition`. A grant names a role, optionally scoped to a programme.
+
+Two rules are enforced at write time, in `src/authority.rs`, because a console that
+enforces them can be bypassed by a `curl`:
+
+- **`granted ⊆ actor_scopes`, for the same programme.** A holder of
+  `identity.admins.manage` who can confer `identity.admins.manage` has root whatever the
+  scope is called, so the check is per scope and per programme, not "may you manage
+  administrators".
+- **No actor may revoke their own last administrator role.** An account whose remaining
+  grants carry no scopes is treated as having none.
+
+`POST /internal/authorize` answers from the database on every call. It deliberately does
+not read the `scp` claim in the caller's token: that is a snapshot, and answering from it
+would please a revoked administrator for up to ten minutes. Supply `sessionId` and a
+revoked session is refused even for an account holding every scope.
+
+Every grant and revocation writes `core.role.changed.v1` into `ops.outbox_event` in the
+same transaction, naming the target's open sessions — that is what a consumer uses to drop
+a cached decision.
+
+### Configuring a calling service
+
+`CORE_SERVICE_CLIENTS` is a JSON object of service name to secret:
+
+```json
+{"geodata": "…at least 32 characters…", "activity": "…"}
+```
+
+It comes from the Secret `myota-core-service-clients` (key `clients.json`), applied by
+hand from `deploy/myota/secrets/core-service-clients.sops.yaml`. Absent or empty means no
+service may call an internal endpoint: the exchange refuses every request rather than
+trusting an unauthenticated caller.
+
 ## Provisioning the first administrator
 
 There is no self-service admin registration, and there cannot be: enrolment needs a
@@ -119,7 +162,8 @@ say so and pass, which is the same rule `make checks-ops` follows.
 - `src/password.rs`, `src/totp.rs`, `src/secretbox.rs`, `src/token.rs` — the
   primitives, none of which knows about HTTP or SQL.
 - `src/session.rs` — the session row, the refresh token and the cookie.
-- `src/auth/` — the flow, where the primitives meet the tables.
+- `src/auth/` — the sign-in flow, where the primitives meet the tables.
+- `src/authority.rs` — roles, scopes, the delegation rules, and the role-changed event.
 - `src/http/` — routing, extraction, and the mapping from a typed failure to a
   response.
 - `src/bootstrap.rs` — provisioning an administrator, and what the operator sees.

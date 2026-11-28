@@ -89,6 +89,16 @@ spec:
                 secretKeyRef:
                   name: {{ $core.signingSecretName }}
                   key: mfa-key-base64
+            # The service credentials, as one JSON object. `optional: true` because an
+            # environment where nothing calls an internal endpoint is a valid state —
+            # and the service then answers 401 to every service token, which is the
+            # correct fail-closed behaviour rather than a crash.
+            - name: CORE_SERVICE_CLIENTS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $core.serviceClientsSecretName }}
+                  key: clients.json
+                  optional: true
             # The gateway forwards X-Forwarded-For; believing it is correct only
             # because nothing else can reach this Service directly.
             - name: CORE_TRUST_FORWARDED_FOR

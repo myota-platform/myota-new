@@ -3194,6 +3194,73 @@
         }
       }
     },
+    "/v1/admin/identity/admins/{accountId}/scopes": {
+      "get": {
+        "operationId": "core.adminIdentity.readScopes",
+        "summary": "An administrator's effective scopes",
+        "description": "The union of the scopes from every open grant, plus the grants themselves.\nThis is the answer an interface needs to decide what to show, and the\nanswer `core` itself uses when it evaluates a request — the same function,\nso the console cannot offer a button the service would refuse.\n\nScope `identity.admins.manage`. Reading somebody else's authority is part of\nmanaging it, and a scope that only lets you read what you can already see is\nnot a control.\n",
+        "tags": [
+          "admin-identity"
+        ],
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The account's effective authority.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountScopes"
+                },
+                "example": {
+                  "accountId": "0f7d2b19-4c6e-4a83-b5d2-9e1c7a3f6b48",
+                  "scopes": [
+                    "geodata.review",
+                    "identity.participants.manage"
+                  ],
+                  "roles": [
+                    {
+                      "id": "4b8e2d51-9c7a-4f36-b1e0-6a3d8c5f2b97",
+                      "roleCode": "programme_reviewer",
+                      "programmeId": "7d2c9e14-3b6a-4f28-8c05-1e9a3d7b6f42",
+                      "jurisdictionCode": "ES-AN",
+                      "grantedAt": "2026-11-27T12:40:00Z",
+                      "validTo": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/ProblemUnauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/ProblemForbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/ProblemNotFound"
+          }
+        }
+      }
+    },
     "/v1/admin/identity/admins/{accountId}/roles": {
       "post": {
         "operationId": "core.adminIdentity.grantRole",
@@ -3265,7 +3332,36 @@
             "$ref": "#/components/responses/ProblemUnauthorized"
           },
           "403": {
-            "$ref": "#/components/responses/ProblemForbidden"
+            "description": "One of two refusals, both of which are the rule rather than a failure:\n\n- `about:blank#scope-not-held` — the role carries a scope the actor does\n  not hold. `detail` lists them. This is what stops\n  `identity.admins.manage` from being equivalent to root.\n- `about:blank#forbidden` — the actor lacks `identity.admins.manage`\n  entirely, so the route class refused before the body was read.\n",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                "examples": {
+                  "scopeNotHeld": {
+                    "summary": "The actor cannot grant what they do not hold",
+                    "value": {
+                      "type": "about:blank#scope-not-held",
+                      "title": "Scope not held",
+                      "status": 403,
+                      "detail": "The role programme_admin carries identity.admins.manage, which this account does not hold.",
+                      "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                    }
+                  },
+                  "forbidden": {
+                    "summary": "The actor cannot manage administrators at all",
+                    "value": {
+                      "type": "about:blank#forbidden",
+                      "title": "Forbidden",
+                      "status": 403,
+                      "detail": "This account holds no role with an administrator scope.",
+                      "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                    }
+                  }
+                }
+              }
+            }
           },
           "404": {
             "$ref": "#/components/responses/ProblemNotFound"
@@ -3329,7 +3425,21 @@
             "$ref": "#/components/responses/ProblemNotFound"
           },
           "409": {
-            "$ref": "#/components/responses/ProblemConflict"
+            "description": "The revocation would leave the actor with no administrator role at all, so the console could be locked out with one click. `409` rather than `403` because the request is well formed and the actor *is* allowed to revoke grants; this particular removal is what the state forbids.",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                },
+                "example": {
+                  "type": "about:blank#conflict",
+                  "title": "Conflict",
+                  "status": 409,
+                  "detail": "This is your last administrator role. Grant another before revoking this one.",
+                  "requestId": "7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f"
+                }
+              }
+            }
           }
         }
       }
@@ -10367,6 +10477,7 @@
               "about:blank#mfa-required",
               "about:blank#mfa-not-enrolled",
               "about:blank#mfa-failed",
+              "about:blank#scope-not-held",
               "about:blank#not-found",
               "about:blank#conflict",
               "about:blank#revision-conflict",
@@ -10495,6 +10606,34 @@
             "enum": [
               true
             ]
+          }
+        }
+      },
+      "AccountScopes": {
+        "type": "object",
+        "description": "An account's effective authority: the union of the scopes from every open grant, and the grants those came from. The two are returned together because an interface needs both — the scopes to decide what to show, the grants to decide what can be revoked.",
+        "required": [
+          "accountId",
+          "scopes",
+          "roles"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Deduplicated union across open grants, sorted."
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleGrant"
+            }
           }
         }
       },

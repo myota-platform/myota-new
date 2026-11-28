@@ -20,16 +20,20 @@ FROM rust:1.85-bookworm AS build
 
 WORKDIR /src
 
-COPY apps/core/Cargo.toml apps/core/Cargo.lock ./
-COPY apps/core/src ./src
+# The crate depends on `libs/ops/rust` by path, so the build keeps the repository's
+# layout instead of flattening the service into the working directory: `apps/core` and
+# `libs/ops/rust` land where the relative path expects them.
+COPY apps/core/Cargo.toml apps/core/Cargo.lock ./apps/core/
+COPY apps/core/src ./apps/core/src
 # The contract is embedded with `include_str!`, so it is a build input, not a runtime
 # file: without it the binary does not compile.
-COPY apps/core/assets ./assets
+COPY apps/core/assets ./apps/core/assets
+COPY libs/ops/rust ./libs/ops/rust
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/src/target \
-    cargo build --release --locked --bin core \
- && cp target/release/core /usr/local/bin/core
+    --mount=type=cache,target=/src/apps/core/target \
+    cargo build --release --locked --bin core --manifest-path apps/core/Cargo.toml \
+ && cp apps/core/target/release/core /usr/local/bin/core
 
 FROM debian:bookworm-slim
 

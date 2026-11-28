@@ -1,6 +1,9 @@
 package routes
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLookupFindsTheOwningPrefix(t *testing.T) {
 	cases := []struct {
@@ -96,5 +99,37 @@ func TestUpstreamsAreTheThreeServices(t *testing.T) {
 func TestTableIsNotEmpty(t *testing.T) {
 	if len(Table) == 0 {
 		t.Fatal("the generated route table is empty; the gateway would 404 everything")
+	}
+}
+
+// TestInternalPathsAreNotRouted is the second half of "internal endpoints are internal".
+//
+// The table is generated from the published contract, and every `/internal/**` operation
+// carries `x-internal: true`, so the composer leaves it out — which means the gateway has
+// no prefix to match and answers its own 404. That is the mechanism; this test is what
+// notices if the generator ever starts publishing them, because a reachable
+// `/internal/authorize` would let anyone ask who may do what.
+func TestInternalPathsAreNotRouted(t *testing.T) {
+	for _, path := range []string{
+		"/internal/authorize",
+		"/internal/token",
+		"/internal/introspect",
+		"/internal/events",
+		"/internal/auth/jwks",
+		"/internal/openapi.json",
+	} {
+		if route, found := Lookup(path); found {
+			t.Errorf("%s is routed to %q; internal operations must not be published", path, route.Upstream)
+		}
+	}
+}
+
+// TestNoPrefixIsInternal guards the table as a whole rather than a list of paths: a new
+// internal operation anywhere under /internal/ must not acquire a prefix.
+func TestNoPrefixIsInternal(t *testing.T) {
+	for _, route := range Table {
+		if strings.HasPrefix(route.Prefix, "/internal") {
+			t.Errorf("prefix %q routes an internal surface", route.Prefix)
+		}
 	}
 }

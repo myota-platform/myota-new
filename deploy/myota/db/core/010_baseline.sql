@@ -269,6 +269,56 @@ CREATE TABLE IF NOT EXISTS account_role (
     updated_at        timestamptz NOT NULL DEFAULT now()
 );
 
+-- The role catalogue.
+--
+-- Reference data, not tenant data: the codes and the scopes they carry are the same in
+-- every environment, so they live in the schema rather than in a seed step somebody has
+-- to remember. `ON CONFLICT DO UPDATE` rather than `DO NOTHING` so a change to a role's
+-- scope list in this file takes effect on the next migration run — the catalogue is code.
+--
+-- Why these five. A role is a bundle of scopes that somebody in the organisation can
+-- explain without reading the source:
+--
+--   platform_admin     everything; the role the first administrator is provisioned with
+--   programme_admin    one programme end to end: publish it, import into it, award from it
+--   programme_reviewer reviews and resolves geodata; cannot publish
+--   support            participant accounts and their callsigns; no authority to grant
+--   auditor            reads the audit log; changes nothing
+--
+-- The vocabulary is `domain.object.action`. Adding a scope means adding it to the role
+-- that should carry it *and* to the check that enforces it; a scope no endpoint consults
+-- is a name, not a control.
+INSERT INTO role_definition (role_code, display_name, scopes, is_system) VALUES
+    ('platform_admin', 'Platform administrator', ARRAY[
+        'identity.admins.manage',
+        'identity.participants.manage',
+        'geodata.review',
+        'geodata.import',
+        'programmes.manage',
+        'awards.manage',
+        'audit.read'
+    ], true),
+    ('programme_admin', 'Programme administrator', ARRAY[
+        'programmes.manage',
+        'geodata.review',
+        'geodata.import',
+        'awards.manage'
+    ], true),
+    ('programme_reviewer', 'Programme reviewer', ARRAY[
+        'geodata.review'
+    ], true),
+    ('support', 'Participant support', ARRAY[
+        'identity.participants.manage'
+    ], true),
+    ('auditor', 'Auditor', ARRAY[
+        'audit.read'
+    ], true)
+ON CONFLICT (role_code) DO UPDATE
+    SET display_name = EXCLUDED.display_name,
+        scopes = EXCLUDED.scopes,
+        is_system = EXCLUDED.is_system,
+        updated_at = now();
+
 -- Open grants only: the authorisation check never looks at expired rows, and a partial
 -- index keeps the hot path small as history accumulates.
 CREATE INDEX IF NOT EXISTS account_role_open

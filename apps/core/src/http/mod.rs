@@ -72,7 +72,7 @@ impl AppState {
 /// case runs into the handler-trait bounds. A middleware reads the extension once
 /// and every handler takes `Extension<PeerAddress>`, which is a plain, optional value.
 #[derive(Clone, Copy)]
-struct PeerAddress(Option<SocketAddr>);
+pub(crate) struct PeerAddress(pub(crate) Option<SocketAddr>);
 
 /// Copies the peer address out of the connection extension, when there is one.
 ///
@@ -87,6 +87,8 @@ async fn attach_peer(mut request: Request, next: axum::middleware::Next) -> Resp
     request.extensions_mut().insert(PeerAddress(address));
     next.run(request).await
 }
+
+mod authority;
 
 /// Builds the router.
 pub fn router(state: AppState) -> Router {
@@ -108,6 +110,8 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/admin/auth/logout", post(logout))
         .route("/v1/admin/auth/mfa/enrol", post(enrol))
         .route("/v1/admin/auth/mfa/enrol/confirm", post(confirm_enrolment))
+        // The authority surface: roles, scopes, and the two internal endpoints.
+        .merge(authority::routes())
         // Every request body this service accepts is a few hundred bytes. The limit
         // is here rather than in the gateway because a service must not depend on a
         // proxy for its own memory safety.
@@ -366,7 +370,7 @@ impl SessionBody {
 /// cookie is a session. If both are present, the token wins — that is what lets a
 /// client with a stale token and a live session get a clear 401 rather than a
 /// surprise success.
-async fn principal_from(
+pub(crate) async fn principal_from(
     state: &AppState,
     headers: &HeaderMap,
     _peer: Option<&SocketAddr>,
@@ -441,7 +445,7 @@ fn client_context(
 /// axum's own rejection is a plain-text 400/422. A client that has to parse two
 /// error shapes parses neither properly, so the shape is unified here rather than in
 /// every client.
-fn body_problem(rejection: JsonRejection) -> Problem {
+pub(crate) fn body_problem(rejection: JsonRejection) -> Problem {
     Problem::new(
         ProblemType::ValidationFailed,
         format!("The request body is not valid: {rejection}"),

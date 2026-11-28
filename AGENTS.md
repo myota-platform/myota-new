@@ -89,6 +89,18 @@ most important rule in this repository.
   distributed transactions.**
 - Each service carries its own `/healthz`, `/readyz`, `/metrics`, migrations, and
   deployment manifest. One service deploys, scales, and rolls back alone.
+- **Authorization is asked of `core`, never re-implemented.** A service that needs to
+  know whether an account may do something calls `POST /internal/authorize` with a
+  sixty-second service token from `POST /internal/token`, and gets
+  `{allowed, effectiveScopes, reason}`. The decision is recomputed from the open grants
+  on every call, so a revoked role or session is effective immediately — never trust an
+  access token's `scp` claim for a decision. `/internal/**` is not published: it carries
+  `x-internal`, so the composer leaves it out and the gateway has no route for it
+  ([ADR-0013](docs/decisions/0013-service-to-service-authorisation.md)).
+- **Delegation is bounded by what the actor holds.** A grant is refused with
+  `403 about:blank#scope-not-held` unless every scope the role carries is one the actor
+  holds *for the same programme*, and no actor can revoke their own last administrator
+  role. Both rules live in `apps/core/src/authority.rs` and are evaluated at write time.
 
 See [ADR-0001](docs/decisions/0001-service-boundaries-follow-databases.md).
 
