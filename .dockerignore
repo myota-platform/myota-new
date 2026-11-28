@@ -1,0 +1,22 @@
+# What the image builds do not need.
+#
+# The build context is the repository root, so everything here is shipped to the builder
+# unless it is listed. Excluding the heavy, regenerable directories is what keeps a build
+# from uploading hundreds of megabytes to the daemon on every run.
+#
+# Deliberately short: an entry that excludes something a Dockerfile later needs produces a
+# confusing "file not found" inside a build, and this file is not the place to be clever.
+
+.git
+.github
+
+**/node_modules
+**/target
+**/bin
+**/__pycache__
+**/.venv
+**/*.pyc
+
+# Local artefacts that are not part of any image.
+*.log
+*.tgz

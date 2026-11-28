@@ -1,0 +1,211 @@
+# Reusable workflow: publish one service's image and pin its digest.
+#
+# Called by `_service-go.yml`, `_service-rust.yml` and `_web.yml`, which are themselves
+# called once per component. The logic lives here once rather than three times: the three
+# copies had already drifted, and a publish rule that differs per language is a publish rule
+# nobody can state.
+#
+# What it guarantees, and why each guarantee is a mechanism rather than a convention:
+#
+#   immutable per commit   every push is tagged `sha-<short>`. The tag is derived from the
+#                          commit, so the same commit can never produce two images, and
+#                          `git log` answers "which image is this commit".
+#   re-runs publish nothing  if `sha-<short>` already exists in the registry the build is
+#                          skipped entirely and the existing digest is reused. A re-run, a
+#                          restart or a force push therefore creates no second tag and no
+#                          second digest.
+#   digest, never a tag    `values.yaml` gets `image@sha256:...`, written by
+#                          `tools/pin_image.py`. `:main` remains as a moving tag for humans;
+#                          nothing deploys from it.
+#   the pin is public      after pinning, the job logs out of GHCR and inspects the image
+#                          anonymously. A package that came out private fails here, not in
+#                          the cluster.
+#
+# No stored secret: `GITHUB_TOKEN` with `packages: write` publishes, `contents: write` pushes
+# the pin. The cluster is not touched — Fleet reconciles the pin (ADR-0005).
+
+name: _image
+
+on:
+  workflow_call:
+    inputs:
+      key:
+        description: Chunk/service key, used in the pin commit message
+        type: string
+        required: true
+      image:
+        description: Image name without registry or tag, e.g. myota-new-gateway
+        type: string
+        required: true
+      dockerfile:
+        description: Path to the Dockerfile, relative to the repository root
+        type: string
+        required: true
+      values_file:
+        description: Fleet values file whose `images:` block is pinned
+        type: string
+        default: deploy/fleet/myota-test/values.yaml
+      context:
+        description: Docker build context, relative to the repository root
+        type: string
+        default: "."
+
+jobs:
+  publish:
+    name: publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # push the digest pin
+      packages: write   # push the image
+    env:
+      # One definition of the registry path. Two is how a tag and a digest end up disagreeing.
+      REGISTRY_PATH: ghcr.io/${{ github.repository_owner }}/${{ inputs.image }}
+      IMAGE: ${{ inputs.image }}
+      VALUES_FILE: ${{ inputs.values_file }}
+      SHORT_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: does the Dockerfile exist?
+        id: scaffold
+        # A component whose chunk has not landed yet has no Dockerfile. That is not a
+        # failure — the workflow exists before the code, on purpose — and the notice is the
+        # only trace it leaves.
+        run: |
+          if [ ! -f "${{ inputs.dockerfile }}" ]; then
+            echo "::notice::${{ inputs.dockerfile }} does not exist yet — no image to publish for $IMAGE"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: compute the commit tag
+        id: tag
+        if: steps.scaffold.outputs.run == 'true'
+        run: echo "sha=${SHORT_SHA:0:7}" >> "$GITHUB_OUTPUT"
+
+      - name: setup buildx
+        if: steps.scaffold.outputs.run == 'true'
+        uses: docker/setup-buildx-action@v4
+
+      - name: log in to GHCR
+        if: steps.scaffold.outputs.run == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: has this commit already been published?
+        id: existing
+        if: steps.scaffold.outputs.run == 'true'
+        # The idempotency guarantee. A re-run of the workflow, a retried job, or a force push
+        # that lands on the same tree all find the commit tag already present and publish
+        # nothing. The digest is read back so the pin step still has one to write.
+        run: |
+          set -euo pipefail
+          if docker manifest inspect "${REGISTRY_PATH}:sha-${{ steps.tag.outputs.sha }}" >/dev/null 2>&1; then
+            digest="$(docker buildx imagetools inspect "${REGISTRY_PATH}:sha-${{ steps.tag.outputs.sha }}" \
+                      | awk '/^Digest:/ {print $2; exit}')"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+            echo "::notice::${IMAGE}:sha-${{ steps.tag.outputs.sha }} already exists; reusing ${digest}"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: build and push
+        id: build
+        if: steps.scaffold.outputs.run == 'true' && steps.existing.outputs.exists == 'false'
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          push: true
+          # `sha-<short>` is the immutable handle; `main` is the convenience tag a human types.
+          # Nothing deploys `main`.
+          tags: |
+            ${{ env.REGISTRY_PATH }}:sha-${{ steps.tag.outputs.sha }}
+            ${{ env.REGISTRY_PATH }}:main
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha,scope=${{ inputs.key }}
+          cache-to: type=gha,scope=${{ inputs.key }},mode=max
+
+      - name: resolve the digest
+        id: digest
+        if: steps.scaffold.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.existing.outputs.exists }}" = "true" ]; then
+            digest="${{ steps.existing.outputs.digest }}"
+          else
+            digest="${{ steps.build.outputs.digest }}"
+          fi
+          if [ -z "$digest" ]; then
+            echo "::error::no digest for $IMAGE; the build produced nothing to pin"
+            exit 1
+          fi
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: pin the digest and push the commit
+        if: steps.scaffold.outputs.run == 'true'
+        env:
+          DIGEST: ${{ steps.digest.outputs.digest }}
+        # Rebuilt on the latest main on every attempt rather than committed-then-rebased:
+        # two services publishing on the same merge both insert into the same `images:` block,
+        # and two insertions at the same anchor conflict textually even though the result is
+        # unambiguous. Re-running the pin against fresh `origin/main` cannot conflict, and it
+        # is idempotent, so the retry is cheap.
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch --quiet origin main
+            git checkout --quiet --detach origin/main
+
+            python3 tools/pin_image.py \
+              --file "$VALUES_FILE" \
+              --service "${IMAGE#myota-new-}" \
+              --image "$REGISTRY_PATH" \
+              --digest "$DIGEST"
+
+            git add "$VALUES_FILE"
+            if git diff --cached --quiet; then
+              echo "::notice::$VALUES_FILE already pins $DIGEST; nothing to commit"
+              exit 0
+            fi
+
+            git commit --quiet -m "${{ inputs.key }} · pin $IMAGE to $DIGEST"
+            if git push --quiet origin HEAD:main; then
+              echo "pinned $IMAGE@$DIGEST in $VALUES_FILE"
+              exit 0
+            fi
+
+            echo "::warning::push rejected (attempt $attempt); re-pinning against the latest main"
+            sleep $((attempt * 3))
+          done
+
+          echo "::error::could not push the digest pin after 5 attempts"
+          exit 1
+
+      - name: prove the image is pullable without credentials
+        if: steps.scaffold.outputs.run == 'true'
+        env:
+          DIGEST: ${{ steps.digest.outputs.digest }}
+        # Measured, not assumed. A package published by this job from a public repository is
+        # public and linked to it; one pushed from a laptop with a personal token is private
+        # and unlinked, and no API can change that afterwards. Logging out makes the inspect
+        # anonymous, which is exactly what a cluster pulling the image does.
+        run: |
+          set -euo pipefail
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          if docker manifest inspect "${REGISTRY_PATH}@${DIGEST}" >/dev/null; then
+            echo "::notice::${IMAGE}@${DIGEST} pulls without credentials"
+          else
+            echo "::error::${IMAGE}@${DIGEST} is not anonymously pullable; the package is private"
+            exit 1
+          fi

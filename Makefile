@@ -199,7 +199,7 @@ help:
 	@echo "  make fmt          gofmt and cargo fmt --check"
 	@echo "  make lint         go vet and cargo clippy -D warnings"
 	@echo "  make test         go test -race and cargo test, per module and crate"
-	@echo "  make checks-static   ADRs, links, event catalogue, storage inventory, design system"
+	@echo "  make checks-static   ADRs, links, event catalogue, storage inventory, design system, image pins"
 	@echo "  make checks-contracts  compose the contracts and validate OpenAPI 3.1"
 	@echo "  make checks-deploy   database baselines and the rendered chart"
 	@echo "  make checks-ops     ops integration suite (needs a PostgreSQL)"

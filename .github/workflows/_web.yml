@@ -90,94 +90,14 @@ jobs:
     name: image
     needs: verify
     if: inputs.publish && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-24.04
+    # The whole publication path — idempotent tag, digest pin, anonymous pull — lives in one
+    # reusable workflow rather than three copies that drift. See `.github/workflows/_image.yml`.
+    uses: ./.github/workflows/_image.yml
     permissions:
-      contents: write
-      packages: write
-    env:
-      REGISTRY_PATH: ghcr.io/${{ github.repository_owner }}/${{ inputs.image }}
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: does a Dockerfile exist?
-        id: scaffold
-        run: |
-          if [ ! -f "${{ inputs.path }}/Dockerfile" ]; then
-            echo "::notice::${{ inputs.path }}/Dockerfile does not exist yet — no image to publish"
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: setup buildx
-        if: steps.scaffold.outputs.run == 'true'
-        uses: docker/setup-buildx-action@v4
-
-      - name: log in to GHCR
-        if: steps.scaffold.outputs.run == 'true'
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: build and push
-        if: steps.scaffold.outputs.run == 'true'
-        id: build
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ${{ inputs.path }}/Dockerfile
-          push: true
-          tags: ${{ env.REGISTRY_PATH }}:main
-          labels: |
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
-          cache-from: type=gha,scope=${{ inputs.key }}
-          cache-to: type=gha,scope=${{ inputs.key }},mode=max
-
-      - name: package visibility
-        if: steps.scaffold.outputs.run == 'true'
-        # Measured, not assumed: a package published by this job is **public** and linked to
-        # the repository, because GITHUB_TOKEN publishing from a public repository inherits
-        # public visibility. A package pushed from a laptop with a personal token is private
-        # and unlinked, and no API can change it afterwards — REST has no visibility endpoint
-        # any more and GraphQL exposes none either. So the rule is "publish here, never by
-        # hand", and this step says so instead of calling an endpoint that does not exist.
-        run: |
-          echo "::notice::${{ inputs.image }} is public because this job published it with GITHUB_TOKEN from a public repository — do not push it by hand, a personal-token push creates a private, unlinked package that no API can fix"
-
-      - name: pin the digest in the test values
-        if: steps.scaffold.outputs.run == 'true'
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-          IMAGE: ${{ inputs.image }}
-        run: |
-          file="deploy/fleet/myota-test/values.yaml"
-          if [ ! -f "$file" ]; then
-            echo "::error file=$file::$file does not exist — the deploy skeleton is chunk F6"
-            exit 1
-          fi
-          python3 - "$file" "$IMAGE" "$REGISTRY_PATH" "$DIGEST" <<'PY'
-          import re, sys
-          path, image, ref, digest = sys.argv[1:5]
-          text = open(path).read()
-          pattern = re.compile(rf"(^\s*{re.escape(image)}:\s*).*$", re.M)
-          if not pattern.search(text):
-              sys.exit(f"no '{image}:' entry in {path}")
-          text = pattern.sub(lambda m: f"{m.group(1)}{ref}@{digest}", text)
-          open(path, "w").write(text)
-          PY
-
-      - name: commit the digest bump
-        if: steps.scaffold.outputs.run == 'true'
-        run: |
-          if git diff --quiet; then
-            echo "digest already current; nothing to commit"
-            exit 0
-          fi
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add deploy/fleet/myota-test/values.yaml
-          git commit -m "${{ inputs.key }} · pin ${{ inputs.image }} to ${{ steps.build.outputs.digest }}"
-          git push
+      contents: write   # the digest pin is a commit
+      packages: write   # the image
+    with:
+      key: ${{ inputs.key }}
+      image: ${{ inputs.image }}
+      dockerfile: ${{ inputs.path }}/Dockerfile
+      context: .

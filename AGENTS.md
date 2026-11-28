@@ -374,9 +374,37 @@ specific binary; otherwise an already-downloaded build is discovered.
 - `IngressRoute` uses `entryPoints: [websecure]` and
   `tls.certResolver: acmeresolver`. There is no cert-manager and no external-dns
   on this cluster; DNS for both test hostnames already resolves to it.
-- Images are `ghcr.io/myota-platform/myota-new-<service>`, **public**, referenced
-  by immutable digest in values, never by a floating tag. The repository is public
-  too: nothing here requires an account to read, clone or pull.
+- Images are `ghcr.io/myota-platform/myota-new-<service>`, **public**, and every
+  workload references one by **digest**:
+
+  ```yaml
+  images:
+    gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:…
+  ```
+
+  - **CI publishes, nothing else does.** `.github/workflows/_image.yml` is the one
+    publication path, called by `_service-go.yml`, `_service-rust.yml` and
+    `_web.yml`. Each push is tagged `sha-<short>` **and** `main`; nothing deploys
+    `main`.
+  - **A commit is published once.** If `sha-<short>` already exists, the job skips
+    the build and reuses the digest, so a re-run, a retried job or a force push
+    creates no second tag and no second image.
+  - **The pin is a commit.** After pushing, the job writes the digest into
+    `deploy/fleet/<env>/values.yaml` through `tools/pin_image.py` and pushes that
+    commit — rebuilt on the latest `main` each attempt, so two services publishing
+    on one merge cannot conflict in the same `images:` block. Fleet then reconciles
+    it; CI never touches the cluster.
+  - **The pin cannot rot.** `tools/check_images.py` fails `make verify` when an
+    entry is a tag, names the wrong image, or describes a service with no
+    Dockerfile; it also rejects a `:latest` anywhere in `deploy/` and an untagged
+    third-party image. A digest edit by hand is a diff, so it is reviewable rather
+    than invisible.
+  - **Public is proven, not assumed.** The job logs out of GHCR and inspects the
+    image anonymously, which is what a kubelet does. A package that came out private
+    fails CI instead of a Deployment.
+
+  The repository is public too: nothing here requires an account to read, clone or
+  pull.
 - **Every package this organisation publishes is public, and it is public because a
   workflow published it.** Measured, not assumed:
 

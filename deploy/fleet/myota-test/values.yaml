@@ -25,3 +25,20 @@ web:
 
 # The databases, the poolers and the migration Job inherit `values.yaml`: the sizes there are
 # already the test sizes, and repeating them here would be a second place to change.
+
+# Image digests, written by CI. Do not edit by hand.
+#
+# Each entry is `ghcr.io/myota-platform/myota-new-<service>@sha256:<digest>`, committed by
+# `.github/workflows/_image.yml` when a merge to main changes that service. A digest rather
+# than a tag because a tag moves: `:main` is repointed by every merge, so a Deployment that
+# referenced it could change without a commit and "what is running in test" would stop being
+# answerable from the repository.
+#
+# The workload templates read `images.<service>`. Those templates arrive with each service's
+# own chunk (A1 core, A7 geodata, P5 activity, A3 and P2 the front ends); until then a pin is
+# recorded and pullable but deploys nothing, which is the honest state — the artefact exists,
+# the workload does not.
+#
+# `tools/check_images.py` fails the build if any entry here is a tag instead of a digest,
+# names the wrong image, or describes a service with no Dockerfile.
+images:
