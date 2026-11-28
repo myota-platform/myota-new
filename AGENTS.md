@@ -382,6 +382,10 @@ specific binary; otherwise an already-downloaded build is discovered.
     gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:…
   ```
 
+  - **A service is a Dockerfile.** Every component that publishes has
+    `<path>/Dockerfile`, where `<path>` is `apps/<name>` or `web/<name>`, and its image
+    is `myota-new-<name>`. The mapping is positional on purpose: adding a Dockerfile is
+    the whole act of joining the pipeline, and no list has to be edited.
   - **CI publishes, nothing else does.** `.github/workflows/_image.yml` is the one
     publication path, called by `_service-go.yml`, `_service-rust.yml` and
     `_web.yml`. Each push is tagged `sha-<short>` **and** `main`; nothing deploys
