@@ -67,5 +67,5 @@ images:
   activity: ghcr.io/myota-platform/myota-new-activity@sha256:8b8f95d2597b84e91d25e9577f996e7722b31f1b9867042e83538fb3a6546ca0
   admin-web: ghcr.io/myota-platform/myota-new-admin-web@sha256:ec11ebf08c094f2699f31479a1a9b88127f3c1df4cce906954d957c119db3d0d
   core: ghcr.io/myota-platform/myota-new-core@sha256:5b1ac5136fadb0145330ba0d4430cfade2cfd5f9281a8764187f8aa7969e2b5c
-  gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:039a0378f4ac7761db218a540b90fba10002234c3c55d8f93bcbff5e685561b4
+  gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:73b1bb26d97284a9e52e9f81fca8b03bdbc5aa182c19cd7951ce331bd58d09bf
   geodata: ghcr.io/myota-platform/myota-new-geodata@sha256:bde5cd4a1c4da2a18d5bbacf60cb3e7108356630c0d1d8860fc4cfbe20e842fc
