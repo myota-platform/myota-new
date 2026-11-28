@@ -69,6 +69,7 @@ no alternatives is a press release; one with no costs is advocacy.
 | [0009](0009-three-buckets-per-environment.md) | Three buckets per environment, one credential per environment | accepted |
 | [0010](0010-workspace-and-production-share-a-name.md) | The Fleet workspace and the production namespace are both `myota` | accepted |
 | [0011](0011-chart-published-to-ghcr.md) | The chart is a published OCI artifact, pinned by version | accepted |
+| [0012](0012-core-holds-the-keys.md) | `core` holds the token signing key and encrypts TOTP seeds | accepted |
 
 ## Open items
 
@@ -92,6 +93,7 @@ the rule should link back. The mapping:
 | 0009 | §12 Horizontal scaling · object storage |
 | 0010 | §8 Deployment · the workspace and production share a name |
 | 0011 | §8 Deployment · the chart is published, not vendored |
+| 0012 | §8 Deployment · token signing and MFA seeds |
 
 `tools/check_adrs.py` verifies every ADR has the required sections, a valid
 status, and a matching reference in `AGENTS.md`.
