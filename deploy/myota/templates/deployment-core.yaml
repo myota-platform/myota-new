@@ -95,8 +95,10 @@ spec:
               value: "true"
             - name: RUST_LOG
               value: {{ $core.logLevel | quote }}
-          # `/healthz` answers "the process runs"; `/readyz` checks the database. A
-          # replica whose database is gone should leave the Service, not restart.
+          # `/internal/healthz` is the contract's liveness operation — the same one the
+          # gateway aggregates, so the kubelet and the gateway cannot disagree about
+          # whether this replica is up. `/readyz` adds the database check: a replica
+          # whose database is gone should leave the Service, not restart.
           readinessProbe:
             httpGet:
               path: /readyz
@@ -106,7 +108,7 @@ spec:
             timeoutSeconds: 3
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /internal/healthz
               port: http
             initialDelaySeconds: 10
             periodSeconds: 15

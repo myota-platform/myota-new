@@ -91,6 +91,13 @@ async fn attach_peer(mut request: Request, next: axum::middleware::Next) -> Resp
 /// Builds the router.
 pub fn router(state: AppState) -> Router {
     Router::new()
+        // `/internal/*` is the documented surface the gateway aggregates (the contract
+        // declares `/internal/healthz`). The kubelet's own probes use the same paths,
+        // so there is one liveness definition rather than a public alias nobody
+        // documented — which is what the first deploy got wrong: the gateway probed
+        // `/internal/healthz`, this service answered `/healthz`, and every upstream
+        // read as unreachable.
+        .route("/internal/healthz", get(health))
         .route("/healthz", get(health))
         .route("/readyz", get(ready))
         .route("/internal/auth/jwks", get(jwks))

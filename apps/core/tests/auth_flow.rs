@@ -794,6 +794,14 @@ async fn health_and_readiness_answer() {
         return;
     };
 
+    // The path the contract declares and the gateway aggregates. Getting this wrong
+    // is invisible in isolation — the pod is healthy, the gateway reports every
+    // upstream unreachable — so it is asserted here rather than assumed.
+    let (status, _, body) = harness.send("GET", "/internal/healthz", None, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["service"], "core");
+    assert_eq!(body["status"], "ok");
+
     let (status, _, body) = harness.send("GET", "/healthz", None, &[]).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["service"], "core");
