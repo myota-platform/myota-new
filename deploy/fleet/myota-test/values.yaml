@@ -43,4 +43,5 @@ web:
 # names the wrong image, or describes a service with no Dockerfile.
 images:
   core: ghcr.io/myota-platform/myota-new-core@sha256:20716493c588ce6390c676341498a395099e72d63acdfa74514b40b2b4d5ea67
+  gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:f4211f4d15f14d1adf1e4bef15973da4cbe7025f74933726d4d868d8e0aee470
   geodata: ghcr.io/myota-platform/myota-new-geodata@sha256:b66eeef8b2eccd5cb2f69af77f12884731cfe853bca8810967196ee0689323b2
