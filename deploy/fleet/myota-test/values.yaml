@@ -64,7 +64,7 @@ api:
 # `tools/check_images.py` fails the build if any entry here is a tag instead of a digest,
 # names the wrong image, or describes a service with no Dockerfile.
 images:
-  activity: ghcr.io/myota-platform/myota-new-activity@sha256:8b8f95d2597b84e91d25e9577f996e7722b31f1b9867042e83538fb3a6546ca0
+  activity: ghcr.io/myota-platform/myota-new-activity@sha256:b2b79acd1a9f3c3a5640fe0df3a23d35ee2d0148581756958b9c83a0bdcaf827
   admin-web: ghcr.io/myota-platform/myota-new-admin-web@sha256:6f28aece01707a50661fc031682dc2faabded695a04b5907365bc801fec2a83c
   core: ghcr.io/myota-platform/myota-new-core@sha256:5b1ac5136fadb0145330ba0d4430cfade2cfd5f9281a8764187f8aa7969e2b5c
   gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:73b1bb26d97284a9e52e9f81fca8b03bdbc5aa182c19cd7951ce331bd58d09bf
