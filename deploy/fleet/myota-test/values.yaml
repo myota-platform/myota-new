@@ -23,6 +23,24 @@ web:
       participant-web: myota-test.ea7klk.es
       admin-web: myota-admin-test.ea7klk.es
 
+# The application services. `core` serves the administrator sign-in flow; the gateway
+# routes `/v1/**` on both hosts to it and enforces the audience before a request reaches
+# a service. Their images are the digests pinned below — CI wrote them, this file does
+# not choose them.
+services:
+  core:
+    enabled: true
+    database:
+      # The pooler, never `myota-core-postgres`: the NetworkPolicy is what enforces it
+      # and the audit trail is what proves it.
+      host: myota-core-pgbouncer
+  gateway:
+    enabled: true
+
+# `/v1/**` on both hostnames, to the gateway. The front ends keep `/`.
+api:
+  enabled: true
+
 # The databases, the poolers and the migration Job inherit `values.yaml`: the sizes there are
 # already the test sizes, and repeating them here would be a second place to change.
 

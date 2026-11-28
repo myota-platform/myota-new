@@ -147,6 +147,32 @@ CREATE TABLE IF NOT EXISTS auth_revocation (
 -- Expiry drives the cleanup; a denylist that grows forever is a leak.
 CREATE INDEX IF NOT EXISTS auth_revocation_expires ON auth_revocation (expires_at);
 
+-- A second-factor challenge: one row per password verification that still has to be
+-- answered. It is a table rather than a signed token because it has to be
+-- **single-use under concurrency** — two nodes answering the same challenge must
+-- produce one session — and because "how many wrong codes has this challenge seen"
+-- is state that has to survive a restart.
+CREATE TABLE IF NOT EXISTS mfa_challenge (
+    id          uuid        PRIMARY KEY,
+    account_id  uuid        NOT NULL REFERENCES account (id) ON DELETE CASCADE,
+    -- The flow this challenge belongs to. One value today; the column is what keeps
+    -- a future password-reset or re-authentication challenge from being answerable
+    -- by a sign-in one.
+    purpose     text        NOT NULL DEFAULT 'admin_login',
+    -- Wrong codes so far. The challenge is burned at the limit, so a six-digit code
+    -- cannot be guessed by repetition inside its five-minute life.
+    attempts    integer     NOT NULL DEFAULT 0,
+    consumed_at timestamptz,
+    expires_at  timestamptz NOT NULL,
+    created_at  timestamptz NOT NULL DEFAULT now(),
+    updated_at  timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT mfa_challenge_purpose_known CHECK (purpose IN ('admin_login'))
+);
+
+-- Open challenges only: the answer path looks one up by id and never scans history.
+CREATE INDEX IF NOT EXISTS mfa_challenge_open
+    ON mfa_challenge (account_id) WHERE consumed_at IS NULL;
+
 -- Per-account lockout. Not the same thing as edge rate limiting: this counter must be
 -- global and authoritative, so it lives in the database where every replica sees it.
 CREATE TABLE IF NOT EXISTS login_rate_limit (

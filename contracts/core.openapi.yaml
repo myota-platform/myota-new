@@ -602,19 +602,43 @@ paths:
         '401':
           $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
         '403':
-          description: >-
-            The password is correct but the account holds no admin role. A
-            participant account cannot be promoted by guessing at this endpoint.
+          description: |
+            The password is correct and the account cannot sign in for one of two
+            reasons. The distinction is in `type` because the repairs differ: one
+            needs another administrator, the other needs the account owner.
+
+            - `about:blank#mfa-not-enrolled` — no confirmed second factor. The
+              account cannot sign in until one is enrolled, and enrolment requires
+              an existing session, so a newly provisioned administrator is given
+              their factor by whoever provisioned them.
+            - `about:blank#forbidden` — no role with an administrator scope. A
+              participant account cannot be promoted by guessing at this endpoint.
+
+            A `403` therefore says the password was right. That is a deliberate
+            disclosure: the alternative is an administrator who cannot tell "wrong
+            password" from "your factor is missing", and the address is already
+            known to the caller who holds its password.
           content:
             application/problem+json:
               schema:
                 $ref: '../shared/components.yaml#/components/schemas/Problem'
-              example:
-                type: about:blank#forbidden
-                title: Not an administrator account
-                status: 403
-                detail: This account holds no role with an administrator scope.
-                requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+              examples:
+                mfaNotEnrolled:
+                  summary: Correct password, no second factor
+                  value:
+                    type: about:blank#mfa-not-enrolled
+                    title: Second factor not enrolled
+                    status: 403
+                    detail: No second factor is enrolled for this account. Enrol one before signing in.
+                    requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
+                noAdminRole:
+                  summary: Correct password, no administrator role
+                  value:
+                    type: about:blank#forbidden
+                    title: Not an administrator account
+                    status: 403
+                    detail: This account holds no role with an administrator scope.
+                    requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
         '429':
           $ref: '../shared/components.yaml#/components/responses/ProblemTooManyRequests'
 
@@ -659,7 +683,21 @@ paths:
         '400':
           $ref: '../shared/components.yaml#/components/responses/ProblemBadRequest'
         '401':
-          $ref: '../shared/components.yaml#/components/responses/ProblemUnauthorized'
+          description: >-
+            The code was wrong, or was already used in its step window. The
+            challenge stays open until its attempt limit is reached, so a typo
+            costs one of five attempts rather than the sign-in. Type
+            `about:blank#mfa-failed`.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '../shared/components.yaml#/components/schemas/Problem'
+              example:
+                type: about:blank#mfa-failed
+                title: Second factor rejected
+                status: 401
+                detail: The second factor was rejected.
+                requestId: 7c1f9e0a-3f2f-4d6e-9b71-1a2b3c4d5e6f
         '410':
           description: The challenge expired. Start the sign-in again.
           content:

@@ -374,6 +374,20 @@ specific binary; otherwise an already-downloaded build is discovered.
 - `IngressRoute` uses `entryPoints: [websecure]` and
   `tls.certResolver: acmeresolver`. There is no cert-manager and no external-dns
   on this cluster; DNS for both test hostnames already resolves to it.
+- **Both hostnames serve the API under `/v1`**, routed to the gateway by a second
+  `IngressRoute` per host with `PathPrefix(`/v1`)` and an explicit priority above the
+  front end's catch-all. Same origin for the app and its API is what keeps the session
+  cookie first-party and keeps CORS out of the design.
+- **`core` holds the token signing key and the MFA encryption key**, in the Secret
+  `myota-core-signing` (`jwt-seed-base64`, `mfa-key-base64`), applied by hand from
+  `deploy/myota/secrets/core-signing.sops.yaml`. The gateway fetches the public half
+  from `core`'s JWKS (ADR-0008), so a key rotation is one `core` deploy and the
+  gateway has no copy to update. The MFA key encrypts TOTP seeds at rest: a database
+  backup alone yields no working second factor.
+- **The first administrator is provisioned out of band**, by
+  `core provision-admin` in the running pod. There is no self-service admin
+  registration and no flag that relaxes the second factor, because that is the one
+  bypass that would make every other control documentary.
 - Images are `ghcr.io/myota-platform/myota-new-<service>`, **public**, and every
   workload references one by **digest**:
 

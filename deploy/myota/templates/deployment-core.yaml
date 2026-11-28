@@ -1,0 +1,138 @@
+{{- /*
+The `core` service: identity, sessions, roles, programmes.
+
+Two replicas from the first deploy. The service holds no session state of its own —
+sessions are rows, and the signing key is the same in every replica — so any replica
+can serve any request, which is the property ADR-0005 asks for.
+
+The database credentials come from a Secret and are assembled into discrete variables
+rather than a URL: a container environment cannot concatenate a password into a
+string, and rule 8 prefers keeping the password in the Secret and the host, port and
+database name in configuration.
+
+`readOnlyRootFilesystem` because the image is distroless and writes nothing: a process
+that cannot write to its filesystem cannot be persuaded to drop a file there.
+*/ -}}
+{{- if .Values.services.core.enabled }}
+{{- $core := .Values.services.core }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "myota.labels" . | nindent 4 }}
+    app.kubernetes.io/name: core
+    myota.service: core
+spec:
+  replicas: {{ $core.replicas }}
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: core
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: core
+        {{- include "myota.labels" . | nindent 8 }}
+        myota.service: core
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: core
+          image: {{ required "images.core is required when services.core.enabled" .Values.images.core }}
+          # The digest is in the image reference, so there is nothing to pull by tag
+          # and nothing for `latest` to mean.
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: {{ $core.port }}
+          env:
+            - name: CORE_LISTEN_ADDR
+              value: "0.0.0.0:{{ $core.port }}"
+            - name: CORE_OTP_ISSUER
+              value: {{ $core.otpIssuer | quote }}
+            # Discrete variables rather than a DSN, so the password is a Secret
+            # reference and everything else is readable configuration.
+            - name: CORE_DB_HOST
+              value: {{ $core.database.host | quote }}
+            - name: CORE_DB_PORT
+              value: {{ $core.database.port | quote }}
+            - name: CORE_DB_NAME
+              value: {{ $core.database.name | quote }}
+            - name: CORE_DB_USER
+              value: {{ $core.database.user | quote }}
+            - name: CORE_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $core.database.secretName }}
+                  key: {{ $core.database.secretKey }}
+            - name: CORE_JWT_SEED_BASE64
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $core.signingSecretName }}
+                  key: jwt-seed-base64
+            - name: CORE_JWT_KEY_ID
+              value: {{ $core.signingKeyID | quote }}
+            - name: CORE_MFA_KEY_BASE64
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $core.signingSecretName }}
+                  key: mfa-key-base64
+            # The gateway forwards X-Forwarded-For; believing it is correct only
+            # because nothing else can reach this Service directly.
+            - name: CORE_TRUST_FORWARDED_FOR
+              value: "true"
+            - name: RUST_LOG
+              value: {{ $core.logLevel | quote }}
+          # `/healthz` answers "the process runs"; `/readyz` checks the database. A
+          # replica whose database is gone should leave the Service, not restart.
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml $core.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: core
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "myota.labels" . | nindent 4 }}
+    myota.service: core
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: core
+  ports:
+    - name: http
+      port: {{ $core.port }}
+      targetPort: http
+{{- end }}

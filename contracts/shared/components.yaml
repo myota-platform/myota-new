@@ -318,6 +318,8 @@ components:
             - about:blank#forbidden
             - about:blank#reauth-required
             - about:blank#mfa-required
+            - about:blank#mfa-not-enrolled
+            - about:blank#mfa-failed
             - about:blank#not-found
             - about:blank#conflict
             - about:blank#revision-conflict

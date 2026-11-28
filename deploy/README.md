@@ -11,6 +11,10 @@ deploy/
     templates/           three StatefulSets, three poolers, the migration Job
     db/                  per-database migrations (shared, core, geo, activity)
     secrets/             SOPS-encrypted Secrets — applied deliberately, never reconciled
+                         core.sops.yaml            myota-core-db-credentials
+                         core-signing.sops.yaml    myota-core-signing (JWT seed, MFA key)
+                         geo.sops.yaml activity.sops.yaml
+                         s3-credentials.myota-{test,prod}.sops.yaml
   silo/                  object-storage inventory, IAM policies and provisioning
   fleet/
     README.md            how a commit becomes a deploy, and the three silent failures

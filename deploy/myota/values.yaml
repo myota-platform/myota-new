@@ -122,6 +122,71 @@ namespace:
 # name and port do not change, so the route and the certificate are proven once.
 #
 # Off by default so a production release cannot ship a "deployment skeleton" page.
+# ─── Application services ─────────────────────────────────────────────────────────
+#
+# The gateway and `core`. Off by default so the chart renders for the database-only
+# case (F5's checks) and for an environment that has not published images yet; every
+# environment that serves traffic turns them on in its own values file.
+#
+# Their images are digests, written by CI into `images:` below. The names come from
+# `deploy/fleet/<env>/values.yaml` too — one place per environment.
+services:
+  core:
+    enabled: false
+    replicas: 2
+    port: 8080
+    # The label an authenticator app shows. Not secret, and different per environment
+    # so a test enrolment is recognisable in the app that scans it.
+    otpIssuer: Myota
+    # The key id published in the JWKS. Bumped when the signing key rotates, which is
+    # what lets the gateway hold both keys during the overlap.
+    signingKeyID: core-1
+    logLevel: info
+    database:
+      # The pooler, never the database: AGENTS.md rule 17 makes it the only path.
+      host: ""
+      port: 6432
+      name: myota_core
+      user: myota
+      # The Secret applied by hand from `secrets/core.sops.yaml` (ADR-0003).
+      secretName: myota-core-db-credentials
+      secretKey: app-password
+    # Holds `jwt-seed-base64` and `mfa-key-base64`. Applied by hand; a bundle that
+    # could carry it would be a bundle that could leak it.
+    signingSecretName: myota-core-signing
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {memory: 512Mi}
+  gateway:
+    enabled: false
+    replicas: 2
+    port: 8080
+    jwtIssuer: myota-core
+    requestTimeout: 10s
+    logLevel: info
+    # Every one of these must be set: the gateway refuses to start otherwise, so a
+    # typo is a pod that does not come up rather than a prefix that 500s.
+    upstreams:
+      core: http://core:8080
+      geodata: http://geodata:8080
+      activity: http://activity:8080
+    resources:
+      requests: {cpu: 25m, memory: 64Mi}
+      limits: {memory: 256Mi}
+
+# The API prefix every host serves, routed to the gateway.
+#
+# Traefik picks the longer rule, and the explicit priority removes the doubt: the API
+# route wins over the front end's catch-all on the same host. Same origin for both
+# applications is what keeps the session cookie first-party and removes CORS from the
+# design entirely.
+api:
+  enabled: false
+  service: gateway
+  port: 8080
+  pathPrefix: /v1
+  priority: 100
+
 web:
   placeholder:
     enabled: false

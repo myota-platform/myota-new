@@ -49,11 +49,46 @@ spec:
     - websecure
   routes:
     - kind: Rule
+      # Explicit, not inferred from rule length: two IngressRoutes claim the same
+      # host and Traefik's default ordering would make the API prefix and the front
+      # end compete on how long their match expressions happen to be.
+      priority: 10
       match: Host(`{{ $host }}`)
       services:
         - name: {{ $name }}
           port: 8080
   tls:
     certResolver: acmeresolver
+{{- end }}
+{{- end }}
+{{- if and .Values.web.ingress.enabled .Values.api.enabled }}
+{{- range $name, $web := .Values.web.placeholder.apps }}
+{{- $host := index $.Values.web.ingress.hosts $name }}
+{{- if $host }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ $name }}-api
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "myota.labels" $ | nindent 4 }}
+    myota.web: {{ $name }}-api
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      # Higher than the front end's 10: `/v1/**` is the API and `/` is the app.
+      priority: {{ $.Values.api.priority }}
+      match: Host(`{{ $host }}`) && PathPrefix(`{{ $.Values.api.pathPrefix }}`)
+      services:
+        - name: {{ $.Values.api.service }}
+          port: {{ $.Values.api.port }}
+  tls:
+    certResolver: acmeresolver
+{{- end }}
 {{- end }}
 {{- end }}

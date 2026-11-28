@@ -4,7 +4,7 @@ version = "0.0.0"
 edition = "2021"
 rust-version = "1.85"
 publish = false
-description = "MyOTA core service."
+description = "MyOTA identity and programme service."
 
 # The binary keeps the plain service name: it is what appears in logs, in ps, and
 # in the Kubernetes workload name.
@@ -19,3 +19,61 @@ name = "myota_core"
 path = "src/lib.rs"
 
 [dependencies]
+# HTTP. `json` only: no multipart, no websockets, no TLS — TLS terminates at Traefik.
+axum = { version = "0.8", features = ["json"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "net"] }
+
+# Runtime queries rather than the compile-time macros: the macros need a live
+# database at build time, which would make `cargo build` depend on infrastructure.
+sqlx = { version = "0.8", default-features = false, features = [
+    "runtime-tokio",
+    "tls-rustls",
+    "postgres",
+    "uuid",
+    "chrono",
+    "json",
+] }
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Pinned exactly: uuids from 1.11 resolve transitive crates that require Rust 1.89,
+# and the repository's MSRV is 1.85. The lockfile pins the rest.
+uuid = { version = "=1.10.0", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2"
+
+# Passwords: Argon2id, with the parameters fixed in one place in `password`.
+argon2 = "0.5"
+
+# Tokens: Ed25519 over a compact JWS. `jsonwebtoken` was considered and rejected —
+# signing with it needs a PKCS#8 key, and the key arrives here as a raw 32-byte
+# seed, so the DER encoding would be the only thing between the seed and the
+# signature. EdDSA-JWS is `base64url(header).base64url(payload)` plus an Ed25519
+# signature, and the verifier on the other side is the gateway's.
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+
+# TOTP is HMAC-SHA1 over a counter, per RFC 6238. Two small crates rather than
+# `totp-rs`, whose tree pulls `time` and `icu` and neither supports Rust 1.85.
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+
+base64 = "0.22"
+rand = "0.8"
+
+# Base32 for the TOTP secret, which is what an authenticator app scans.
+data-encoding = "2"
+
+# AES-256-GCM for the TOTP seed at rest. A TOTP seed is a second factor; a database
+# backup that contains it is a backup that weakens every administrator account.
+aes-gcm = "0.10"
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+[dev-dependencies]
+# `oneshot` drives the real router in a test without binding a port, so the tests
+# exercise the same handlers, extractors and error mapping the deployment does.
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
