@@ -333,6 +333,9 @@ specific binary; otherwise an already-downloaded build is discovered.
   | **test** | `myota-test` | `deploy/fleet/myota-test/` | `myota-test.ea7klk.es` | `myota-admin-test.ea7klk.es` |
   | production | `myota` | `deploy/fleet/myota/` | not yet | not yet |
 
+  Production's namespace has the same name as the workspace itself — accepted, with the
+  costs written down in [ADR-0010](docs/decisions/0010-workspace-and-production-share-a-name.md).
+
   Both live in the `myota` workspace. The workspace was decommissioned on
   2026-11-27 and is recreated by chunk **F6**.
 - **Every chunk deploys to test as soon as it is verifiable** — `myota-test`
@@ -349,14 +352,22 @@ specific binary; otherwise an already-downloaded build is discovered.
   `local-cluster` in the workspace that maps that label to the namespace
   `fleet-local`. Without them Fleet matches no cluster, and reports `0/0` with
   no error. `deploy/fleet/README.md` names the three silent non-deploys.
-- The chart is authored once in `deploy/myota/` and **copied** into each bundle
-  as `chart/` by `tools/sync_fleet_chart.py`, because Fleet reads chart files
-  from inside the bundle directory only and cannot load a packaged `.tgz` — it
-  installs an empty release and reports `Ready`. `make checks-deploy` fails on a
-  drifted copy, so edit the chart in `deploy/myota/` and re-run the script.
+- The chart is **published, not vendored** ([ADR-0011](docs/decisions/0011-chart-published-to-ghcr.md)).
+  `deploy/myota` is packaged and pushed to `oci://ghcr.io/myota-platform/charts/myota`
+  by the `publish-chart` job in `.github/workflows/deploy.yml`, and every bundle pins
+  `helm.version` equal to `deploy/myota/Chart.yaml`. A published version is
+  immutable: change the chart, bump the version in both files, merge — the workflow
+  refuses to overwrite a version with different content. No bundle carries chart
+  files; `tools/check_fleet_bundles.py` rejects a vendored `chart/`, a `.tgz`, a
+  `target` or a `clientSecretName` in a bundle, because each one fails silently.
 - Secrets live in `deploy/myota/secrets/*.sops.yaml` and are applied by hand
-  (ADR-0003); `tools/sync_fleet_chart.py` never copies them. Configuration is
-  values and ConfigMaps, reconciled by Fleet.
+  (ADR-0003); no bundle carries one. Configuration is values and ConfigMaps,
+  reconciled by Fleet.
+- **The workspace and production are both named `myota`**
+  ([ADR-0010](docs/decisions/0010-workspace-and-production-share-a-name.md)).
+  Production is not deployed yet; when it is, its workloads and this workspace's
+  GitRepos share one namespace. Never `kubectl delete namespace myota` — that is
+  production and the deploy intent in one command.
 - Hostnames follow the existing cluster convention — `aprs.ea7klk.es` and
   `aprs-admin.ea7klk.es` — so participant and admin are always a pair, never one
   host with two audiences behind a path.
@@ -366,6 +377,34 @@ specific binary; otherwise an already-downloaded build is discovered.
 - Images are `ghcr.io/myota-platform/myota-new-<service>`, **public**, referenced
   by immutable digest in values, never by a floating tag. The repository is public
   too: nothing here requires an account to read, clone or pull.
+- **Every package this organisation publishes is public, and it is public because a
+  workflow published it.** Measured, not assumed:
+
+  | Published by | Result |
+  | --- | --- |
+  | a workflow, `GITHUB_TOKEN`, public repository | **public**, linked to the repository |
+  | a laptop, personal token, `helm push` / `docker push` | **private, unlinked**, and no API can change it |
+
+  GitHub no longer exposes a way to change a package's visibility: REST has only
+  `GET`, `DELETE`, `restore` and `versions` (a `PATCH` returns `404 Not Found`, which
+  reads like a permissions problem and is not one), and GraphQL has only
+  `deletePackageVersion`. `GITHUB_TOKEN` cannot even read an organisation's packages.
+
+  So the rule is a prohibition, not a step: **publish packages only from a workflow.**
+  Never `helm push` or `docker push` from a laptop — that creates a package nothing can
+  make public afterwards, and deleting it is the only remedy. The three service
+  workflows used to call a visibility endpoint that does not exist, with
+  `continue-on-error: true`, so they failed silently on every run; that step is gone.
+
+  ```sh
+  make packages-public      # report; exits non-zero if anything is private
+  ```
+
+  `deploy.yml` proves the chart's visibility in the job that publishes it: after the
+  push it pulls the chart with an empty registry config, so a private package fails the
+  workflow rather than a Fleet reconcile an hour later. The failure mode differs by
+  package — a private **image** stops a pod with `ImagePullBackOff`, loudly, while a
+  private **chart** makes Fleet unable to build the bundle, quietly.
 - Six deployable units — `gateway`, `core`, `geodata`, `activity`, `admin-web`,
   `participant-web` — running as twelve workloads: each domain service is
   `-api`, `-worker`, and `-relay` from one image, plus the gateway and the two

@@ -67,6 +67,8 @@ no alternatives is a press release; one with no costs is advocacy.
 | [0007](0007-ui-direction-organic.md) | The UI direction is 04‑Organic | accepted |
 | [0008](0008-gateway-token-verification-keys.md) | The gateway verifies tokens with keys published by `core` | accepted |
 | [0009](0009-three-buckets-per-environment.md) | Three buckets per environment, one credential per environment | accepted |
+| [0010](0010-workspace-and-production-share-a-name.md) | The Fleet workspace and the production namespace are both `myota` | accepted |
+| [0011](0011-chart-published-to-ghcr.md) | The chart is a published OCI artifact, pinned by version | accepted |
 
 ## Open items
 
@@ -88,6 +90,8 @@ the rule should link back. The mapping:
 | 0007 | §7 The UI style is 04‑Organic |
 | 0008 | §1 API First · §9 Separate admin and participant surfaces |
 | 0009 | §12 Horizontal scaling · object storage |
+| 0010 | §8 Deployment · the workspace and production share a name |
+| 0011 | §8 Deployment · the chart is published, not vendored |
 
 `tools/check_adrs.py` verifies every ADR has the required sections, a valid
 status, and a matching reference in `AGENTS.md`.

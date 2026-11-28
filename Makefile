@@ -17,7 +17,7 @@ RUST_CRATE_DIRS   := $(patsubst %/Cargo.toml,%,$(shell find . -name Cargo.toml -
 
 # Checks that take no arguments are discovered, so a new one joins the gate by
 # existing. The two that need an argument or a flag are named below.
-PYTHON_CHECKS := $(filter-out tools/check_design_system.py tools/check_diagrams.py tools/check_db_schema.py tools/check_deploy.py,$(wildcard tools/check_*.py))
+PYTHON_CHECKS := $(filter-out tools/check_design_system.py tools/check_diagrams.py tools/check_db_schema.py tools/check_deploy.py tools/check_fleet_bundles.py,$(wildcard tools/check_*.py))
 NODE_CHECKS   := tools/check_ui.mjs
 
 # ---------------------------------------------------------------- toolchains ---
@@ -159,8 +159,8 @@ checks-ops:
 checks-deploy:
 	@echo "==> tools/check_db_schema.py --check"
 	@python3 tools/check_db_schema.py --check
-	@echo "==> tools/sync_fleet_chart.py --check"
-	@python3 tools/sync_fleet_chart.py --check
+	@echo "==> tools/check_fleet_bundles.py --check"
+	@python3 tools/check_fleet_bundles.py --check
 	@if command -v helm >/dev/null 2>&1; then \
 	  echo "==> tools/check_deploy.py --check"; \
 	  python3 tools/check_deploy.py --check; \
@@ -170,6 +170,10 @@ checks-deploy:
 	  echo "        to check the pooler-only rule, the connection budget and the"; \
 	  echo "        migration Job locally; CI always does."; \
 	fi
+
+.PHONY: packages-public
+packages-public:
+	@python3 tools/packages_public.py --check
 
 .PHONY: verify
 verify: check-toolchains fmt lint test checks-contracts checks-deploy checks-static checks-diagrams
@@ -200,6 +204,7 @@ help:
 	@echo "  make checks-deploy   database baselines and the rendered chart"
 	@echo "  make checks-ops     ops integration suite (needs a PostgreSQL)"
 	@echo "  make checks-browser  UI sweep, mockup renders, playground renders in a browser"
+	@echo "  make packages-public  check that every GHCR package is public (it cannot flip one)"
 	@echo "  make checks-diagrams diagram heuristics (Mermaid, Structurizr name checks)"
 	@echo "  make clean        remove build output"
 	@echo ""
