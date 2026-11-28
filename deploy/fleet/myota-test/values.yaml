@@ -61,6 +61,6 @@ api:
 # names the wrong image, or describes a service with no Dockerfile.
 images:
   activity: ghcr.io/myota-platform/myota-new-activity@sha256:8b8f95d2597b84e91d25e9577f996e7722b31f1b9867042e83538fb3a6546ca0
-  core: ghcr.io/myota-platform/myota-new-core@sha256:cf7569235fc8ddb5dd112feca059bbd0c2c08e8aba367d242ae4743b3890d895
+  core: ghcr.io/myota-platform/myota-new-core@sha256:4db361f795b875bb36ad1634f3f6e3440b5445aee5e9da37f9f20fd70c6ded33
   gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:039a0378f4ac7761db218a540b90fba10002234c3c55d8f93bcbff5e685561b4
   geodata: ghcr.io/myota-platform/myota-new-geodata@sha256:3d8f009f534c7bcfe8992b2121e9683d6483a41ba25ed6cb4afdaec0e046108c
