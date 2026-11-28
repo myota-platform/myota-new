@@ -17,7 +17,7 @@ deploy/
     myota/
       bootstrap.yaml     workspace namespace, mapping and GitRepo — applied once by hand
     myota-test/          bundle → namespace myota-test (F6)
-      fleet.yaml values.yaml chart/   chart/ is a generated copy, see fleet/README.md
+      fleet.yaml values.yaml   pins the published chart by version
 ```
 
 ## Current state
@@ -31,10 +31,14 @@ The namespace `myota-test` exists as of F5, because the databases' verification 
 name it. F6 replaces the manual apply with a Fleet bundle; it does not change the
 namespace's contents.
 
-The chart is authored once in `myota/` and copied into each bundle as `chart/` by
-`tools/sync_fleet_chart.py`, because Fleet reads chart files from inside the bundle
-directory only and cannot load a packaged `.tgz`. `make checks-deploy` fails when a copy
-has drifted. [fleet/README.md](fleet/README.md) explains why.
+The chart is authored once in `myota/`, packaged and pushed to
+`oci://ghcr.io/myota-platform/charts/myota` by the `publish-chart` job in
+[`deploy.yml`](../.github/workflows/deploy.yml), and pinned by version in each bundle's
+`fleet.yaml`. No bundle carries chart files: `tools/check_fleet_bundles.py` fails when a
+bundle vendors a chart or pins a version other than the one in `Chart.yaml`, and the
+workflow refuses to overwrite a published version with different content.
+[fleet/README.md](fleet/README.md) explains why — including the three silent non-deploys
+that led here.
 
 ## Environments
 

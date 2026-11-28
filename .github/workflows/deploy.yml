@@ -1,14 +1,16 @@
-# The databases, and the chart that runs them.
+# The databases, the chart that runs them, and the chart's publication.
 #
-# Triggers on the database DDL, the chart and the two checks that hold them to the
-# architecture. Nothing else: a service change does not run this, and this does not build
+# Triggers on the database DDL, the chart, the Fleet bundles and the checks that hold them to
+# the architecture. Nothing else: a service change does not run this, and this does not build
 # service images.
 #
-# Two jobs, because they answer different questions:
+# Three jobs, because they answer different questions:
 #
-#   chart   does the chart render, and does it still route services through the pooler?
-#   schema  do all three baselines apply to a real PostgreSQL — twice — with PostGIS on
-#           geo and without it on the other two?
+#   chart     does the chart render, does it still route services through the pooler, and do
+#             the bundles pin the version this repository actually publishes?
+#   schema    do all three baselines apply to a real PostgreSQL — twice — with PostGIS on
+#             geo and without it on the other two?
+#   publish   is the chart in GHCR, and is the version there the version in the repository?
 #
 # The schema job uses the same postgis image the cluster runs, so "geo has PostGIS and core
 # does not" is checked against the same server build that ships.
@@ -23,8 +25,10 @@ on:
       - 'deploy/myota/templates/**'
       - 'deploy/myota/values.yaml'
       - 'deploy/myota/Chart.yaml'
+      - 'deploy/fleet/**'
       - 'tools/check_db_schema.py'
       - 'tools/check_deploy.py'
+      - 'tools/check_fleet_bundles.py'
       - 'docs/architecture/data-model.md'
       - '.github/workflows/deploy.yml'
   pull_request:
@@ -33,8 +37,10 @@ on:
       - 'deploy/myota/templates/**'
       - 'deploy/myota/values.yaml'
       - 'deploy/myota/Chart.yaml'
+      - 'deploy/fleet/**'
       - 'tools/check_db_schema.py'
       - 'tools/check_deploy.py'
+      - 'tools/check_fleet_bundles.py'
       - 'docs/architecture/data-model.md'
       - '.github/workflows/deploy.yml'
 
@@ -54,7 +60,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.16.4
 
@@ -65,6 +71,9 @@ jobs:
         # Renders rather than reads the templates: a template that looks right and renders
         # wrong is the failure mode Helm exists to have.
         run: python3 tools/check_deploy.py --check
+
+      - name: bundles pin the chart this repository publishes
+        run: python3 tools/check_fleet_bundles.py --check
 
   schema:
     name: schema
@@ -100,3 +109,81 @@ jobs:
         env:
           URL: postgres://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
         run: python3 tools/check_db_schema.py --apply "$URL"
+
+  publish:
+    name: publish-chart
+    # Only a merge to main publishes, and only after the chart's own checks pass. A pull
+    # request renders the chart; it does not get to write to the registry.
+    needs: chart
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The change test below diffs against the previous commit, so the history has to
+          # be there.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - id: changed
+        name: did the chart change?
+        # Sparse on purpose: a Fleet bundle edit triggers this workflow but has nothing to
+        # publish. Comparing paths inside the job is cheaper and more precise than a second
+        # workflow with a second path filter.
+        run: |
+          set -euo pipefail
+          base="${{ github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            # A force push or an unknown parent: assume the chart changed and let the
+            # identical-contents test below decide.
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if git diff --quiet "$base" "${{ github.sha }}" -- deploy/myota; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.changed.outputs.changed == 'true'
+        uses: azure/setup-helm@v5
+        with:
+          version: v3.16.4
+
+      - name: publish the chart to GHCR
+        if: steps.changed.outputs.changed == 'true'
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # A published version is immutable: it is a deploy that can be reproduced, and
+        # overwriting one would let two clusters claim the same chart. Publishing changed
+        # content under a version that already exists therefore fails and names the two files
+        # to edit. Re-running on unchanged content is a no-op, so a re-run or a force push
+        # does not turn the branch red.
+        run: |
+          set -euo pipefail
+          version="$(awk '/^version:/ {print $2; exit}' deploy/myota/Chart.yaml)"
+          reference="oci://ghcr.io/${GITHUB_REPOSITORY_OWNER}/charts/myota"
+
+          mkdir -p dist published
+          helm package deploy/myota --destination dist
+
+          if helm pull "$reference" --version "$version" --destination published >/dev/null 2>&1; then
+            mkdir -p dist/extracted published/extracted
+            tar -xzf "dist/myota-${version}.tgz" -C dist/extracted
+            tar -xzf "published/myota-${version}.tgz" -C published/extracted
+            if diff -r dist/extracted published/extracted; then
+              echo "::notice::myota ${version} is already published with identical contents; nothing to publish"
+              exit 0
+            fi
+            echo "::error::myota ${version} is already published with different contents."
+            echo "::error::Bump version in deploy/myota/Chart.yaml and in deploy/fleet/*/fleet.yaml, then merge."
+            exit 1
+          fi
+
+          echo "$GHCR_TOKEN" | helm registry login ghcr.io --username "$GHCR_USER" --password-stdin
+          helm push "dist/myota-${version}.tgz" "$reference"
+          echo "published myota ${version}" >> "$GITHUB_STEP_SUMMARY"

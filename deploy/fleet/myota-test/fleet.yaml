@@ -3,13 +3,14 @@
 # One bundle, one chart, one values file. `values.yaml` here is the whole difference between
 # this environment and production: the namespace, the hostnames and the switches.
 #
-# `chart: ./chart` is a copy of the chart authored at `deploy/myota`. It has to be a copy.
-# Fleet reads chart files from inside the bundle directory only — a path like `../../myota`
-# resolves in the clone but those files are not shipped in the bundle — and it cannot load a
-# packaged `.tgz`: the agent synthesises an empty chart, Helm reports `deployed`, and the
-# namespace stays empty. A silent success is worse than a failure, so the bundle carries a
-# chart directory. `tools/sync_fleet_chart.py` keeps the copy identical, `make checks-deploy`
-# fails when it drifts, and `deploy/fleet/README.md` records the reasoning.
+# `helm.chart` is the chart published to GHCR by `.github/workflows/deploy.yml`, pinned by
+# `helm.version`. The bundle carries no chart files: a copy inside the bundle is a second copy
+# of the deployment definition that goes stale silently, and a packaged `.tgz` does not deploy
+# at all — Fleet installs an empty release and reports `Ready` (F6, `deploy/fleet/README.md`).
+# Fleet downloads the OCI chart itself, so the reference must include the chart name.
+#
+# `tools/check_fleet_bundles.py` fails `make verify` when this version and the version in
+# `deploy/myota/Chart.yaml` disagree, which is the only way they can drift apart.
 #
 # The database credentials are **not** here. They are SOPS-encrypted in
 # `deploy/myota/secrets/` and applied by hand (ADR-0003): a GitRepo that can decrypt is a
@@ -37,7 +38,8 @@ keepResources: true
 # workspace namespace, which is a credential moved between namespaces for no benefit here.
 
 helm:
-  chart: ./chart
+  chart: oci://ghcr.io/myota-platform/charts/myota
+  version: 0.1.0
   releaseName: myota
   valuesFiles:
     - values.yaml

@@ -333,6 +333,9 @@ specific binary; otherwise an already-downloaded build is discovered.
   | **test** | `myota-test` | `deploy/fleet/myota-test/` | `myota-test.ea7klk.es` | `myota-admin-test.ea7klk.es` |
   | production | `myota` | `deploy/fleet/myota/` | not yet | not yet |
 
+  Production's namespace has the same name as the workspace itself — accepted, with the
+  costs written down in [ADR-0010](docs/decisions/0010-workspace-and-production-share-a-name.md).
+
   Both live in the `myota` workspace. The workspace was decommissioned on
   2026-11-27 and is recreated by chunk **F6**.
 - **Every chunk deploys to test as soon as it is verifiable** — `myota-test`
@@ -349,14 +352,22 @@ specific binary; otherwise an already-downloaded build is discovered.
   `local-cluster` in the workspace that maps that label to the namespace
   `fleet-local`. Without them Fleet matches no cluster, and reports `0/0` with
   no error. `deploy/fleet/README.md` names the three silent non-deploys.
-- The chart is authored once in `deploy/myota/` and **copied** into each bundle
-  as `chart/` by `tools/sync_fleet_chart.py`, because Fleet reads chart files
-  from inside the bundle directory only and cannot load a packaged `.tgz` — it
-  installs an empty release and reports `Ready`. `make checks-deploy` fails on a
-  drifted copy, so edit the chart in `deploy/myota/` and re-run the script.
+- The chart is **published, not vendored** ([ADR-0011](docs/decisions/0011-chart-published-to-ghcr.md)).
+  `deploy/myota` is packaged and pushed to `oci://ghcr.io/myota-platform/charts/myota`
+  by the `publish-chart` job in `.github/workflows/deploy.yml`, and every bundle pins
+  `helm.version` equal to `deploy/myota/Chart.yaml`. A published version is
+  immutable: change the chart, bump the version in both files, merge — the workflow
+  refuses to overwrite a version with different content. No bundle carries chart
+  files; `tools/check_fleet_bundles.py` rejects a vendored `chart/`, a `.tgz`, a
+  `target` or a `clientSecretName` in a bundle, because each one fails silently.
 - Secrets live in `deploy/myota/secrets/*.sops.yaml` and are applied by hand
-  (ADR-0003); `tools/sync_fleet_chart.py` never copies them. Configuration is
-  values and ConfigMaps, reconciled by Fleet.
+  (ADR-0003); no bundle carries one. Configuration is values and ConfigMaps,
+  reconciled by Fleet.
+- **The workspace and production are both named `myota`**
+  ([ADR-0010](docs/decisions/0010-workspace-and-production-share-a-name.md)).
+  Production is not deployed yet; when it is, its workloads and this workspace's
+  GitRepos share one namespace. Never `kubectl delete namespace myota` — that is
+  production and the deploy intent in one command.
 - Hostnames follow the existing cluster convention — `aprs.ea7klk.es` and
   `aprs-admin.ea7klk.es` — so participant and admin are always a pair, never one
   host with two audiences behind a path.

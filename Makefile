@@ -17,7 +17,7 @@ RUST_CRATE_DIRS   := $(patsubst %/Cargo.toml,%,$(shell find . -name Cargo.toml -
 
 # Checks that take no arguments are discovered, so a new one joins the gate by
 # existing. The two that need an argument or a flag are named below.
-PYTHON_CHECKS := $(filter-out tools/check_design_system.py tools/check_diagrams.py tools/check_db_schema.py tools/check_deploy.py,$(wildcard tools/check_*.py))
+PYTHON_CHECKS := $(filter-out tools/check_design_system.py tools/check_diagrams.py tools/check_db_schema.py tools/check_deploy.py tools/check_fleet_bundles.py,$(wildcard tools/check_*.py))
 NODE_CHECKS   := tools/check_ui.mjs
 
 # ---------------------------------------------------------------- toolchains ---
@@ -159,8 +159,8 @@ checks-ops:
 checks-deploy:
 	@echo "==> tools/check_db_schema.py --check"
 	@python3 tools/check_db_schema.py --check
-	@echo "==> tools/sync_fleet_chart.py --check"
-	@python3 tools/sync_fleet_chart.py --check
+	@echo "==> tools/check_fleet_bundles.py --check"
+	@python3 tools/check_fleet_bundles.py --check
 	@if command -v helm >/dev/null 2>&1; then \
 	  echo "==> tools/check_deploy.py --check"; \
 	  python3 tools/check_deploy.py --check; \
