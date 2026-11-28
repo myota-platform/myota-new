@@ -1,0 +1,59 @@
+{{- /*
+The two IngressRoutes, following the `aprs` pattern on this cluster exactly.
+
+    entryPoints:
+      - websecure
+    routes:
+      - kind: Rule
+        match: Host(`<host>`)
+        services:
+          - name: <service>
+            port: 8080
+    tls:
+      certResolver: acmeresolver
+
+Why this shape and not `kind: Ingress`:
+  * Traefik is the ingress on this cluster and its CRD is what the other applications use;
+    mixing an `Ingress` in would need the Traefik provider for Ingress enabled separately.
+  * `certResolver: acmeresolver` is a TLS-ALPN challenge (`tlsChallenge=true` on the
+    controller), which means Traefik must answer TLS for the host *before* the certificate
+    exists. The IngressRoute is what gives it that ownership of the SNI name, so first
+    issuance works with no manual step.
+
+One route per host, not one route with two hosts: a certificate is per host, an error on one
+host should not take the other out, and the admin host is a separate audience by design.
+
+`helm.sh/resource-policy: keep` on both, matching the `aprs` routes: a route is cheap to
+recreate and expensive to lose silently during a rollback, because the hostname stops
+answering while the certificate stays in Traefik's store.
+*/ -}}
+{{- if .Values.web.ingress.enabled }}
+{{- range $name, $web := .Values.web.placeholder.apps }}
+{{- $host := index $.Values.web.ingress.hosts $name }}
+{{- if not $host }}
+{{- fail (printf "web.ingress.hosts.%s is not set; every front end needs a hostname" $name) }}
+{{- end }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "myota.labels" $ | nindent 4 }}
+    myota.web: {{ $name }}
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`{{ $host }}`)
+      services:
+        - name: {{ $name }}
+          port: 8080
+  tls:
+    certResolver: acmeresolver
+{{- end }}
+{{- end }}

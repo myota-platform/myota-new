@@ -1,0 +1,58 @@
+{{- /*
+Network policies: the pooler is the only path to a database, enforced rather than documented.
+
+`tools/check_deploy.py` already fails if a ConfigMap a workload reads names a `-postgres`
+host. That stops the mistake being *configured*; it does not stop a pod reaching the
+database anyway — a debug shell, a new service written before the rule was read, a
+connection string assembled at runtime. This does.
+
+Three ingress sources per database, and no others:
+
+  * the pooler for that database, which is the application path;
+  * the migration Job, which needs one session for its advisory lock;
+  * the node, because kubelet's readiness and liveness probes come from the host address
+    and are not pod traffic. Without this the pods would be restarted forever.
+
+Egress is not restricted. A database that cannot reach its own DNS or the object store is a
+database that fails in ways nobody expected, and the risk this file addresses is inbound.
+*/ -}}
+{{- range $name, $db := .Values.databases }}
+{{- $ctx := dict "root" $ "name" $name }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "myota.postgresName" $ctx }}-ingress
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "myota.labels" $ | nindent 4 }}
+    myota.database: {{ $name }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "myota.postgresName" $ctx }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ include "myota.pgbouncerName" $ctx }}
+        - podSelector:
+            matchLabels:
+              myota.role: migrate
+      ports:
+        - protocol: TCP
+          port: 5432
+    - from:
+        # The node's own address. Kubelet probes are host traffic, not pod traffic, and a
+        # policy that forgets them produces a pod that is killed for being unready while it
+        # is perfectly healthy.
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16   # k3s pod CIDR: pods must come through the selectors above
+              - 10.43.0.0/16   # k3s service CIDR
+      ports:
+        - protocol: TCP
+          port: 5432
+{{- end }}

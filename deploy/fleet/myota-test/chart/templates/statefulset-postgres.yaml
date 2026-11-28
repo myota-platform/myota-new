@@ -1,0 +1,147 @@
+{{- /*
+One StatefulSet and one headless Service per database.
+
+A StatefulSet rather than a Deployment because the identity matters: `myota-geo-postgres-0`
+is the primary, its PVC is bound to it, and a rescheduled pod must come back with the same
+volume. A Deployment with a shared PVC would be a single-writer database with two writers.
+
+There is no replication. Three independent databases, one node, and a restore procedure
+built on the volume's `Retain` policy rather than on a standby — the honest trade for a
+cluster with one disk, recorded here rather than implied by the absence of a replicas field.
+*/ -}}
+{{- range $name, $db := .Values.databases }}
+{{- $ctx := dict "root" $ "name" $name "database" $db.database }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "myota.postgresName" $ctx }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "myota.labels" $ | nindent 4 }}
+    myota.database: {{ $name }}
+spec:
+  # Headless: a database has exactly one address, and a ClusterIP would invite a client to
+  # resolve it and round-robin onto a pod that is not ready. `clusterIP: None` plus the
+  # StatefulSet's stable DNS name is the correct pairing.
+  clusterIP: None
+  selector:
+    statefulset.kubernetes.io/pod-name: {{ include "myota.postgresName" $ctx }}-0
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "myota.postgresName" $ctx }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "myota.labels" $ | nindent 4 }}
+    myota.database: {{ $name }}
+spec:
+  serviceName: {{ include "myota.postgresName" $ctx }}
+  replicas: 1
+  # `Retain` keeps an accidentally deleted StatefulSet from taking its pods with it. The
+  # volume is guarded by the storage class's reclaim policy; this guards the pods.
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "myota.postgresName" $ctx }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "myota.postgresName" $ctx }}
+        {{- include "myota.labels" $ | nindent 8 }}
+        myota.database: {{ $name }}
+      annotations:
+        # The init script and the configuration are in a ConfigMap, so a change to either
+        # needs a pod restart to take effect. The checksum does that automatically rather
+        # than leaving it to whoever remembers.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap-postgres.yaml") $ | sha256sum }}
+    spec:
+      securityContext:
+        # The official image already runs as postgres; pinning it stops a chart edit from
+        # silently running a database as root.
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+      containers:
+        - name: postgres
+          image: {{ $db.image }}
+          imagePullPolicy: {{ $.Values.postgres.imagePullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ $db.database }}
+            - name: POSTGRES_USER
+              value: {{ $.Values.postgres.superuser }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "myota.dbCredentialsSecret" $ctx }}
+                  key: superuser-password
+            # The data directory is a subdirectory of the mount, so a lost pod does not
+            # leave `lost+found` where PostgreSQL expects to own the directory.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            # The app role's password, consumed by the init script. Passed as an env var
+            # rather than baked into the ConfigMap: a ConfigMap is readable by anyone who
+            # can read the namespace.
+            - name: MYOTA_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "myota.dbCredentialsSecret" $ctx }}
+                  key: app-password
+          args:
+            # 200, per values. `max_connections` is a startup parameter, so it belongs in
+            # the command line rather than in a config file this chart would then have to
+            # keep in step with its own values.
+            - -c
+            - max_connections={{ $.Values.postgres.maxConnections }}
+            # Log slow queries, so a missing index is visible before it is an incident.
+            - -c
+            - log_min_duration_statement=1000
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: initdb
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ $.Values.postgres.superuser }}", "-d", "{{ $db.database }}"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            # A database that answers neither readiness nor liveness for a minute is
+            # wedged; giving it longer just delays the restart that fixes it.
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ $.Values.postgres.superuser }}", "-d", "{{ $db.database }}"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          resources:
+            {{- toYaml $db.resources | nindent 12 }}
+      volumes:
+        - name: initdb
+          configMap:
+            name: {{ include "myota.postgresName" $ctx }}-initdb
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "myota.labels" $ | nindent 10 }}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: {{ $.Values.postgres.storageClass }}
+        resources:
+          requests:
+            storage: {{ $db.storage }}
+{{- end }}

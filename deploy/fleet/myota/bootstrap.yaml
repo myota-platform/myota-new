@@ -1,0 +1,72 @@
+# The cluster objects that make the `myota` Fleet workspace exist.
+#
+# Applied once by a person, with `kubectl apply -f deploy/fleet/myota/bootstrap.yaml`. They
+# are here because they are part of the deployment's definition, not because anything
+# reconciles them: Fleet cannot create the workspace that holds its own GitRepos, and a
+# `BundleNamespaceMapping` is how Fleet learns that this workspace may deploy to the local
+# cluster at all.
+#
+# Two objects below are easy to leave out and each fails silently — no error, no
+# BundleDeployment, an empty display of `0/0`:
+#
+#   1. The GitRepo's `fleet.spainip.es/workspace` label. The namespace mapping selects
+#      bundles by it.
+#   2. The `BundleNamespaceMapping`. Fleet only looks for clusters in the bundle's own
+#      namespace; without a mapping to `fleet-local` there is no cluster to deploy to.
+#
+# `deploy/fleet/README.md` has the longer version, including how to tell these two failures
+# apart from a broken chart.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: myota
+  labels:
+    # The workspace namespace holds GitRepos and Bundles, never workloads. Workloads land in
+    # `myota-test` (and later `myota` production, which is a different namespace and a
+    # conflict recorded in AGENTS.md rule 8).
+    fleet.spainip.es/workspace: myota
+---
+apiVersion: management.cattle.io/v3
+kind: FleetWorkspace
+metadata:
+  name: myota
+---
+# Fleet resolves a bundle's target clusters inside the bundle's namespace plus every
+# namespace matching a BundleNamespaceMapping in that namespace. The local cluster lives in
+# `fleet-local`, so without this mapping every bundle in this workspace matches nothing.
+apiVersion: fleet.cattle.io/v1alpha1
+kind: BundleNamespaceMapping
+metadata:
+  name: local-cluster
+  namespace: myota
+bundleSelector:
+  matchLabels:
+    fleet.spainip.es/workspace: myota
+namespaceSelector:
+  matchLabels:
+    kubernetes.io/metadata.name: fleet-local
+---
+apiVersion: fleet.cattle.io/v1alpha1
+kind: GitRepo
+metadata:
+  name: myota-test
+  namespace: myota
+  labels:
+    fleet.spainip.es/workspace: myota
+spec:
+  repo: https://github.com/myota-platform/myota-new.git
+  branch: main
+  # One path per environment. A bundle is the directory Fleet finds a `fleet.yaml` in, so
+  # this path and `deploy/fleet/myota-test/` must stay in step.
+  paths:
+    - deploy/fleet/myota-test
+  targets:
+    - clusterName: local
+  correctDrift:
+    enabled: true
+  keepResources: true
+  # Bumped to force Fleet to rebuild the bundle from the current commit — the lever used
+  # after changing the bundle's contents or its labels, because Fleet treats an unchanged
+  # commit as an unchanged bundle.
+  forceSyncGeneration: 2

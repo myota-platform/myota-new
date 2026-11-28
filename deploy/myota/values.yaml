@@ -106,3 +106,39 @@ migrate:
   resources:
     requests: {cpu: 50m, memory: 128Mi}
     limits: {memory: 256Mi}
+
+# ─── Namespace ──────────────────────────────────────────────────────────────────
+namespace:
+  # Off by default. A chart cannot create the namespace it is installed into — the release
+  # namespace must exist first — so this is only usable when something else (the Fleet
+  # bundle's `defaultNamespace`) has already created it. See templates/namespace.yaml.
+  create: false
+  name: ""
+
+# ─── Front ends ─────────────────────────────────────────────────────────────────
+#
+# Placeholders for F6: they prove the hostname, the certificate and the route before any
+# application exists. A3 replaces the participant image and P2 the admin one; the Service
+# name and port do not change, so the route and the certificate are proven once.
+#
+# Off by default so a production release cannot ship a "deployment skeleton" page.
+web:
+  placeholder:
+    enabled: false
+    image: nginx:1.27-alpine
+    replicas: 2
+    resources:
+      requests: {cpu: 10m, memory: 16Mi}
+      limits: {memory: 64Mi}
+    apps:
+      participant-web:
+        title: Myota
+        chunk: P2
+      admin-web:
+        title: Myota administration
+        chunk: A3
+  ingress:
+    enabled: false
+    hosts:
+      participant-web: ""
+      admin-web: ""

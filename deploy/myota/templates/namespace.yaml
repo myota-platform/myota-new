@@ -1,0 +1,25 @@
+{{- /*
+The namespace, with `helm.sh/resource-policy: keep`.
+
+Keeping it here rather than centrally in `spainip/infra` deviates from how the rest of this
+cluster declares namespaces (one reviewable `namespaces.yaml` in the infra repository). It
+is deliberate: myota-new is meant to be deployable from its own repository, and a bundle
+that cannot create its own namespace needs a second repository changed before the first can
+be deployed. The `keep` policy is the part that matters for safety, and it is honoured
+either way — a namespace with it survives the deletion of whatever created it.
+
+Off by default, because a chart that creates the namespace it is installed into cannot work:
+the release namespace must exist first. Enabled per environment where the bundle manages it.
+*/ -}}
+{{- if .Values.namespace.create }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace.name | default .Release.Namespace }}
+  labels:
+    {{- include "myota.labels" . | nindent 4 }}
+  annotations:
+    # Deleting the bundle must not delete every Secret, claim and workload inside it. This
+    # is the difference between `helm uninstall` and losing the databases.
+    helm.sh/resource-policy: keep
+{{- end }}

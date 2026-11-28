@@ -1,0 +1,92 @@
+{{- /*
+The migration runner.
+
+One `psql` invocation per database, so the advisory lock and the whole migration set share a
+single session and a single transaction:
+
+  * `pg_advisory_xact_lock` is released at COMMIT, which means a killed Job releases it.
+  * `--single-transaction` makes a failure roll back the entire set, so a database is never
+    left half-migrated.
+  * The lock serialises two Jobs that start together — an `install` and an `upgrade`
+    racing, or an operator running the Job by hand while a release is in progress.
+
+Every statement in the SQL is `IF NOT EXISTS`, so running the set twice changes nothing even
+if the ledger is lost. That is the property the issue's third acceptance criterion asks for,
+and it is checked against a real database in CI.
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-migrate-script
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "myota.labels" . | nindent 4 }}
+data:
+  run.sh: |
+    #!/bin/bash
+    set -euo pipefail
+
+    # One key for the whole release, derived from its name so two releases on one cluster
+    # do not block each other. Must be stable: two runners with different keys do not
+    # exclude each other, which is the failure the lock exists to prevent.
+    LOCK_KEY=7191$(printf '%s' "$RELEASE" | cksum | cut -d' ' -f1 | cut -c1-6)
+
+    migrate_one() {
+      local name="$1" database="$2"
+      local host="$RELEASE-$name-postgres"
+
+      echo "== $name ($database)"
+
+      # Each database has its own superuser password, so it is selected here rather than
+      # exported once for the whole Job. `indirect expansion` avoids a case statement that
+      # would have to be edited whenever a database is added.
+      local password_var="PGPASSWORD_${name^^}"
+      PGPASSWORD="${!password_var}"
+      export PGPASSWORD
+      if [ -z "$PGPASSWORD" ]; then
+        echo "   ERROR: $password_var is empty; the Secret is missing superuser-password" >&2
+        exit 1
+      fi
+
+      # `-1` and the lock in one session: the lock is transaction-scoped, so it has to be
+      # taken and released by the same connection that runs the DDL. Splitting them into
+      # separate psql calls would take the lock, release it immediately, and migrate
+      # unprotected.
+      psql -v ON_ERROR_STOP=1 \
+           -h "$host" -U "$PGUSER" -d "$database" \
+           --single-transaction \
+           -c "SET LOCAL lock_timeout = '${LOCK_TIMEOUT}'" \
+           -c "SELECT pg_advisory_xact_lock(${LOCK_KEY})" \
+           $(for file in /sql/"$name"/*.sql; do printf -- '-f %q ' "$file"; done)
+
+      # Prove the result rather than trust the exit code: psql reports success for an empty
+      # file, and an empty file is what a mis-rendered ConfigMap produces.
+      # Counted **as the application role**, which is the connection a service will use.
+      # A migration that succeeds as superuser and leaves a schema the app cannot read is
+      # exactly the failure this assertion exists to catch — it happened on the first
+      # deployment: every table was owned by `postgres` and `myota` saw none of them.
+      local tables
+      tables=$(psql -At -h "$host" -U "$PGUSER" -d "$database" \
+        -c "SELECT count(*) FROM information_schema.tables
+            WHERE table_schema NOT IN ('pg_catalog','information_schema')
+              AND table_type = 'BASE TABLE'")
+      echo "   $tables table(s), visible to $PGUSER"
+      if [ "$tables" -lt 6 ]; then
+        echo "   ERROR: expected at least the six ops tables visible to $PGUSER, found $tables" >&2
+        exit 1
+      fi
+
+      # The schema the service writes to must be writable by the service.
+      psql -v ON_ERROR_STOP=1 -h "$host" -U "$PGUSER" -d "$database" \
+        -c "CREATE TEMP TABLE migrate_write_probe (id int)" > /dev/null
+
+      if [ "$name" = "geo" ]; then
+        psql -At -h "$host" -U "$PGUSER" -d "$database" -c "SELECT '   postgis ' || postgis_version()"
+      fi
+    }
+
+    {{- range $name, $db := .Values.databases }}
+    migrate_one {{ $name }} {{ $db.database }}
+    {{- end }}
+
+    echo "migrations complete"

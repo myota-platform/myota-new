@@ -13,8 +13,11 @@ deploy/
     secrets/             SOPS-encrypted Secrets — applied deliberately, never reconciled
   silo/                  object-storage inventory, IAM policies and provisioning
   fleet/
+    README.md            how a commit becomes a deploy, and the three silent failures
+    myota/
+      bootstrap.yaml     workspace namespace, mapping and GitRepo — applied once by hand
     myota-test/          bundle → namespace myota-test (F6)
-    myota/               bundle → namespace myota, production (F6)
+      fleet.yaml values.yaml chart/   chart/ is a generated copy, see fleet/README.md
 ```
 
 ## Current state
@@ -27,6 +30,11 @@ and digest pinning.
 The namespace `myota-test` exists as of F5, because the databases' verification commands
 name it. F6 replaces the manual apply with a Fleet bundle; it does not change the
 namespace's contents.
+
+The chart is authored once in `myota/` and copied into each bundle as `chart/` by
+`tools/sync_fleet_chart.py`, because Fleet reads chart files from inside the bundle
+directory only and cannot load a packaged `.tgz`. `make checks-deploy` fails when a copy
+has drifted. [fleet/README.md](fleet/README.md) explains why.
 
 ## Environments
 

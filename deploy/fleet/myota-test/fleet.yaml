@@ -1,0 +1,53 @@
+# The Myota test environment.
+#
+# One bundle, one chart, one values file. `values.yaml` here is the whole difference between
+# this environment and production: the namespace, the hostnames and the switches.
+#
+# `chart: ./chart` is a copy of the chart authored at `deploy/myota`. It has to be a copy.
+# Fleet reads chart files from inside the bundle directory only — a path like `../../myota`
+# resolves in the clone but those files are not shipped in the bundle — and it cannot load a
+# packaged `.tgz`: the agent synthesises an empty chart, Helm reports `deployed`, and the
+# namespace stays empty. A silent success is worse than a failure, so the bundle carries a
+# chart directory. `tools/sync_fleet_chart.py` keeps the copy identical, `make checks-deploy`
+# fails when it drifts, and `deploy/fleet/README.md` records the reasoning.
+#
+# The database credentials are **not** here. They are SOPS-encrypted in
+# `deploy/myota/secrets/` and applied by hand (ADR-0003): a GitRepo that can decrypt is a
+# GitRepo that can leak. This bundle deploys everything that is safe to deploy from a commit.
+defaultNamespace: myota-test
+
+# A drift correction loop, on. The cluster converges to what is committed even when someone
+# has edited a resource by hand — which is the point of deploying from Git rather than to it.
+correctDrift:
+  enabled: true
+
+# Resources survive the bundle being removed. Combined with the Namespace's
+# `helm.sh/resource-policy: keep`, an accidental `kubectl delete gitrepo` costs a reconcile,
+# not a database.
+keepResources: true
+
+# No `targets` here. Fleet appends a fleet.yaml's targets to the GitRepo's, so declaring
+# `clusterName: local` in both produced a bundle with two identical targets and no
+# BundleDeployment — a silent non-deploy rather than an error. Targeting belongs in the
+# GitRepo, which is the per-environment object; a bundle that also picked its own cluster
+# would make the same decision in two places.
+
+# No `clientSecretName`. This repository is public, so the clone needs no credential and the
+# workspace holds no secret. A private repository would need `github-auth` copied into the
+# workspace namespace, which is a credential moved between namespaces for no benefit here.
+
+helm:
+  chart: ./chart
+  releaseName: myota
+  valuesFiles:
+    - values.yaml
+  # The migration Job is a `post-install,post-upgrade` hook and a database takes longer than
+  # a stateless service to become ready. Fleet's default timeout would give up mid-migration.
+  timeoutSeconds: 900
+  # The namespace and its contents were created before this bundle existed (`kubectl apply`
+  # during F5). Without this, Helm refuses to adopt resources it did not create.
+  takeOwnership: true
+  # Wait for the Deployments and StatefulSets, and for the migration Job to complete. A
+  # bundle reported Ready while a migration is still running is a lie the next chunk would
+  # build on.
+  waitForJobs: true

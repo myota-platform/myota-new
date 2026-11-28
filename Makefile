@@ -159,6 +159,8 @@ checks-ops:
 checks-deploy:
 	@echo "==> tools/check_db_schema.py --check"
 	@python3 tools/check_db_schema.py --check
+	@echo "==> tools/sync_fleet_chart.py --check"
+	@python3 tools/sync_fleet_chart.py --check
 	@if command -v helm >/dev/null 2>&1; then \
 	  echo "==> tools/check_deploy.py --check"; \
 	  python3 tools/check_deploy.py --check; \

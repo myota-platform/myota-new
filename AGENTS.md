@@ -341,9 +341,22 @@ specific binary; otherwise an already-downloaded build is discovered.
 - Fleet definitions live under `deploy/fleet/<environment>/` and are tracked by a
   `GitRepo` of the same name in the `myota` workspace. Deploys are GitOps: the
   cluster converges to what is committed; nobody applies manifests by hand to
-  ship. A `GitRepo` uses `clientSecretName: github-auth` from the workspace.
-- Charts and values live in `deploy/myota/`; secrets in
-  `deploy/myota/secrets/*.sops.yaml`; configuration in `deploy/myota/config/`.
+  ship. The repository is public, so the `GitRepo` carries no
+  `clientSecretName`.
+- **A new workspace needs two objects before it can deploy anything**, both in
+  `deploy/fleet/myota/bootstrap.yaml`: the `GitRepo` label
+  `fleet.spainip.es/workspace: myota`, and a `BundleNamespaceMapping` named
+  `local-cluster` in the workspace that maps that label to the namespace
+  `fleet-local`. Without them Fleet matches no cluster, and reports `0/0` with
+  no error. `deploy/fleet/README.md` names the three silent non-deploys.
+- The chart is authored once in `deploy/myota/` and **copied** into each bundle
+  as `chart/` by `tools/sync_fleet_chart.py`, because Fleet reads chart files
+  from inside the bundle directory only and cannot load a packaged `.tgz` — it
+  installs an empty release and reports `Ready`. `make checks-deploy` fails on a
+  drifted copy, so edit the chart in `deploy/myota/` and re-run the script.
+- Secrets live in `deploy/myota/secrets/*.sops.yaml` and are applied by hand
+  (ADR-0003); `tools/sync_fleet_chart.py` never copies them. Configuration is
+  values and ConfigMaps, reconciled by Fleet.
 - Hostnames follow the existing cluster convention — `aprs.ea7klk.es` and
   `aprs-admin.ea7klk.es` — so participant and admin are always a pair, never one
   host with two audiences behind a path.

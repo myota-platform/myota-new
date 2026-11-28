@@ -1,0 +1,27 @@
+# Values for the `myota` chart in the test environment.
+#
+# Fleet passes this file to the shared chart at `deploy/myota`. It is the *only* difference
+# between the two environments: the namespace, the hostnames and the switches. Anything a
+# service would need to know about the environment beyond that comes from its ConfigMap, not
+# from here.
+
+namespace:
+  # The bundle owns the namespace so the `keep` annotation exists from the first reconcile,
+  # rather than depending on whoever ran `kubectl create namespace` remembering it.
+  create: true
+  name: myota-test
+
+web:
+  # Placeholder front ends: the route, the certificate and the Service contract, proven
+  # before any application exists. A3 replaces the admin image, P2 the participant one.
+  placeholder:
+    enabled: true
+    replicas: 2
+  ingress:
+    enabled: true
+    hosts:
+      participant-web: myota-test.ea7klk.es
+      admin-web: myota-admin-test.ea7klk.es
+
+# The databases, the poolers and the migration Job inherit `values.yaml`: the sizes there are
+# already the test sizes, and repeating them here would be a second place to change.
