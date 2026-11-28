@@ -14,6 +14,8 @@
 //      first time it was renamed, and absolute URLs in a bundle are how a build ends up
 //      quietly pointing at somebody else's server.
 
+import { reactive } from 'vue'
+
 /** Where the API lives. Empty means "this origin". */
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 
@@ -31,8 +33,15 @@ export class Unauthorized extends Error {
   }
 }
 
-/** Everything a caller can see about the session. */
-export const session = {
+/**
+ * Everything a caller can see about the session.
+ *
+ * `reactive`, not a plain object: the shell decides whether to render the nav from
+ * `session.authenticated`, and a plain getter is invisible to Vue's dependency tracking.
+ * The first version was plain, so the nav was computed once while signed out and never
+ * appeared after signing in — the page worked and the chrome silently did not.
+ */
+export const session = reactive({
   accountId: null,
   sessionId: null,
   scopes: [],
@@ -62,7 +71,7 @@ export const session = {
     accessToken = null
     this.loaded = true
   },
-}
+})
 
 /**
  * Exchanges the session cookie for an access token.

@@ -54,6 +54,20 @@ beforeEach(() => {
 })
 
 describe('the session', () => {
+  it('is reactive, so the shell re-renders when it changes', async () => {
+    // The regression this exists for: `session` was a plain object, so the computed that
+    // decides whether to show the nav was evaluated once and never again.
+    const { watchEffect, nextTick } = await import('vue')
+    const seen = []
+    const stop = watchEffect(() => seen.push(session.authenticated))
+    session.set(sessionView)
+    await nextTick()
+    session.clear()
+    await nextTick()
+    stop()
+    expect(seen).toEqual([false, true, false])
+  })
+
   it('holds the access token in memory and never in storage', async () => {
     stubFetch([json(200, sessionView)])
     await refresh()
