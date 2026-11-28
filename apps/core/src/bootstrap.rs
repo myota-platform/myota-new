@@ -182,24 +182,22 @@ pub async fn provision_admin(
     .execute(&mut *transaction)
     .await?;
 
-    // The bootstrap role. `is_system` marks it as one the console must not delete.
-    sqlx::query(
-        "INSERT INTO role_definition (role_code, display_name, scopes, is_system)
-         VALUES ($1, 'Platform administrator', $2, true)
-         ON CONFLICT (role_code) DO UPDATE
-             SET scopes = EXCLUDED.scopes, updated_at = now()",
-    )
-    .bind(BOOTSTRAP_ROLE)
-    .bind(vec![
-        "identity.admins.manage".to_string(),
-        "identity.participants.manage".to_string(),
-        "geodata.review".to_string(),
-        "geodata.import".to_string(),
-        "programmes.manage".to_string(),
-        "awards.manage".to_string(),
-    ])
-    .execute(&mut *transaction)
-    .await?;
+    // The role must already exist: the catalogue is seeded by the baseline, and this tool
+    // grants from it rather than defining it. An earlier version upserted the role here
+    // with its own scope list, which meant provisioning could quietly redefine what
+    // `platform_admin` carries — a second source of truth for authority, and one that
+    // dropped a scope the baseline had added.
+    let role_exists: bool =
+        sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM role_definition WHERE role_code = $1)")
+            .bind(BOOTSTRAP_ROLE)
+            .fetch_one(&mut *transaction)
+            .await?;
+    if !role_exists {
+        return Err(format!(
+            "the role catalogue is missing {BOOTSTRAP_ROLE}; apply the core baseline first"
+        )
+        .into());
+    }
 
     let already_granted: bool = sqlx::query_scalar(
         "SELECT EXISTS (

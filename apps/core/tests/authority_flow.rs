@@ -660,3 +660,44 @@ async fn create_programme(harness: &Harness, label: &str) -> Uuid {
     .expect("creating a programme");
     id
 }
+
+/// Provisioning grants from the catalogue; it must not define it.
+///
+/// The first version of `provision-admin` upserted `platform_admin` with its own scope
+/// list. Running it once therefore *removed* a scope the baseline had added, and the
+/// next administrator provisioned had less authority than the catalogue said. Found on
+/// the deployed environment, where the missing scope was `audit.read`.
+#[tokio::test]
+async fn provisioning_does_not_redefine_the_role_catalogue() {
+    let Some(harness) = Harness::new().await else {
+        return;
+    };
+
+    let before: Vec<String> = sqlx::query_scalar(
+        "SELECT unnest(scopes) FROM role_definition WHERE role_code = 'platform_admin' ORDER BY 1",
+    )
+    .fetch_all(&harness.pool)
+    .await
+    .expect("the seeded scopes");
+
+    let email = Harness::email("provisioned");
+    harness
+        .provision(&email, "an-administrator-passphrase")
+        .await;
+
+    let after: Vec<String> = sqlx::query_scalar(
+        "SELECT unnest(scopes) FROM role_definition WHERE role_code = 'platform_admin' ORDER BY 1",
+    )
+    .fetch_all(&harness.pool)
+    .await
+    .expect("the scopes after provisioning");
+
+    assert_eq!(
+        before, after,
+        "provisioning changed the catalogue:\nbefore {before:?}\nafter  {after:?}"
+    );
+    assert!(
+        after.iter().any(|scope| scope == "audit.read"),
+        "the baseline seeds audit.read: {after:?}"
+    );
+}
