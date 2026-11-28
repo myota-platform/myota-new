@@ -62,5 +62,5 @@ api:
 images:
   activity: ghcr.io/myota-platform/myota-new-activity@sha256:81ce92e87ac69ae9676bd683b71835e001359f3d59a1d167056cea070e69ec07
   core: ghcr.io/myota-platform/myota-new-core@sha256:20716493c588ce6390c676341498a395099e72d63acdfa74514b40b2b4d5ea67
-  gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:dfcb2e59cbab53adb02e96dcdcf88a9f0095333e8e5e13281d2cf6f9d0e55b4f
+  gateway: ghcr.io/myota-platform/myota-new-gateway@sha256:366fe449aabac591c621482f8de6957b18e4abbff0c1d89df30141425d026f92
   geodata: ghcr.io/myota-platform/myota-new-geodata@sha256:1d90c8d030ca2929c478e5a0a42f3cb2d8ee5a988f3f69c3f2cca837fdcec9a4
