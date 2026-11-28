@@ -42,3 +42,4 @@ web:
 # `tools/check_images.py` fails the build if any entry here is a tag instead of a digest,
 # names the wrong image, or describes a service with no Dockerfile.
 images:
+  core: ghcr.io/myota-platform/myota-new-core@sha256:20716493c588ce6390c676341498a395099e72d63acdfa74514b40b2b4d5ea67
