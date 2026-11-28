@@ -7,7 +7,7 @@ type: application
 
 # The chart's own version, bumped whenever a template changes. Independent of the
 # application versions, which are image digests in values.
-version: 0.1.0
+version: 0.2.0
 
 # The application version this chart was last verified against. Informational: the
 # databases are pinned by image tag in values, not by this field.

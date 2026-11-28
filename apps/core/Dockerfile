@@ -22,6 +22,9 @@ WORKDIR /src
 
 COPY apps/core/Cargo.toml apps/core/Cargo.lock ./
 COPY apps/core/src ./src
+# The contract is embedded with `include_str!`, so it is a build input, not a runtime
+# file: without it the binary does not compile.
+COPY apps/core/assets ./assets
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/src/target \

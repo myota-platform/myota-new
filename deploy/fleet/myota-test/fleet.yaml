@@ -39,7 +39,7 @@ keepResources: true
 
 helm:
   chart: oci://ghcr.io/myota-platform/charts/myota
-  version: 0.1.0
+  version: 0.2.0
   releaseName: myota
   valuesFiles:
     - values.yaml
