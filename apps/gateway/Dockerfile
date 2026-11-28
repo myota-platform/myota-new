@@ -24,7 +24,9 @@ ENV CGO_ENABLED=0 \
     GOFLAGS=-mod=readonly
 
 # Dependencies first, so a source edit does not re-download the module graph.
-COPY apps/gateway/go.mod apps/gateway/go.sum ./
+# `go.*` rather than `go.mod go.sum`: a service with no dependencies has no go.sum,
+# and a COPY of a file that does not exist fails the build.
+COPY apps/gateway/go.* ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 

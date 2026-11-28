@@ -17,7 +17,9 @@ ENV CGO_ENABLED=0 \
     GOOS=linux \
     GOFLAGS=-mod=readonly
 
-COPY apps/activity/go.mod apps/activity/go.sum ./
+# `go.*` rather than `go.mod go.sum`: a service with no dependencies has no go.sum,
+# and a COPY of a file that does not exist fails the build.
+COPY apps/activity/go.* ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
