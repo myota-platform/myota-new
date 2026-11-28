@@ -78,6 +78,18 @@ pub mod event {
     pub const ROLE_GRANTED: &str = "authority.role_granted";
     /// A role was revoked.
     pub const ROLE_REVOKED: &str = "authority.role_revoked";
+    /// The session proved its holder's identity again.
+    pub const REAUTHENTICATED: &str = "auth.reauthenticated";
+    /// A re-authentication attempt failed.
+    pub const REAUTH_FAILED: &str = "auth.reauth_failed";
+    /// A second factor was reset by another administrator.
+    pub const MFA_RESET: &str = "authority.mfa_reset";
+    /// An account was suspended.
+    pub const ACCOUNT_SUSPENDED: &str = "authority.account_suspended";
+    /// An account was brought back from suspension.
+    pub const ACCOUNT_REACTIVATED: &str = "authority.account_reactivated";
+    /// A session was revoked by someone other than its owner.
+    pub const SESSION_REVOKED_BY_ADMIN: &str = "authority.session_revoked";
     /// A role grant was refused because the actor did not hold one of its scopes.
     pub const ROLE_GRANT_REFUSED: &str = "authority.role_grant_refused";
     /// A revocation was refused because it was the actor's last administrator role.

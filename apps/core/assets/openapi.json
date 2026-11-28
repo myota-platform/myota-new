@@ -3005,6 +3005,65 @@
         }
       }
     },
+    "/v1/admin/identity/roles": {
+      "get": {
+        "operationId": "core.adminIdentity.listRoles",
+        "summary": "The role catalogue",
+        "description": "What can be granted. A console that asked an operator to type a role code would be a console that produces 400s for typos, and a role is authority — the list of them is not something to guess at.",
+        "tags": [
+          "admin-identity"
+        ],
+        "security": [
+          {
+            "adminBearer": []
+          },
+          {
+            "adminSession": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every role, in code order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RoleDefinition"
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "items": [
+                    {
+                      "roleCode": "programme_reviewer",
+                      "displayName": "Programme reviewer",
+                      "scopes": [
+                        "geodata.review"
+                      ],
+                      "isSystem": true
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "../shared/components.yaml#/components/responses/ProblemUnauthorized"
+          },
+          "403": {
+            "$ref": "../shared/components.yaml#/components/responses/ProblemForbidden"
+          }
+        }
+      }
+    },
     "/v1/admin/identity/admins": {
       "get": {
         "operationId": "core.adminIdentity.listAdmins",
@@ -5687,18 +5746,50 @@
           }
         }
       },
+      "RoleDefinition": {
+        "type": "object",
+        "required": [
+          "roleCode",
+          "displayName",
+          "scopes",
+          "isSystem"
+        ],
+        "properties": {
+          "roleCode": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isSystem": {
+            "type": "boolean",
+            "description": "A role the catalogue owns. A console must not offer to delete one; a grant of it is still a grant."
+          }
+        }
+      },
       "ReauthRequest": {
         "type": "object",
         "required": [
-          "password"
+          "password",
+          "code"
         ],
         "properties": {
           "password": {
-            "type": "string"
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
           },
           "code": {
             "type": "string",
-            "description": "A second factor, when the account has more than one method."
+            "minLength": 6,
+            "maxLength": 64,
+            "description": "A TOTP code or a recovery code; the caller does not say which. Requiring it is the rule: a password alone would let a stolen session that also captured a password escalate, and a code alone would let a stolen device do it."
           }
         }
       },
@@ -6412,6 +6503,7 @@
           "email",
           "status",
           "mfa",
+          "state",
           "roles"
         ],
         "properties": {
@@ -6440,7 +6532,17 @@
               "enrolled",
               "not_enrolled"
             ],
-            "description": "Visible because an administrator without a confirmed factor cannot sign in. The console must show who is blocked."
+            "description": "Visible because an administrator without a confirmed factor cannot sign in. The console must show who is blocked. `not_enrolled` rather than \"missing\": the field states a fact about enrolment, and the *state* below is where \"blocked\" belongs."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "blocked",
+              "suspended",
+              "idle"
+            ],
+            "description": "Derived, not stored. `blocked` — no confirmed second factor, so sign-in is refused. `suspended` — stopped by an administrator, or closed; a suspension revokes the open sessions. `idle` — usable, but no sign-in for thirty days. `active` — none of the above. Order matters: suspension outranks blocked, blocked outranks idle."
           },
           "roles": {
             "type": "array",

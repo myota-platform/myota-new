@@ -31,6 +31,13 @@ use uuid::Uuid;
 
 use crate::audit::{self, event};
 use crate::config::{Config, CHALLENGE_ATTEMPT_LIMIT};
+
+/// How long a re-authentication stays valid.
+///
+/// Five minutes, from `docs/architecture/auth-model.md` and the contract's `grantRole`
+/// description: long enough to walk from the sign-in prompt to the action, short enough
+/// that a stolen session is not useful by the time someone reaches it.
+pub const FRESHNESS_WINDOW: chrono::Duration = chrono::Duration::minutes(5);
 use crate::token::{AccessClaims, TokenError, TokenService, AUDIENCE_ADMIN};
 use crate::{secretbox, session, totp};
 
@@ -164,6 +171,8 @@ pub enum AuthError {
     Unauthorized,
     /// A valid credential of the wrong audience.
     WrongAudience,
+    /// The session has not proved its holder's identity recently enough for this action.
+    ReauthRequired,
     /// The state does not permit the operation.
     Conflict(String),
     /// The request cannot be served as sent.
@@ -200,6 +209,7 @@ impl std::fmt::Display for AuthError {
             Self::MfaRejected => write!(formatter, "the second factor was rejected"),
             Self::Unauthorized => write!(formatter, "not authenticated"),
             Self::WrongAudience => write!(formatter, "wrong audience"),
+            Self::ReauthRequired => write!(formatter, "re-authentication is required"),
             Self::Conflict(detail) | Self::Validation(detail) | Self::UnsupportedMethod(detail) => {
                 write!(formatter, "{detail}")
             }
@@ -232,6 +242,7 @@ struct AccountRow {
     status: String,
     password_hash: Option<String>,
     locked_until: Option<DateTime<Utc>>,
+    suspended_at: Option<DateTime<Utc>>,
 }
 
 impl Auth<'_> {
@@ -369,12 +380,15 @@ impl Auth<'_> {
         )
         .await;
 
-        if account.status != "active" {
+        if account.status != "active" || account.suspended_at.is_some() {
             audit::record(
                 self.pool,
                 Some(account.id),
                 event::REFUSED_STATUS,
-                serde_json::json!({ "status": account.status }),
+                serde_json::json!({
+                    "status": account.status,
+                    "suspended": account.suspended_at.is_some(),
+                }),
             )
             .await;
             return Err(AuthError::Unauthorized);
@@ -445,7 +459,7 @@ impl Auth<'_> {
 
         let method = method.trim().to_ascii_lowercase();
         let verified = match method.as_str() {
-            "totp" => self.verify_totp(account_id, code).await?,
+            "totp" => self.verify_totp(account_id, code, false).await?,
             "recovery_code" | "recovery-code" | "recoverycode" => {
                 self.verify_recovery_code(account_id, code).await?
             }
@@ -530,7 +544,7 @@ impl Auth<'_> {
         let Some(account) = account else {
             return Err(AuthError::Unauthorized);
         };
-        if account.status != "active" {
+        if account.status != "active" || account.suspended_at.is_some() {
             session::revoke(self.pool, open.id).await?;
             audit::record(
                 self.pool,
@@ -590,6 +604,76 @@ impl Auth<'_> {
         )
         .await;
         Ok(())
+    }
+
+    /// Proves the session's holder is still the person who signed in.
+    ///
+    /// Both factors again, deliberately: a password alone would let a stolen session that
+    /// also captured a password escalate, and a code alone would let a stolen device do
+    /// it. The grant is recorded on the session with a five-minute life.
+    pub async fn reauthenticate(
+        &self,
+        principal: &Principal,
+        password: &str,
+        code: &str,
+    ) -> Result<DateTime<Utc>, AuthError> {
+        let account = self
+            .find_account_by_id(principal.account_id)
+            .await?
+            .ok_or(AuthError::Unauthorized)?;
+        if account.status != "active" || account.suspended_at.is_some() {
+            return Err(AuthError::Unauthorized);
+        }
+
+        let Some(stored_hash) = account.password_hash.clone() else {
+            verify_password_off_thread(password.to_string(), dummy_hash()).await;
+            return Err(AuthError::InvalidCredentials);
+        };
+        if !verify_password_off_thread(password.to_string(), stored_hash).await {
+            audit::record(
+                self.pool,
+                Some(principal.account_id),
+                event::REAUTH_FAILED,
+                serde_json::json!({ "reason": "wrong_password", "sessionId": principal.session_id }),
+            )
+            .await;
+            return Err(AuthError::InvalidCredentials);
+        }
+
+        // Either factor proves possession; the caller does not say which.
+        let accepted = self.verify_totp(principal.account_id, code, true).await?
+            || self
+                .verify_recovery_code(principal.account_id, code)
+                .await?;
+        if !accepted {
+            audit::record(
+                self.pool,
+                Some(principal.account_id),
+                event::REAUTH_FAILED,
+                serde_json::json!({ "reason": "wrong_code", "sessionId": principal.session_id }),
+            )
+            .await;
+            return Err(AuthError::MfaRejected);
+        }
+
+        let fresh_until =
+            session::mark_fresh(self.pool, principal.session_id, FRESHNESS_WINDOW).await?;
+        audit::record(
+            self.pool,
+            Some(principal.account_id),
+            event::REAUTHENTICATED,
+            serde_json::json!({
+                "sessionId": principal.session_id,
+                "freshUntil": fresh_until,
+            }),
+        )
+        .await;
+        Ok(fresh_until)
+    }
+
+    /// Whether the session is fresh enough for a destructive change.
+    pub async fn is_fresh(&self, session_id: Uuid) -> Result<bool, AuthError> {
+        Ok(session::is_fresh(self.pool, session_id).await?)
     }
 
     /// Resolves a principal from a bearer token.
@@ -813,9 +897,11 @@ impl Auth<'_> {
                 Option<String>,
                 Option<i32>,
                 Option<DateTime<Utc>>,
+                Option<DateTime<Utc>>,
             ),
         >(
-            "SELECT a.id, a.status::text, c.password_hash, c.failed_attempts, c.locked_until
+            "SELECT a.id, a.status::text, c.password_hash, c.failed_attempts, c.locked_until,
+                    a.suspended_at
                FROM account a
                LEFT JOIN account_credential c ON c.account_id = a.id
               WHERE a.email = $1::citext",
@@ -825,11 +911,14 @@ impl Auth<'_> {
         .await?;
 
         Ok(row.map(
-            |(id, status, password_hash, _failed_attempts, locked_until)| AccountRow {
-                id,
-                status,
-                password_hash,
-                locked_until,
+            |(id, status, password_hash, _failed_attempts, locked_until, suspended_at)| {
+                AccountRow {
+                    id,
+                    status,
+                    password_hash,
+                    locked_until,
+                    suspended_at,
+                }
             },
         ))
     }
@@ -843,9 +932,11 @@ impl Auth<'_> {
                 Option<String>,
                 Option<i32>,
                 Option<DateTime<Utc>>,
+                Option<DateTime<Utc>>,
             ),
         >(
-            "SELECT a.id, a.status::text, c.password_hash, c.failed_attempts, c.locked_until
+            "SELECT a.id, a.status::text, c.password_hash, c.failed_attempts, c.locked_until,
+                    a.suspended_at
                FROM account a
                LEFT JOIN account_credential c ON c.account_id = a.id
               WHERE a.id = $1",
@@ -855,11 +946,14 @@ impl Auth<'_> {
         .await?;
 
         Ok(row.map(
-            |(id, status, password_hash, _failed_attempts, locked_until)| AccountRow {
-                id,
-                status,
-                password_hash,
-                locked_until,
+            |(id, status, password_hash, _failed_attempts, locked_until, suspended_at)| {
+                AccountRow {
+                    id,
+                    status,
+                    password_hash,
+                    locked_until,
+                    suspended_at,
+                }
             },
         ))
     }
@@ -1014,7 +1108,20 @@ impl Auth<'_> {
     }
 
     /// Verifies a TOTP code and refuses a replay of one already used in its step.
-    async fn verify_totp(&self, account_id: Uuid, code: &str) -> Result<bool, AuthError> {
+    ///
+    /// `allow_same_step` exists for re-authentication, and only for it. A sign-in consumes
+    /// a code and records the step; an administrator who signs in and immediately grants a
+    /// role would otherwise be told their perfectly good code was rejected, for up to
+    /// thirty seconds. Re-authentication already demands the password, so the marginal risk
+    /// of sharing a step is a code observed by someone who also has the password, inside
+    /// the same half-minute. Challenge answers stay strict: that is the path an attacker
+    /// with a stolen password but no factor walks.
+    async fn verify_totp(
+        &self,
+        account_id: Uuid,
+        code: &str,
+        allow_same_step: bool,
+    ) -> Result<bool, AuthError> {
         let row = sqlx::query_as::<_, (Option<String>, Option<DateTime<Utc>>)>(
             "SELECT secret_ref, last_used_at
                FROM account_mfa
@@ -1044,9 +1151,11 @@ impl Auth<'_> {
         // A TOTP code is valid for its whole 30-second window. Accepting the same
         // one twice inside that window is a replay, and the only record of the first
         // use is `last_used_at`.
-        if let Some(last_used_at) = last_used_at {
-            if totp::step_at(last_used_at.timestamp()) >= matched_step {
-                return Ok(false);
+        if !allow_same_step {
+            if let Some(last_used_at) = last_used_at {
+                if totp::step_at(last_used_at.timestamp()) >= matched_step {
+                    return Ok(false);
+                }
             }
         }
 

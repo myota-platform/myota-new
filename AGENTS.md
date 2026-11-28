@@ -579,6 +579,17 @@ The console has **two** account-management areas, because they fail differently:
 
 See [docs/architecture/auth-model.md](docs/architecture/auth-model.md).
 
+### Destructive administrator actions require freshness
+
+A role grant, a role revocation, an MFA reset and a suspension all require proof, **within
+five minutes**, that the session's holder is the person who signed in — both factors again,
+at `POST /v1/admin/auth/reauth`. Freshness is `auth_session.fresh_until`, not a claim in the
+token, because a stolen token can be replayed and this control exists precisely for that.
+
+A refusal is `403 about:blank#reauth-required`, distinct from `#forbidden`: the caller is
+allowed, and has not recently proved who they are. Reads do not require it — asking for a
+password to render a page is how a control gets worked around.
+
 ## 10. Test-driven development
 
 - Write the failing test first, then the smallest implementation that makes it

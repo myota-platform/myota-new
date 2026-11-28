@@ -251,6 +251,22 @@ impl Harness {
         }
     }
 
+    /// Re-authenticates a session, so a mutating admin call is allowed.
+    ///
+    /// Every destructive administrator endpoint requires proof within five minutes. A test
+    /// that changes a role has to produce it, exactly as a person would.
+    pub async fn make_fresh(&self, cookie: &str, password: &str, secret_base32: &str) {
+        let (status, _, body) = self
+            .send(
+                "POST",
+                "/v1/admin/auth/reauth",
+                Some(json!({ "password": password, "code": code_now(secret_base32) })),
+                &[("cookie", cookie.to_string())],
+            )
+            .await;
+        assert_eq!(status, StatusCode::OK, "re-authentication: {body}");
+    }
+
     /// Grants a role directly, bypassing the subset rule.
     ///
     /// Setup, not behaviour: a test that needs an actor holding a role should not have to

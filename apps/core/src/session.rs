@@ -277,6 +277,41 @@ pub async fn rotate(
     Ok(row.map(|(expires_at,)| expires_at))
 }
 
+/// Marks the session fresh for `ttl`, after a password and a second factor.
+///
+/// Freshness is a column on the session rather than a claim in the token: a token can be
+/// replayed by whoever holds it, and the whole point of asking is that the holder may not
+/// be the person who signed in.
+pub async fn mark_fresh(
+    pool: &PgPool,
+    session_id: Uuid,
+    ttl: chrono::Duration,
+) -> Result<DateTime<Utc>, sqlx::Error> {
+    let fresh_until = Utc::now() + ttl;
+    sqlx::query(
+        "UPDATE auth_session
+            SET fresh_until = $2, updated_at = now()
+          WHERE id = $1 AND revoked_at IS NULL",
+    )
+    .bind(session_id)
+    .bind(fresh_until)
+    .execute(pool)
+    .await?;
+    Ok(fresh_until)
+}
+
+/// Whether the session proved its holder's identity within the freshness window.
+pub async fn is_fresh(pool: &PgPool, session_id: Uuid) -> Result<bool, sqlx::Error> {
+    sqlx::query_scalar::<_, bool>(
+        "SELECT EXISTS (
+             SELECT 1 FROM auth_session
+              WHERE id = $1 AND revoked_at IS NULL AND fresh_until > now())",
+    )
+    .bind(session_id)
+    .fetch_one(pool)
+    .await
+}
+
 /// Revokes a session.
 ///
 /// Idempotent: revoking twice leaves the first revocation time in place, because

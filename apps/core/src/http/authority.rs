@@ -17,9 +17,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::audit::{self, event};
-use crate::auth::Principal;
 use crate::authority::{Authority, AuthorityError, SCOPE_ADMINS_MANAGE};
-use crate::http::{body_problem, principal_from, AppState};
+use crate::http::{body_problem, principal_from, require_fresh, require_scope, AppState};
 use crate::problem::{Problem, ProblemType};
 
 /// Builds the routes this module owns.
@@ -52,6 +51,8 @@ async fn read_scopes(
 ) -> Result<Response, Problem> {
     let principal = principal_from(&state, &headers, peer.0 .0.as_ref()).await?;
     require_scope(&state, &principal, SCOPE_ADMINS_MANAGE).await?;
+    // No freshness here: reading an account's scopes changes nothing, and asking for a
+    // password to render a page is how a security control gets worked around.
 
     if !account_exists(&state, account_id).await? {
         return Err(Problem::new(
@@ -77,6 +78,7 @@ async fn grant_role(
 ) -> Result<Response, Problem> {
     let principal = principal_from(&state, &headers, peer.0 .0.as_ref()).await?;
     require_scope(&state, &principal, SCOPE_ADMINS_MANAGE).await?;
+    require_fresh(&state, &principal).await?;
 
     let Json(body) = body.map_err(body_problem)?;
     let authority = Authority { pool: &state.pool };
@@ -139,6 +141,7 @@ async fn revoke_role(
 ) -> Result<Response, Problem> {
     let principal = principal_from(&state, &headers, peer.0 .0.as_ref()).await?;
     require_scope(&state, &principal, SCOPE_ADMINS_MANAGE).await?;
+    require_fresh(&state, &principal).await?;
 
     let authority = Authority { pool: &state.pool };
     match authority.revoke(&principal, account_id, grant_id).await {
@@ -228,29 +231,6 @@ async fn service_token(
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
-
-/// Refuses unless the actor holds `scope`, reading the database rather than the token.
-///
-/// The token's `scp` claim is a snapshot up to ten minutes old. Using it here would let a
-/// revoked administrator grant roles until their token expired — see the module comment
-/// in [`crate::authority`].
-async fn require_scope(
-    state: &AppState,
-    principal: &Principal,
-    scope: &str,
-) -> Result<(), Problem> {
-    let held = Authority { pool: &state.pool }
-        .holds(principal.account_id, scope)
-        .await
-        .map_err(authority_problem)?;
-    if held {
-        return Ok(());
-    }
-    Err(Problem::new(
-        ProblemType::Forbidden,
-        format!("This route requires the {scope} scope."),
-    ))
-}
 
 /// Resolves the calling service from its bearer token.
 fn service_caller(state: &AppState, headers: &axum::http::HeaderMap) -> Result<String, Problem> {

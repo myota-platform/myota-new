@@ -269,6 +269,26 @@ CREATE TABLE IF NOT EXISTS account_role (
     updated_at        timestamptz NOT NULL DEFAULT now()
 );
 
+-- ───────────────────────────────────────────────────────────────────────────────
+-- Additive changes
+--
+-- `CREATE TABLE IF NOT EXISTS` above is idempotent for a fresh database and a no-op for
+-- an existing one, so a column added to a CREATE statement never reaches a database that
+-- already has the table. These statements are the way to add one: idempotent, and applied
+-- by the same migration run.
+-- ───────────────────────────────────────────────────────────────────────────────
+
+-- Suspension is not `status = 'closed'`. Closed is the end of an account's life and keeps
+-- its activations as history; suspended is a reversible stop that an administrator applies
+-- when a credential is suspected. Different acts, different repairs.
+ALTER TABLE account ADD COLUMN IF NOT EXISTS suspended_at timestamptz;
+ALTER TABLE account ADD COLUMN IF NOT EXISTS suspension_reason text;
+
+-- When this session last proved, with a password and a second factor, that the person
+-- holding it is the person who signed in. Freshness is bound to the session rather than to
+-- the token: a stolen access token cannot manufacture it.
+ALTER TABLE auth_session ADD COLUMN IF NOT EXISTS fresh_until timestamptz;
+
 -- The role catalogue.
 --
 -- Reference data, not tenant data: the codes and the scopes they carry are the same in

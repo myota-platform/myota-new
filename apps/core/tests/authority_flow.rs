@@ -284,6 +284,13 @@ async fn revoking_a_role_takes_effect_on_the_next_decision() {
     let admin_session = harness
         .sign_in(&admin_email, "an-administrator-passphrase", &admin.secret)
         .await;
+    harness
+        .make_fresh(
+            &admin_session.cookie,
+            "an-administrator-passphrase",
+            &admin.secret,
+        )
+        .await;
 
     let (status, _, body) = harness
         .send(
@@ -328,6 +335,13 @@ async fn granting_a_role_that_carries_a_scope_the_actor_lacks_is_refused() {
         .await;
     let session = harness
         .sign_in(&actor_email, "an-administrator-passphrase", &actor.secret)
+        .await;
+    harness
+        .make_fresh(
+            &session.cookie,
+            "an-administrator-passphrase",
+            &actor.secret,
+        )
         .await;
 
     let target_email = Harness::email("grantee");
@@ -386,6 +400,13 @@ async fn an_actor_can_grant_scopes_they_hold_and_the_scopes_endpoint_reports_the
         .await;
     let session = harness
         .sign_in(&actor_email, "an-administrator-passphrase", &actor.secret)
+        .await;
+    harness
+        .make_fresh(
+            &session.cookie,
+            "an-administrator-passphrase",
+            &actor.secret,
+        )
         .await;
 
     let target_email = Harness::email("grantee-allowed");
@@ -500,6 +521,13 @@ async fn an_actor_cannot_revoke_their_own_last_administrator_role() {
     let session = harness
         .sign_in(&email, "an-administrator-passphrase", &provisioned.secret)
         .await;
+    harness
+        .make_fresh(
+            &session.cookie,
+            "an-administrator-passphrase",
+            &provisioned.secret,
+        )
+        .await;
 
     let grant_id: Uuid = sqlx::query_scalar(
         "SELECT id FROM account_role WHERE account_id = $1 AND valid_to IS NULL",
@@ -552,6 +580,13 @@ async fn a_grant_publishes_the_role_changed_event_with_the_open_sessions() {
         .await;
     let actor_session = harness
         .sign_in(&actor_email, "an-administrator-passphrase", &actor.secret)
+        .await;
+    harness
+        .make_fresh(
+            &actor_session.cookie,
+            "an-administrator-passphrase",
+            &actor.secret,
+        )
         .await;
 
     // The target has a live session, so the event has something to invalidate.

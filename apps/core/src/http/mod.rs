@@ -89,6 +89,7 @@ async fn attach_peer(mut request: Request, next: axum::middleware::Next) -> Resp
 }
 
 mod authority;
+mod identity;
 
 /// Builds the router.
 pub fn router(state: AppState) -> Router {
@@ -112,6 +113,9 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/admin/auth/mfa/enrol/confirm", post(confirm_enrolment))
         // The authority surface: roles, scopes, and the two internal endpoints.
         .merge(authority::routes())
+        // The admins section: list, read, MFA reset, suspension, sessions.
+        .merge(identity::routes())
+        .route("/v1/admin/auth/reauth", post(reauthenticate))
         // Every request body this service accepts is a few hundred bytes. The limit
         // is here rather than in the gateway because a service must not depend on a
         // proxy for its own memory safety.
@@ -262,6 +266,31 @@ async fn logout(
         .into_response())
 }
 
+/// `POST /v1/admin/auth/reauth`
+///
+/// Proves freshness for a destructive change. Both factors again, bound to the session.
+async fn reauthenticate(
+    State(state): State<AppState>,
+    peer: axum::Extension<PeerAddress>,
+    headers: axum::http::HeaderMap,
+    body: Result<Json<ReauthRequest>, JsonRejection>,
+) -> Result<Response, Problem> {
+    let principal = principal_from(&state, &headers, peer.0 .0.as_ref()).await?;
+    let Json(body) = body.map_err(body_problem)?;
+
+    let auth = state.auth();
+    let fresh_until = auth
+        .reauthenticate(&principal, &body.password, &body.code)
+        .await
+        .map_err(problem_for)?;
+
+    Ok(Json(serde_json::json!({
+        "sessionId": principal.session_id,
+        "freshUntil": fresh_until,
+    }))
+    .into_response())
+}
+
 /// `POST /v1/admin/auth/mfa/enrol`
 async fn enrol(
     State(state): State<AppState>,
@@ -395,7 +424,60 @@ pub(crate) async fn principal_from(
         .map_err(problem_for)
 }
 
-/// The `Authorization: Bearer` value, if present.
+/// Refuses unless the actor holds `scope`, reading the database rather than the token.
+///
+/// Lives here rather than in the authority module because two modules need it and a second
+/// copy would be a second answer to "may this actor".
+pub(crate) async fn require_scope(
+    state: &AppState,
+    principal: &Principal,
+    scope: &str,
+) -> Result<(), Problem> {
+    let held = crate::authority::Authority { pool: &state.pool }
+        .holds(principal.account_id, scope)
+        .await
+        .map_err(|error| {
+            tracing::error!(%error, "checking a scope");
+            Problem::new(
+                ProblemType::Internal,
+                "The service could not complete the request.",
+            )
+        })?;
+    if held {
+        return Ok(());
+    }
+    Err(Problem::new(
+        ProblemType::Forbidden,
+        format!("This route requires the {scope} scope."),
+    ))
+}
+
+/// Refuses unless the session proved its holder's identity within five minutes.
+///
+/// A stolen session carries the right scopes and fails this, which is the entire reason
+/// the rule exists: without it, taking a session is enough to grant a role and make the
+/// escalation permanent.
+pub(crate) async fn require_fresh(state: &AppState, principal: &Principal) -> Result<(), Problem> {
+    let fresh = state
+        .auth()
+        .is_fresh(principal.session_id)
+        .await
+        .map_err(|error| {
+            tracing::error!(%error, "checking session freshness");
+            Problem::new(
+                ProblemType::Internal,
+                "The service could not complete the request.",
+            )
+        })?;
+    if fresh {
+        return Ok(());
+    }
+    Err(Problem::new(
+        ProblemType::ReauthRequired,
+        "This change needs a re-authentication within the last five minutes: POST /v1/admin/auth/reauth with your password and a code.",
+    ))
+}
+
 fn bearer_token(headers: &HeaderMap) -> Option<String> {
     let value = headers.get(header::AUTHORIZATION)?.to_str().ok()?;
     let token = value
@@ -505,6 +587,10 @@ fn problem_for(error: AuthError) -> Problem {
             ProblemType::WrongAudience,
             "This is a participant session; the route requires an administrator session.",
         ),
+        AuthError::ReauthRequired => Problem::new(
+            ProblemType::ReauthRequired,
+            "This change needs a re-authentication within the last five minutes. Sign in again at /v1/admin/auth/reauth.",
+        ),
         AuthError::Conflict(detail) => Problem::new(ProblemType::Conflict, detail),
         AuthError::Validation(detail) => Problem::new(ProblemType::ValidationFailed, detail),
         AuthError::UnsupportedMethod(detail) => Problem::new(ProblemType::ValidationFailed, detail),
@@ -545,6 +631,13 @@ struct EnrolRequest {
 /// `{"code": "123456"}`
 #[derive(Deserialize)]
 struct ConfirmRequest {
+    code: String,
+}
+
+/// `{"password": "...", "code": "123456"}`
+#[derive(Deserialize)]
+struct ReauthRequest {
+    password: String,
     code: String,
 }
 

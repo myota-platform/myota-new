@@ -256,6 +256,8 @@ workspace "MyOTA" "Programme-agnostic outdoor activation platform for amateur ra
         // A role change and what it invalidates.
         dynamic myota "RoleChange" "An administrator grants a role, and the consumer learns." {
             administrator -> adminWeb "Grants a role from the Admins section"
+            adminWeb -> gateway "POST /v1/admin/auth/reauth — password and code, because the session must be fresh"
+            gateway -> core "Records fresh_until on the session"
             adminWeb -> gateway "POST /v1/admin/identity/admins/{id}/roles"
             gateway -> core "Forwards with the administrator session"
             core -> coreDb "Checks scopes ⊆ actor_scopes, writes account_role and the outbox event"
