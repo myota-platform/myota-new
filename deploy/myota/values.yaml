@@ -84,6 +84,10 @@ pgbouncer:
   # The client-side ceiling per pooler. This is the number that can be raised freely,
   # because a client connection is cheap and a server connection is not.
   maxClientConn: 500
+  # Prepared statements tracked per client connection. Required for transaction mode
+  # with a driver that names its statements (sqlx, pgx in extended-query mode); see the
+  # deployment template for what happens without it.
+  maxPreparedStatements: 200
   resources:
     requests: {cpu: 50m, memory: 64Mi}
     limits: {memory: 256Mi}

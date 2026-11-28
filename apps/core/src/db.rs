@@ -2,19 +2,29 @@
 //!
 //! One pool, built once, pointed at the **pooler** rather than at PostgreSQL. The
 //! pooler is the only path to the database (AGENTS.md rule 17 and the chart's
-//! NetworkPolicy), and it runs pgBouncer in transaction mode, which has one
-//! consequence that has to be handled here rather than remembered by every query:
+//! NetworkPolicy), and it runs pgBouncer in transaction mode.
 //!
-//! > In transaction mode a server connection is returned to the pool between
-//! > statements, so a prepared statement created by one transaction is not
-//! > guaranteed to exist in the next. sqlx prepares by default and caches the
-//! > prepared statements per connection.
+//! ## Prepared statements, and the mistake that cost a deploy
 //!
-//! Setting the statement cache to zero makes sqlx use unnamed statements, which is
-//! the documented way to talk to pgBouncer in this mode. Without it the first query
-//! after a connection is reused fails with
-//! `prepared statement "s1" does not exist` — an error that looks like a bug in the
-//! query and is not one.
+//! In transaction mode a server connection is handed to a different client between
+//! transactions. sqlx prepares every statement under a name (`sqlx_s_1`, `sqlx_s_2`, …),
+//! so two replicas meeting on one server connection collide:
+//!
+//! ```text
+//! error returned from database: prepared statement "sqlx_s_1" already exists
+//! ```
+//!
+//! The first version of this file set `statement_cache_capacity(0)` and a comment
+//! claimed that made sqlx use unnamed statements. It does not: it only stops the
+//! client *caching*, and the client still sends a named `Parse` on every query. The
+//! pool went from "stale statement" to "duplicate statement" and one of the two core
+//! replicas never became ready.
+//!
+//! The fix is on the pooler, where the state actually lives: pgBouncer 1.21+ tracks
+//! prepared statements per client connection (`MAX_PREPARED_STATEMENTS`, set in the
+//! chart). `tools/check_deploy.py` fails the build if that value is missing, so the
+//! chart cannot regress into the collision. With the pooler tracking them, the client
+//! cache is safe and worth keeping — the default hundred distinct statements.
 
 use std::time::Duration;
 
@@ -45,9 +55,6 @@ const MAX_CONNECTIONS: u32 = 10;
 pub async fn connect(database_url: &str) -> Result<PgPool, sqlx::Error> {
     let options: PgConnectOptions = database_url
         .parse::<PgConnectOptions>()?
-        // See the module comment. Zero cached statements is the pgBouncer
-        // transaction-mode contract.
-        .statement_cache_capacity(0)
         // The application name shows up in `pg_stat_activity`, which is how an
         // operator tells a pooler session from a migration's.
         .application_name("myota-core");

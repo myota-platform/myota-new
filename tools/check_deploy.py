@@ -17,6 +17,7 @@ What it asserts, and why each one is a rule rather than a preference:
                 pooler Service. A database with no pooler is a database some service will
                 reach directly.
   the numbers   `max_connections=200`, `DEFAULT_POOL_SIZE=25`, `POOL_MODE=transaction`,
+                `MAX_PREPARED_STATEMENTS>0`,
                 PVCs between 10 and 20 Gi. These are the values the issue names, and a
                 chart edit that changes them is a change to the connection budget.
   migrations    a Job exists, it takes an advisory lock, and it runs the SQL in one
@@ -145,6 +146,16 @@ def check(objects: list[dict]) -> list[str]:
         }
         if env.get("POOL_MODE") != EXPECTED_POOL_MODE:
             problems.append(f"{name}: POOL_MODE={env.get('POOL_MODE')!r}, expected {EXPECTED_POOL_MODE!r}")
+        # Transaction mode plus a driver that names its statements needs the pooler to
+        # track them. Without it two replicas collide on `sqlx_s_1` and the second gets
+        # `prepared statement "sqlx_s_1" already exists` — the failure that took the
+        # first A1 deploy down, and one a chart edit could reintroduce silently.
+        prepared = str(env.get("MAX_PREPARED_STATEMENTS", ""))
+        if not prepared.isdigit() or int(prepared) <= 0:
+            problems.append(
+                f"{name}: MAX_PREPARED_STATEMENTS={prepared!r}; transaction pooling needs a "
+                f"positive value or named prepared statements collide across clients"
+            )
         if str(env.get("DEFAULT_POOL_SIZE")) != str(EXPECTED_POOL_SIZE):
             problems.append(
                 f"{name}: DEFAULT_POOL_SIZE={env.get('DEFAULT_POOL_SIZE')!r}, "

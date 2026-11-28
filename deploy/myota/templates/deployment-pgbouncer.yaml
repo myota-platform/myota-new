@@ -95,6 +95,21 @@ spec:
               value: {{ $.Values.pgbouncer.defaultPoolSize | quote }}
             - name: MAX_CLIENT_CONN
               value: {{ $.Values.pgbouncer.maxClientConn | quote }}
+            # Prepared statements, tracked by the pooler.
+            #
+            # In transaction mode a server connection is handed to a different client
+            # between transactions, so a statement one client prepared is invisible — or
+            # worse, *visible under the same name* — to the next. sqlx names its
+            # statements `sqlx_s_<n>`, so two replicas collide on `sqlx_s_1` and the
+            # database answers `prepared statement "sqlx_s_1" already exists`. Setting a
+            # cache capacity of zero does not help: it stops the client caching, and the
+            # client still sends a named Parse on every query.
+            #
+            # PgBouncer 1.21+ implements prepared statements for transaction mode itself.
+            # The number is per client connection and bounds memory; 200 covers every
+            # statement this service has with room to spare.
+            - name: MAX_PREPARED_STATEMENTS
+              value: {{ $.Values.pgbouncer.maxPreparedStatements | quote }}
             # PgBouncer must tolerate parameters it does not understand being set by the
             # client driver at connect time, or every connection from a new driver
             # version fails with "unsupported startup parameter".
