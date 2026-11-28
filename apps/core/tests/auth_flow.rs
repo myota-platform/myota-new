@@ -445,11 +445,13 @@ async fn five_wrong_passwords_lock_the_account_for_fifteen_minutes() {
         "locked for {remaining} minutes"
     );
 
-    // And it is in the audit log.
+    // And it is in the audit log: one lockout row, plus a failure row per refused
+    // attempt — the four wrong passwords and the fifth attempt turned away *because
+    // the account was locked*, which is the row an operator reading the log wants.
     assert_eq!(harness.count_events(account_id, "auth.lockout").await, 1);
     assert_eq!(
         harness.count_events(account_id, "auth.login_failed").await,
-        4
+        5
     );
 }
 

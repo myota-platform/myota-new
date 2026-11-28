@@ -265,10 +265,37 @@ impl Auth<'_> {
             .ip
             .map(|ip| rate_limit_key("admin-login:ip", &ip.to_string()));
 
+        // The account lookup comes first, and it is the cheapest thing here: one row
+        // on a unique index. It has to, because the lock and the rate limit say
+        // different things and have different remedies — "an administrator has to
+        // unlock this" against "wait fifteen minutes" — and both trip at five wrong
+        // passwords. Ordering the rate limit first made the lock unreachable from the
+        // outside: the caller was told to wait when the account needed an operator.
+        //
+        // What must stay behind the rate limit is the *password verification*, which
+        // is the expensive part (Argon2, ~19 MiB). That is still protected.
+        let account = self.find_account(&address).await?;
+
+        if let Some(account) = &account {
+            if let Some(locked_until) = account.locked_until {
+                let remaining = (locked_until - Utc::now()).num_seconds();
+                if remaining > 0 {
+                    audit::record(
+                        self.pool,
+                        Some(account.id),
+                        event::LOGIN_FAILED,
+                        serde_json::json!({ "reason": "locked" }),
+                    )
+                    .await;
+                    return Err(AuthError::Locked {
+                        retry_after_seconds: remaining,
+                    });
+                }
+            }
+        }
+
         self.check_rate_limit(&account_key, ip_key.as_deref())
             .await?;
-
-        let account = self.find_account(&address).await?;
 
         let Some(account) = account else {
             // Same work as a real verification, so response time does not say
@@ -284,22 +311,6 @@ impl Auth<'_> {
             .await;
             return Err(AuthError::InvalidCredentials);
         };
-
-        if let Some(locked_until) = account.locked_until {
-            let remaining = (locked_until - Utc::now()).num_seconds();
-            if remaining > 0 {
-                audit::record(
-                    self.pool,
-                    Some(account.id),
-                    event::LOGIN_FAILED,
-                    serde_json::json!({ "reason": "locked" }),
-                )
-                .await;
-                return Err(AuthError::Locked {
-                    retry_after_seconds: remaining,
-                });
-            }
-        }
 
         let Some(stored_hash) = account.password_hash.clone() else {
             // An account with no password (provisioned for a passkey, or not yet
