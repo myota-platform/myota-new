@@ -8,10 +8,12 @@ namespace stays empty, and the next chunk builds on a deployment that never happ
 those mistakes were made once already (F6, `deploy/fleet/README.md`), so they are checked here
 rather than remembered:
 
-  published chart   `helm.chart` names an OCI reference to the chart authored in `deploy/myota`.
+  published chart   `helm.repo` names an OCI reference to the chart authored in `deploy/myota`.
                     A chart vendored inside the bundle is rejected: it is a second copy of the
                     deployment definition that goes stale silently, and a packaged `.tgz` does
                     not deploy at all — Fleet installs an empty release and reports `Ready`.
+                    `helm.chart` with an OCI URL is rejected too: Fleet deprecates it and warns
+                    on every bundle build.
   one version       the bundle's `helm.version` equals the chart's `version` in
                     `deploy/myota/Chart.yaml`. Two numbers, one truth: publishing a chart without
                     pointing the bundle at it would deploy the previous one forever.
@@ -66,16 +68,21 @@ def check_bundle(fleet_file: Path, chart_name: str, chart_version: str) -> None:
     helm = document.get("helm") or {}
 
     # ── the chart is published, and it is the chart in this repository ──────────
-    chart_reference = str(helm.get("chart", ""))
     expected_reference = CHART_REGISTRY_PREFIX + chart_name
+    if "chart" in helm:
+        fail(
+            f"{label}: helm.chart is set; use helm.repo for an OCI chart. Fleet appends the chart "
+            f"name to helm.repo and deprecates an OCI URL in helm.chart"
+        )
+    chart_reference = str(helm.get("repo", ""))
     if not chart_reference.startswith("oci://"):
         fail(
-            f"{label}: helm.chart is {chart_reference!r}; it must be the published OCI reference "
+            f"{label}: helm.repo is {chart_reference!r}; it must be the published OCI reference "
             f"{expected_reference!r}. A chart inside the bundle is a copy that goes stale, and a "
             f"packaged .tgz installs an empty release"
         )
     elif chart_reference != expected_reference:
-        fail(f"{label}: helm.chart is {chart_reference!r}; this repository publishes {expected_reference!r}")
+        fail(f"{label}: helm.repo is {chart_reference!r}; this repository publishes {expected_reference!r}")
 
     pinned_version = str(helm.get("version", ""))
     if not pinned_version:
