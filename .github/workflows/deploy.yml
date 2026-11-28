@@ -18,6 +18,9 @@
 name: deploy
 
 on:
+  # A maintainer can re-run the publish path without inventing a chart change: the job
+  # treats an unknown `before` as "changed" and the identical-contents test decides.
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
@@ -115,7 +118,7 @@ jobs:
     # Only a merge to main publishes, and only after the chart's own checks pass. A pull
     # request renders the chart; it does not get to write to the registry.
     needs: chart
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
