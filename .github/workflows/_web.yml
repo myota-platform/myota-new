@@ -136,15 +136,14 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.key }}
           cache-to: type=gha,scope=${{ inputs.key }},mode=max
 
-      - name: make the package public
+      - name: package visibility is a maintainer step
         if: steps.scaffold.outputs.run == 'true'
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # A first push creates the package *private*, and no workflow can change that:
+        # GITHUB_TOKEN answers 404 for both the read and the write (measured — AGENTS.md
+        # rule 8). This step used to ask the API anyway with continue-on-error, so it
+        # failed silently on every run. The flip is `make packages-public`.
         run: |
-          gh api --method PATCH \
-            "/orgs/${{ github.repository_owner }}/packages/container/${{ inputs.image }}" \
-            -f visibility=public
+          echo "::notice::if ${{ inputs.image }} was just created, run 'make packages-public' once — the first push is always private"
 
       - name: pin the digest in the test values
         if: steps.scaffold.outputs.run == 'true'

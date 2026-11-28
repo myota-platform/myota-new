@@ -171,6 +171,10 @@ checks-deploy:
 	  echo "        migration Job locally; CI always does."; \
 	fi
 
+.PHONY: packages-public
+packages-public:
+	@python3 tools/packages_public.py --apply
+
 .PHONY: verify
 verify: check-toolchains fmt lint test checks-contracts checks-deploy checks-static checks-diagrams
 	@echo ""
@@ -200,6 +204,7 @@ help:
 	@echo "  make checks-deploy   database baselines and the rendered chart"
 	@echo "  make checks-ops     ops integration suite (needs a PostgreSQL)"
 	@echo "  make checks-browser  UI sweep, mockup renders, playground renders in a browser"
+	@echo "  make packages-public  make every GHCR package public (once per new package name)"
 	@echo "  make checks-diagrams diagram heuristics (Mermaid, Structurizr name checks)"
 	@echo "  make clean        remove build output"
 	@echo ""

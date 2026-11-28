@@ -145,17 +145,18 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.key }}
           cache-to: type=gha,scope=${{ inputs.key }},mode=max
 
-      - name: make the package public
+      - name: package visibility is a maintainer step
         if: steps.scaffold.outputs.run == 'true'
-        # Idempotent: the org default may already be public. Not fatal — a private
-        # package is caught by the smoke test, which pulls without credentials.
-        continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # A first push creates the package *private*, and nothing in a workflow can change
+        # that: GITHUB_TOKEN answers 404 for both the read and the write (measured, not
+        # assumed — see AGENTS.md rule 8). The previous version of this step asked the API
+        # anyway, with continue-on-error, so it failed silently on every run.
+        #
+        # The flip is `make packages-public`, run once per new package name. An image left
+        # private fails loudly as ImagePullBackOff; the chart is the quiet one, which is why
+        # `tools/check_fleet_bundles.py` and the anonymous `helm pull` in F6 exist.
         run: |
-          gh api --method PATCH \
-            "/orgs/${{ github.repository_owner }}/packages/container/${{ inputs.image }}" \
-            -f visibility=public
+          echo "::notice::if ${{ inputs.image }} was just created, run 'make packages-public' once — the first push is always private"
 
       - name: pin the digest in the test values
         if: steps.scaffold.outputs.run == 'true'

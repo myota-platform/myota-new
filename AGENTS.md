@@ -377,6 +377,24 @@ specific binary; otherwise an already-downloaded build is discovered.
 - Images are `ghcr.io/myota-platform/myota-new-<service>`, **public**, referenced
   by immutable digest in values, never by a floating tag. The repository is public
   too: nothing here requires an account to read, clone or pull.
+- **Every package this organisation publishes is public.** The first push of a new
+  package name creates it *private*, and no workflow can change that: `GITHUB_TOKEN`
+  answers `404 Package not found` for both the read and the write — measured, not
+  assumed. Changing visibility needs organisation admin, so it is a maintainer
+  command run once per new package name:
+
+  ```sh
+  make packages-public                                  # every package, idempotent
+  python3 tools/packages_public.py                      # report only
+  ```
+
+  A workflow step may not pretend to do this. The three service workflows used to
+  call the API with `continue-on-error: true`, which failed on every run and hid the
+  fact that the flip was never happening; they now print the command instead.
+  The failure mode differs by package: a private **image** stops a pod with
+  `ImagePullBackOff`, which is loud, while a private **chart** makes Fleet unable to
+  build the bundle, which is quiet — so the chart is checked by the anonymous
+  `helm pull` in F6's acceptance and by `tools/check_fleet_bundles.py`'s version pin.
 - Six deployable units — `gateway`, `core`, `geodata`, `activity`, `admin-web`,
   `participant-web` — running as twelve workloads: each domain service is
   `-api`, `-worker`, and `-relay` from one image, plus the gateway and the two
